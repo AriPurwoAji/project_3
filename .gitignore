@@ -1,0 +1,15 @@
+# Golang
+backend/.env
+backend/tmp/
+
+# Flutter
+mobile/.env
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+
+# General
+*.log
+.DS_Store
+Thumbs.db
