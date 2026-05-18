@@ -4,36 +4,38 @@ import (
 	"log"
 	"os"
 
+	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/handler"
+	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/router"
+	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/database"
+	"github.com/AriPurwoAji/project_3/backend/internal/repository"
+	"github.com/AriPurwoAji/project_3/backend/internal/usecase"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/database"
 )
 
 func main() {
-	// Load .env
-	if err := godotenv.Load(`C:\androidlanjutan\project_3\backend\.env`); err != nil {
-    log.Fatal("Error loading .env file:", err)
-}
+	if err := godotenv.Load(".env"); err != nil {
+		log.Println("No .env file found, using system env")
+	}
 
-	// Connect database
 	db, err := database.Connect()
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	defer database.Close(db)
 
-	// Setup gin
+	// Init layers
+	userRepo    := repository.NewUserRepository(db)
+	authUsecase := usecase.NewAuthUsecase(userRepo)
+	authHandler := handler.NewAuthHandler(authUsecase)
+
+	// Setup router
 	r := gin.Default()
-
-	// Health check
 	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-			"status":  "Hydraulic Service API is running",
-		})
+		c.JSON(200, gin.H{"message": "pong"})
 	})
+	router.Setup(r, authHandler)
 
-	// Start server
 	port := os.Getenv("APP_PORT")
 	if port == "" {
 		port = "8080"
