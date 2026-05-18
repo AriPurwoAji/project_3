@@ -10,21 +10,22 @@ func Setup(
 	r *gin.Engine,
 	authHandler *handler.AuthHandler,
 	bookingHandler *handler.BookingHandler,
+	reportHandler *handler.ReportHandler,
 ) {
 	api := r.Group("/api/v1")
 
-	// Auth routes — public
+	// Public
 	auth := api.Group("/auth")
 	{
 		auth.POST("/login", authHandler.Login)
 		auth.GET("/me", middleware.AuthMiddleware(), authHandler.GetProfile)
 	}
 
-	// Protected routes
+	// Protected
 	protected := api.Group("")
 	protected.Use(middleware.AuthMiddleware())
 	{
-		// Booking — Client & Sales bisa buat
+		// Booking
 		booking := protected.Group("/bookings")
 		{
 			booking.POST("", middleware.RoleMiddleware("client", "sales", "manager"), bookingHandler.CreateBooking)
@@ -35,8 +36,16 @@ func Setup(
 			booking.POST("/:id/assign", middleware.RoleMiddleware("manager"), bookingHandler.AssignTechnician)
 		}
 
-		// Job board — teknisi
+		// Job board
 		protected.GET("/job-board", middleware.RoleMiddleware("teknisi"), bookingHandler.GetOpenBookings)
 		protected.GET("/my-jobs", middleware.RoleMiddleware("teknisi"), bookingHandler.GetMyJobs)
+
+		// Reports
+		reports := protected.Group("/reports")
+		{
+			reports.POST("/:booking_id", middleware.RoleMiddleware("teknisi"), reportHandler.CreateReport)
+			reports.GET("/:booking_id", reportHandler.GetReportByBookingID)
+			reports.GET("/my-reports", middleware.RoleMiddleware("teknisi"), reportHandler.GetMyReports)
+		}
 	}
 }

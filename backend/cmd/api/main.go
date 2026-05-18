@@ -27,21 +27,24 @@ func main() {
 	// Repositories
 	userRepo    := repository.NewUserRepository(db)
 	bookingRepo := repository.NewBookingRepository(db)
+	reportRepo  := repository.NewReportRepository(db)
 
 	// Usecases
 	authUsecase    := usecase.NewAuthUsecase(userRepo)
 	bookingUsecase := usecase.NewBookingUsecase(bookingRepo)
+	reportUsecase  := usecase.NewReportUsecase(reportRepo, bookingRepo)
 
 	// Handlers
 	authHandler    := handler.NewAuthHandler(authUsecase)
 	bookingHandler := handler.NewBookingHandler(bookingUsecase)
+	reportHandler  := handler.NewReportHandler(reportUsecase)
 
 	// Router
 	r := gin.Default()
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
-	router.Setup(r, authHandler, bookingHandler)
+	router.Setup(r, authHandler, bookingHandler, reportHandler)
 
 	port := os.Getenv("APP_PORT")
 	if port == "" {
