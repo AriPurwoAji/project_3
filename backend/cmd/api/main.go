@@ -24,17 +24,24 @@ func main() {
 	}
 	defer database.Close(db)
 
-	// Init layers
+	// Repositories
 	userRepo    := repository.NewUserRepository(db)
-	authUsecase := usecase.NewAuthUsecase(userRepo)
-	authHandler := handler.NewAuthHandler(authUsecase)
+	bookingRepo := repository.NewBookingRepository(db)
 
-	// Setup router
+	// Usecases
+	authUsecase    := usecase.NewAuthUsecase(userRepo)
+	bookingUsecase := usecase.NewBookingUsecase(bookingRepo)
+
+	// Handlers
+	authHandler    := handler.NewAuthHandler(authUsecase)
+	bookingHandler := handler.NewBookingHandler(bookingUsecase)
+
+	// Router
 	r := gin.Default()
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
-	router.Setup(r, authHandler)
+	router.Setup(r, authHandler, bookingHandler)
 
 	port := os.Getenv("APP_PORT")
 	if port == "" {
