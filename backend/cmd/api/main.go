@@ -25,26 +25,32 @@ func main() {
 	defer database.Close(db)
 
 	// Repositories
-	userRepo    := repository.NewUserRepository(db)
-	bookingRepo := repository.NewBookingRepository(db)
-	reportRepo  := repository.NewReportRepository(db)
+	userRepo         := repository.NewUserRepository(db)
+	bookingRepo      := repository.NewBookingRepository(db)
+	reportRepo       := repository.NewReportRepository(db)
+	notifRepo        := repository.NewNotificationRepository(db)
+	dashboardRepo    := repository.NewDashboardRepository(db)
 
 	// Usecases
-	authUsecase    := usecase.NewAuthUsecase(userRepo)
-	bookingUsecase := usecase.NewBookingUsecase(bookingRepo)
-	reportUsecase  := usecase.NewReportUsecase(reportRepo, bookingRepo)
+	authUsecase      := usecase.NewAuthUsecase(userRepo)
+	bookingUsecase   := usecase.NewBookingUsecase(bookingRepo)
+	reportUsecase    := usecase.NewReportUsecase(reportRepo, bookingRepo)
+	notifUsecase     := usecase.NewNotificationUsecase(notifRepo)
+	dashboardUsecase := usecase.NewDashboardUsecase(dashboardRepo)
 
 	// Handlers
-	authHandler    := handler.NewAuthHandler(authUsecase)
-	bookingHandler := handler.NewBookingHandler(bookingUsecase)
-	reportHandler  := handler.NewReportHandler(reportUsecase)
+	authHandler      := handler.NewAuthHandler(authUsecase)
+	bookingHandler   := handler.NewBookingHandler(bookingUsecase)
+	reportHandler    := handler.NewReportHandler(reportUsecase)
+	notifHandler     := handler.NewNotificationHandler(notifUsecase)
+	dashboardHandler := handler.NewDashboardHandler(dashboardUsecase)
 
 	// Router
 	r := gin.Default()
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
-	router.Setup(r, authHandler, bookingHandler, reportHandler)
+	router.Setup(r, authHandler, bookingHandler, reportHandler, notifHandler, dashboardHandler)
 
 	port := os.Getenv("APP_PORT")
 	if port == "" {

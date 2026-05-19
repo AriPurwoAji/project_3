@@ -8,9 +8,11 @@ import (
 
 func Setup(
 	r *gin.Engine,
-	authHandler *handler.AuthHandler,
-	bookingHandler *handler.BookingHandler,
-	reportHandler *handler.ReportHandler,
+	authHandler         *handler.AuthHandler,
+	bookingHandler      *handler.BookingHandler,
+	reportHandler       *handler.ReportHandler,
+	notifHandler        *handler.NotificationHandler,
+	dashboardHandler    *handler.DashboardHandler,
 ) {
 	api := r.Group("/api/v1")
 
@@ -25,7 +27,7 @@ func Setup(
 	protected := api.Group("")
 	protected.Use(middleware.AuthMiddleware())
 	{
-		// Booking
+		// Bookings
 		booking := protected.Group("/bookings")
 		{
 			booking.POST("", middleware.RoleMiddleware("client", "sales", "manager"), bookingHandler.CreateBooking)
@@ -36,7 +38,7 @@ func Setup(
 			booking.POST("/:id/assign", middleware.RoleMiddleware("manager"), bookingHandler.AssignTechnician)
 		}
 
-		// Job board
+		// Job board & my jobs
 		protected.GET("/job-board", middleware.RoleMiddleware("teknisi"), bookingHandler.GetOpenBookings)
 		protected.GET("/my-jobs", middleware.RoleMiddleware("teknisi"), bookingHandler.GetMyJobs)
 
@@ -46,6 +48,24 @@ func Setup(
 			reports.POST("/:booking_id", middleware.RoleMiddleware("teknisi"), reportHandler.CreateReport)
 			reports.GET("/:booking_id", reportHandler.GetReportByBookingID)
 			reports.GET("/my-reports", middleware.RoleMiddleware("teknisi"), reportHandler.GetMyReports)
+		}
+
+		// Notifications
+		notif := protected.Group("/notifications")
+		{
+			notif.GET("", notifHandler.GetMyNotifications)
+			notif.GET("/unread-count", notifHandler.CountUnread)
+			notif.PATCH("/:id/read", notifHandler.MarkAsRead)
+			notif.PATCH("/read-all", notifHandler.MarkAllAsRead)
+		}
+
+		// Dashboard — manager only
+		dashboard := protected.Group("/dashboard")
+		dashboard.Use(middleware.RoleMiddleware("manager"))
+		{
+			dashboard.GET("/summary", dashboardHandler.GetSummary)
+			dashboard.GET("/technician-performance", dashboardHandler.GetTechnicianPerformance)
+			dashboard.GET("/service-trend", dashboardHandler.GetServiceTypeTrend)
 		}
 	}
 }
