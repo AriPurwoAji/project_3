@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -58,11 +59,21 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _navigateByRole(String role) {
-    // Nanti kita isi dengan go_router
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Login berhasil sebagai $role')),
-    );
+  switch (role) {
+    case AppConstants.roleManager:
+      context.go('/dashboard');
+      break;
+    case AppConstants.roleTeknisi:
+      context.go('/job-board');
+      break;
+    case AppConstants.roleClient:
+    case AppConstants.roleSales:
+      context.go('/bookings');
+      break;
+    default:
+      context.go('/login');
   }
+}
 
   @override
   Widget build(BuildContext context) {
