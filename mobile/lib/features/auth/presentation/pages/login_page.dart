@@ -50,12 +50,13 @@ class _LoginPageState extends State<LoginPage> {
       _navigateByRole(data['user']['role']);
 
     } on DioException catch (e) {
-      setState(() {
-        _error = e.response?.data['message'] ?? 'Terjadi kesalahan, coba lagi';
-      });
-    } finally {
-      if (mounted) setState(() { _loading = false; });
-    }
+  print('ERROR: ${e.message}');
+  print('RESPONSE: ${e.response?.data}');
+  print('URL: ${e.requestOptions.uri}');
+  setState(() {
+    _error = e.response?.data['message'] ?? 'Terjadi kesalahan: ${e.message}';
+  });
+}
   }
 
   void _navigateByRole(String role) {
