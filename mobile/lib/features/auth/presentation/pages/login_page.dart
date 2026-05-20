@@ -14,12 +14,12 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _formKey    = GlobalKey<FormState>();
-  final _emailCtrl  = TextEditingController();
-  final _passCtrl   = TextEditingController();
-  final _storage    = const FlutterSecureStorage();
-  bool _loading     = false;
-  bool _obscure     = true;
+  final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _storage = const FlutterSecureStorage();
+  bool _loading = false;
+  bool _obscure = true;
   String? _error;
 
   @override
@@ -31,50 +31,68 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
-      final res = await ApiClient.instance.post('/auth/login', data: {
-        'email': _emailCtrl.text.trim(),
-        'password': _passCtrl.text,
-      });
+      final res = await ApiClient.instance.post(
+        '/auth/login',
+        data: {'email': _emailCtrl.text.trim(), 'password': _passCtrl.text},
+      );
 
       final data = res.data['data'];
-      await _storage.write(key: AppConstants.accessTokenKey,  value: data['access_token']);
-      await _storage.write(key: AppConstants.refreshTokenKey, value: data['refresh_token']);
-      await _storage.write(key: AppConstants.userRoleKey,     value: data['user']['role']);
-      await _storage.write(key: AppConstants.userIDKey,       value: data['user']['id']);
-      await _storage.write(key: AppConstants.userNameKey,     value: data['user']['full_name']);
+      await _storage.write(
+        key: AppConstants.accessTokenKey,
+        value: data['access_token'],
+      );
+      await _storage.write(
+        key: AppConstants.refreshTokenKey,
+        value: data['refresh_token'],
+      );
+      await _storage.write(
+        key: AppConstants.userRoleKey,
+        value: data['user']['role'],
+      );
+      await _storage.write(
+        key: AppConstants.userIDKey,
+        value: data['user']['id'],
+      );
+      await _storage.write(
+        key: AppConstants.userNameKey,
+        value: data['user']['full_name'],
+      );
 
       if (!mounted) return;
       _navigateByRole(data['user']['role']);
-
     } on DioException catch (e) {
-  print('ERROR: ${e.message}');
-  print('RESPONSE: ${e.response?.data}');
-  print('URL: ${e.requestOptions.uri}');
-  setState(() {
-    _error = e.response?.data['message'] ?? 'Terjadi kesalahan: ${e.message}';
-  });
-}
+      print('ERROR: ${e.message}');
+      print('RESPONSE: ${e.response?.data}');
+      print('URL: ${e.requestOptions.uri}');
+      setState(() {
+        _error =
+            e.response?.data['message'] ?? 'Terjadi kesalahan: ${e.message}';
+      });
+    }
   }
 
   void _navigateByRole(String role) {
-  switch (role) {
-    case AppConstants.roleManager:
-      context.go('/dashboard');
-      break;
-    case AppConstants.roleTeknisi:
-      context.go('/job-board');
-      break;
-    case AppConstants.roleClient:
-    case AppConstants.roleSales:
-      context.go('/bookings');
-      break;
-    default:
-      context.go('/login');
+    switch (role) {
+      case AppConstants.roleManager:
+        context.go('/dashboard');
+        break;
+      case AppConstants.roleTeknisi:
+        context.go('/job-board');
+        break;
+      case AppConstants.roleClient:
+      case AppConstants.roleSales:
+        context.go('/bookings');
+        break;
+      default:
+        context.go('/login');
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -94,36 +112,46 @@ class _LoginPageState extends State<LoginPage> {
                     Row(
                       children: [
                         Container(
-                          width: 36, height: 36,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.water_drop,
-                            color: AppTheme.primary, size: 20),
+                          child: const Icon(
+                            Icons.water_drop,
+                            color: AppTheme.primary,
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 10),
-                        const Text('HydroServ',
+                        const Text(
+                          'HydroServ',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.w500,
-                          )),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Text('Selamat datang',
+                    const Text(
+                      'Selamat datang',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
                         fontWeight: FontWeight.w500,
-                      )),
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('Sistem layanan teknisi hydraulic',
+                    Text(
+                      'Sistem layanan teknisi hydraulic',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.8),
                         fontSize: 14,
-                      )),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -147,21 +175,34 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.error_outline,
-                                color: AppTheme.danger, size: 16),
+                              const Icon(
+                                Icons.error_outline,
+                                color: AppTheme.danger,
+                                size: 16,
+                              ),
                               const SizedBox(width: 8),
-                              Expanded(child: Text(_error!,
-                                style: const TextStyle(
-                                  color: AppTheme.danger, fontSize: 13))),
+                              Expanded(
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(
+                                    color: AppTheme.danger,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 16),
                       ],
 
-                      const Text('Email',
-                        style: TextStyle(fontSize: 13,
-                          color: AppTheme.textSecondary)),
+                      const Text(
+                        'Email',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _emailCtrl,
@@ -171,16 +212,22 @@ class _LoginPageState extends State<LoginPage> {
                           suffixIcon: Icon(Icons.mail_outline, size: 18),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'Email wajib diisi';
-                          if (!v.contains('@')) return 'Format email tidak valid';
+                          if (v == null || v.isEmpty)
+                            return 'Email wajib diisi';
+                          if (!v.contains('@'))
+                            return 'Format email tidak valid';
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
 
-                      const Text('Password',
-                        style: TextStyle(fontSize: 13,
-                          color: AppTheme.textSecondary)),
+                      const Text(
+                        'Password',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _passCtrl,
@@ -188,40 +235,54 @@ class _LoginPageState extends State<LoginPage> {
                         decoration: InputDecoration(
                           hintText: 'Masukkan password',
                           suffixIcon: IconButton(
-                            icon: Icon(_obscure
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined, size: 18),
+                            icon: Icon(
+                              _obscure
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 18,
+                            ),
                             onPressed: () =>
-                              setState(() => _obscure = !_obscure),
+                                setState(() => _obscure = !_obscure),
                           ),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'Password wajib diisi';
-                          if (v.length < 6) return 'Password minimal 6 karakter';
+                          if (v == null || v.isEmpty)
+                            return 'Password wajib diisi';
+                          if (v.length < 6)
+                            return 'Password minimal 6 karakter';
                           return null;
                         },
                       ),
                       const SizedBox(height: 28),
 
                       ElevatedButton(
-                        onPressed: _loading ? null : _login,
+                        onPressed: _login,
                         child: _loading
-                          ? const SizedBox(
-                              height: 20, width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ))
-                          : const Text('Masuk',
-                              style: TextStyle(fontSize: 15,
-                                fontWeight: FontWeight.w500)),
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Masuk',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                       ),
 
                       const SizedBox(height: 32),
                       const Center(
-                        child: Text('Akses akan disesuaikan berdasarkan role akun',
-                          style: TextStyle(fontSize: 12,
-                            color: AppTheme.textTertiary),
+                        child: Text(
+                          'Akses akan disesuaikan berdasarkan role akun',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textTertiary,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),

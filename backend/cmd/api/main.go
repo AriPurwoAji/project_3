@@ -25,11 +25,12 @@ func main() {
 	defer database.Close(db)
 
 	// Repositories
-	userRepo         := repository.NewUserRepository(db)
-	bookingRepo      := repository.NewBookingRepository(db)
-	reportRepo       := repository.NewReportRepository(db)
-	notifRepo        := repository.NewNotificationRepository(db)
-	dashboardRepo    := repository.NewDashboardRepository(db)
+	userRepo      := repository.NewUserRepository(db)
+	bookingRepo   := repository.NewBookingRepository(db)
+	reportRepo    := repository.NewReportRepository(db)
+	notifRepo     := repository.NewNotificationRepository(db)
+	dashboardRepo := repository.NewDashboardRepository(db)
+	equipmentRepo := repository.NewEquipmentRepository(db)
 
 	// Usecases
 	authUsecase      := usecase.NewAuthUsecase(userRepo)
@@ -37,6 +38,7 @@ func main() {
 	reportUsecase    := usecase.NewReportUsecase(reportRepo, bookingRepo)
 	notifUsecase     := usecase.NewNotificationUsecase(notifRepo)
 	dashboardUsecase := usecase.NewDashboardUsecase(dashboardRepo)
+	equipmentUsecase := usecase.NewEquipmentUsecase(equipmentRepo)
 
 	// Handlers
 	authHandler      := handler.NewAuthHandler(authUsecase)
@@ -44,13 +46,24 @@ func main() {
 	reportHandler    := handler.NewReportHandler(reportUsecase)
 	notifHandler     := handler.NewNotificationHandler(notifUsecase)
 	dashboardHandler := handler.NewDashboardHandler(dashboardUsecase)
+	equipmentHandler := handler.NewEquipmentHandler(equipmentUsecase)
 
 	// Router
 	r := gin.Default()
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
-	router.Setup(r, authHandler, bookingHandler, reportHandler, notifHandler, dashboardHandler)
+
+	// ← router.Setup ada di sini
+	router.Setup(
+		r,
+		authHandler,
+		bookingHandler,
+		reportHandler,
+		notifHandler,
+		dashboardHandler,
+		equipmentHandler,
+	)
 
 	port := os.Getenv("APP_PORT")
 	if port == "" {

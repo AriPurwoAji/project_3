@@ -1,0 +1,31 @@
+package domain
+
+import "time"
+
+type Equipment struct {
+	ID               string     `json:"id"`
+	CompanyID        string     `json:"company_id"`
+	Name             string     `json:"name"`
+	Type             string     `json:"type"`
+	Brand            string     `json:"brand"`
+	Model            string     `json:"model"`
+	SerialNumber     string     `json:"serial_number"`
+	RatedPressureBar int        `json:"rated_pressure_bar"`
+	LocationDetail   string     `json:"location_detail"`
+	IsActive         bool       `json:"is_active"`
+	CreatedAt        time.Time  `json:"created_at"`
+	CompanyName      string     `json:"company_name,omitempty"`
+}
+
+type EquipmentRepository interface {
+	FindAll() ([]Equipment, error)
+	FindByCompanyID(companyID string) ([]Equipment, error)
+	Create(equipment *Equipment) error
+	Update(equipment *Equipment) error
+}
+
+type EquipmentUsecase interface {
+	GetAllEquipment() ([]Equipment, error)
+	GetEquipmentByCompany(companyID string) ([]Equipment, error)
+	CreateEquipment(equipment *Equipment) error
+}

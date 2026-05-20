@@ -8,11 +8,12 @@ import (
 
 func Setup(
 	r *gin.Engine,
-	authHandler         *handler.AuthHandler,
-	bookingHandler      *handler.BookingHandler,
-	reportHandler       *handler.ReportHandler,
-	notifHandler        *handler.NotificationHandler,
-	dashboardHandler    *handler.DashboardHandler,
+	authHandler      *handler.AuthHandler,
+	bookingHandler   *handler.BookingHandler,
+	reportHandler    *handler.ReportHandler,
+	notifHandler     *handler.NotificationHandler,
+	dashboardHandler *handler.DashboardHandler,
+	equipmentHandler *handler.EquipmentHandler,
 ) {
 	api := r.Group("/api/v1")
 
@@ -48,6 +49,13 @@ func Setup(
 			reports.POST("/:booking_id", middleware.RoleMiddleware("teknisi"), reportHandler.CreateReport)
 			reports.GET("/:booking_id", reportHandler.GetReportByBookingID)
 			reports.GET("/my-reports", middleware.RoleMiddleware("teknisi"), reportHandler.GetMyReports)
+		}
+
+		// Equipment
+		equipment := protected.Group("/equipment")
+		{
+			equipment.GET("", equipmentHandler.GetAll)
+			equipment.POST("", middleware.RoleMiddleware("manager"), equipmentHandler.Create)
 		}
 
 		// Notifications

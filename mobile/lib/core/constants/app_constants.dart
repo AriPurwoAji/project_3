@@ -22,7 +22,7 @@ class AppConstants {
 
   // Service types
   static const List<String> serviceTypes = [
-    'repair', 'inspeksi', 'maintenance', 'oil_service'
+    'repair', 'inspeksi', 'maintenance'
   ];
 
   // Urgency
