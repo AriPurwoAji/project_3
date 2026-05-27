@@ -7,8 +7,9 @@ import '../../features/booking/presentation/pages/booking_list_page.dart';
 import '../constants/app_constants.dart';
 import '../../features/auth/presentation/pages/profile_page.dart';
 import '../../features/booking/presentation/pages/create_booking_page.dart';
+import '../../features/report/presentation/pages/create_report_page.dart';
 
-final _storage = const FlutterSecureStorage();
+const _storage = FlutterSecureStorage();
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -50,6 +51,13 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/booking/create',
       builder: (context, state) => const CreateBookingPage(),
+    ),
+    GoRoute(
+      path: '/report/create',
+      builder: (context, state) {
+        final booking = state.extra as Map<String, dynamic>;
+        return CreateReportPage(booking: booking);
+      },
     ),
   ],
 );

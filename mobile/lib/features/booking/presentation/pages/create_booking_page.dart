@@ -416,12 +416,9 @@ class _AddEquipmentSheetState extends State<_AddEquipmentSheet> {
 
   static const _typeLabels = {
     'pump': 'Pompa',
-    'cylinder': 'Silinder',
     'hose': 'Selang',
-    'valve': 'Katup',
     'accumulator': 'Akumulator',
-    'power_pack': 'Power Pack',
-    'other': 'Lainnya',
+    'cylinder': 'Silinder',
   };
 
   @override

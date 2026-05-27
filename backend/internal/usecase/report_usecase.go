@@ -31,18 +31,19 @@ func (u *reportUsecase) CreateReport(bookingID, technicianID string, req domain.
 
 	// Buat report
 	report := &domain.HydraulicReport{
-		BookingID:         bookingID,
-		TechnicianID:      technicianID,
-		PressureBeforeBar: req.PressureBeforeBar,
-		PressureAfterBar:  req.PressureAfterBar,
-		OilCondition:      req.OilCondition,
-		OilLevel:          req.OilLevel,
-		LeakLocation:      req.LeakLocation,
-		LeakSeverity:      req.LeakSeverity,
-		PartsReplaced:     req.PartsReplaced,
-		PhotoURLs:         req.PhotoURLs,
-		WorkDescription:   req.WorkDescription,
-		Recommendations:   req.Recommendations,
+		BookingID:            bookingID,
+		TechnicianID:         technicianID,
+		PressureBeforeBar:    req.PressureBeforeBar,
+		PressureAfterBar:     req.PressureAfterBar,
+		OilCondition:         req.OilCondition,
+		OilLevel:             req.OilLevel,
+		LeakLocation:         req.LeakLocation,
+		LeakSeverity:         req.LeakSeverity,
+		PartsReplaced:        req.PartsReplaced,
+		PhotoURLs:            req.PhotoURLs,
+		WorkDescription:      req.WorkDescription,
+		Recommendations:      req.Recommendations,
+		MaintenanceChecklist: req.MaintenanceChecklist,
 	}
 
 	if report.PartsReplaced == nil {

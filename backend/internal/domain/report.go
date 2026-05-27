@@ -12,13 +12,14 @@ type HydraulicReport struct {
 	OilLevel          *string         `json:"oil_level,omitempty"`
 	LeakLocation      *string         `json:"leak_location,omitempty"`
 	LeakSeverity      *string         `json:"leak_severity,omitempty"`
-	PartsReplaced     []PartReplaced  `json:"parts_replaced"`
-	PhotoURLs         []ReportPhoto   `json:"photo_urls"`
-	PDFUrl            *string         `json:"pdf_url,omitempty"`
-	WorkDescription   string          `json:"work_description"`
-	Recommendations   string          `json:"recommendations"`
-	CreatedAt         time.Time       `json:"created_at"`
-	UpdatedAt         time.Time       `json:"updated_at"`
+	PartsReplaced        []PartReplaced             `json:"parts_replaced"`
+	PhotoURLs            []ReportPhoto              `json:"photo_urls"`
+	PDFUrl               *string                    `json:"pdf_url,omitempty"`
+	WorkDescription      string                     `json:"work_description"`
+	Recommendations      string                     `json:"recommendations"`
+	MaintenanceChecklist []MaintenanceChecklistItem `json:"maintenance_checklist,omitempty"`
+	CreatedAt            time.Time                  `json:"created_at"`
+	UpdatedAt            time.Time                  `json:"updated_at"`
 
 	// Relations
 	InspectionItems []InspectionItem `json:"inspection_items,omitempty"`
@@ -58,6 +59,12 @@ type HoseFitting struct {
 	Gender   string `json:"gender"`   // male|female
 }
 
+type MaintenanceChecklistItem struct {
+	Item   string `json:"item"`
+	Status string `json:"status"` // done | skip | not_applicable
+	Notes  string `json:"notes,omitempty"`
+}
+
 // Request structs
 type CreateReportRequest struct {
 	WorkDescription string         `json:"work_description" binding:"required"`
@@ -72,7 +79,9 @@ type CreateReportRequest struct {
 	PartsReplaced     []PartReplaced `json:"parts_replaced"`
 	PhotoURLs         []ReportPhoto  `json:"photo_urls"`
 	// Inspeksi fields
-	InspectionItems   []CreateInspectionItemRequest `json:"inspection_items"`
+	InspectionItems []CreateInspectionItemRequest `json:"inspection_items"`
+	// Maintenance fields
+	MaintenanceChecklist []MaintenanceChecklistItem `json:"maintenance_checklist"`
 }
 
 type CreateInspectionItemRequest struct {

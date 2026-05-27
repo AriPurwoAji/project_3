@@ -272,9 +272,7 @@ class _JobBoardPageState extends State<JobBoardPage>
       case 'in_progress': nextStatus = 'on_the_way'; break;
       case 'on_the_way': nextStatus = 'on_site'; break;
       case 'on_site':
-        // Nanti navigasi ke form laporan
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Fitur laporan segera hadir!')));
+        context.push('/report/create', extra: Map<String, dynamic>.from(job));
         return;
     }
     try {

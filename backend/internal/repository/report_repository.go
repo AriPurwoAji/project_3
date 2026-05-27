@@ -18,15 +18,17 @@ func NewReportRepository(db *pgxpool.Pool) domain.ReportRepository {
 }
 
 func (r *reportRepository) Create(report *domain.HydraulicReport) error {
-	partsJSON, _ := json.Marshal(report.PartsReplaced)
-	photosJSON, _ := json.Marshal(report.PhotoURLs)
+	partsJSON, _       := json.Marshal(report.PartsReplaced)
+	photosJSON, _      := json.Marshal(report.PhotoURLs)
+	maintenanceJSON, _ := json.Marshal(report.MaintenanceChecklist)
 
 	query := `
 		INSERT INTO hydraulic_reports
 			(booking_id, technician_id, pressure_before_bar, pressure_after_bar,
 			 oil_condition, oil_level, leak_location, leak_severity,
-			 parts_replaced, photo_urls, work_description, recommendations)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+			 parts_replaced, photo_urls, work_description, recommendations,
+			 maintenance_checklist)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 		RETURNING id, created_at, updated_at
 	`
 	return r.db.QueryRow(context.Background(), query,
@@ -36,6 +38,7 @@ func (r *reportRepository) Create(report *domain.HydraulicReport) error {
 		report.LeakLocation, report.LeakSeverity,
 		partsJSON, photosJSON,
 		report.WorkDescription, report.Recommendations,
+		maintenanceJSON,
 	).Scan(&report.ID, &report.CreatedAt, &report.UpdatedAt)
 }
 
@@ -66,7 +69,7 @@ func (r *reportRepository) FindByBookingID(bookingID string) (*domain.HydraulicR
 			   r.pressure_before_bar, r.pressure_after_bar,
 			   r.oil_condition, r.oil_level, r.leak_location, r.leak_severity,
 			   r.parts_replaced, r.photo_urls, r.pdf_url,
-			   r.work_description, r.recommendations,
+			   r.work_description, r.recommendations, r.maintenance_checklist,
 			   r.created_at, r.updated_at,
 			   COALESCE(u.full_name, '') as technician_name
 		FROM hydraulic_reports r
@@ -91,7 +94,7 @@ func (r *reportRepository) FindByID(id string) (*domain.HydraulicReport, error) 
 			   r.pressure_before_bar, r.pressure_after_bar,
 			   r.oil_condition, r.oil_level, r.leak_location, r.leak_severity,
 			   r.parts_replaced, r.photo_urls, r.pdf_url,
-			   r.work_description, r.recommendations,
+			   r.work_description, r.recommendations, r.maintenance_checklist,
 			   r.created_at, r.updated_at,
 			   COALESCE(u.full_name, '') as technician_name
 		FROM hydraulic_reports r
@@ -115,7 +118,7 @@ func (r *reportRepository) FindByTechnicianID(technicianID string) ([]domain.Hyd
 			   r.pressure_before_bar, r.pressure_after_bar,
 			   r.oil_condition, r.oil_level, r.leak_location, r.leak_severity,
 			   r.parts_replaced, r.photo_urls, r.pdf_url,
-			   r.work_description, r.recommendations,
+			   r.work_description, r.recommendations, r.maintenance_checklist,
 			   r.created_at, r.updated_at,
 			   COALESCE(u.full_name, '') as technician_name
 		FROM hydraulic_reports r
@@ -189,14 +192,14 @@ func (r *reportRepository) scanReport(query, arg string) (*domain.HydraulicRepor
 }
 
 func (r *reportRepository) scanReportRow(row interface{ Scan(...interface{}) error }, report *domain.HydraulicReport) error {
-	var partsJSON, photosJSON []byte
+	var partsJSON, photosJSON, maintenanceJSON []byte
 	err := row.Scan(
 		&report.ID, &report.BookingID, &report.TechnicianID,
 		&report.PressureBeforeBar, &report.PressureAfterBar,
 		&report.OilCondition, &report.OilLevel,
 		&report.LeakLocation, &report.LeakSeverity,
 		&partsJSON, &photosJSON, &report.PDFUrl,
-		&report.WorkDescription, &report.Recommendations,
+		&report.WorkDescription, &report.Recommendations, &maintenanceJSON,
 		&report.CreatedAt, &report.UpdatedAt,
 		&report.TechnicianName,
 	)
@@ -209,6 +212,9 @@ func (r *reportRepository) scanReportRow(row interface{ Scan(...interface{}) err
 	if photosJSON != nil {
 		json.Unmarshal(photosJSON, &report.PhotoURLs)
 	}
+	if maintenanceJSON != nil {
+		json.Unmarshal(maintenanceJSON, &report.MaintenanceChecklist)
+	}
 	if report.PartsReplaced == nil {
 		report.PartsReplaced = []domain.PartReplaced{}
 	}
@@ -217,6 +223,9 @@ func (r *reportRepository) scanReportRow(row interface{ Scan(...interface{}) err
 	}
 	if report.InspectionItems == nil {
 		report.InspectionItems = []domain.InspectionItem{}
+	}
+	if report.MaintenanceChecklist == nil {
+		report.MaintenanceChecklist = []domain.MaintenanceChecklistItem{}
 	}
 	return nil
 }
