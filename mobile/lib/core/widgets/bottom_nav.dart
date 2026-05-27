@@ -11,8 +11,7 @@ class BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<String?>(
-      future: const FlutterSecureStorage()
-          .read(key: AppConstants.userRoleKey),
+      future: const FlutterSecureStorage().read(key: AppConstants.userRoleKey),
       builder: (context, snapshot) {
         final role = snapshot.data ?? '';
         return NavigationBar(
@@ -20,8 +19,7 @@ class BottomNav extends StatelessWidget {
           backgroundColor: AppTheme.surface,
           indicatorColor: AppTheme.primaryLight,
           destinations: _getDestinations(role),
-          onDestinationSelected: (i) =>
-              _onTap(context, i, role),
+          onDestinationSelected: (i) => _onTap(context, i, role),
         );
       },
     );
@@ -32,55 +30,59 @@ class BottomNav extends StatelessWidget {
       case AppConstants.roleManager:
         return const [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard'),
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'Dashboard'),
           NavigationDestination(
-            icon: Icon(Icons.list_alt_outlined),
-            selectedIcon: Icon(Icons.list_alt),
-            label: 'Booking'),
+              icon: Icon(Icons.list_alt_outlined),
+              selectedIcon: Icon(Icons.list_alt),
+              label: 'Booking'),
           NavigationDestination(
-            icon: Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people),
-            label: 'Teknisi'),
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people),
+              label: 'Teknisi'),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil'),
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profil'),
         ];
       case AppConstants.roleTeknisi:
         return const [
           NavigationDestination(
-            icon: Icon(Icons.work_outline),
-            selectedIcon: Icon(Icons.work),
-            label: 'Job Board'),
+              icon: Icon(Icons.work_outline),
+              selectedIcon: Icon(Icons.work),
+              label: 'Job Board'),
           NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'My Jobs'),
+              icon: Icon(Icons.assignment_outlined),
+              selectedIcon: Icon(Icons.assignment),
+              label: 'My Jobs'),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil'),
+              icon: Icon(Icons.description_outlined),
+              selectedIcon: Icon(Icons.description),
+              label: 'Laporan'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profil'),
         ];
-      default:
+      default: // client & sales
         return const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home'),
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: 'Home'),
           NavigationDestination(
-            icon: Icon(Icons.add_circle_outline),
-            selectedIcon: Icon(Icons.add_circle),
-            label: 'Booking'),
+              icon: Icon(Icons.list_alt_outlined),
+              selectedIcon: Icon(Icons.list_alt),
+              label: 'Booking'),
           NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history),
-            label: 'Riwayat'),
+              icon: Icon(Icons.history_outlined),
+              selectedIcon: Icon(Icons.history),
+              label: 'Riwayat'),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil'),
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profil'),
         ];
     }
   }
@@ -97,13 +99,14 @@ class BottomNav extends StatelessWidget {
       switch (index) {
         case 0: context.go('/job-board'); break;
         case 1: context.go('/my-jobs'); break;
-        case 2: context.go('/profile'); break;
+        case 2: context.go('/laporan'); break;
+        case 3: context.go('/profile'); break;
       }
     } else {
       switch (index) {
-        case 0: context.go('/bookings'); break;
-        case 1: context.go('/booking/create'); break;
-        case 2: context.go('/bookings'); break;
+        case 0: context.go('/home'); break;
+        case 1: context.go('/bookings'); break;
+        case 2: context.go('/riwayat'); break;
         case 3: context.go('/profile'); break;
       }
     }

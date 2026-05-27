@@ -152,7 +152,10 @@ class _BookingListPageState extends State<BookingListPage> {
                               final statusColor = _statusColor(status);
                               final isEmergency =
                                   b['urgency_level'] == 'emergency';
-                              return Container(
+                              return GestureDetector(
+                                onTap: () =>
+                                    context.push('/booking/${b['id']}'),
+                                child: Container(
                                 decoration: BoxDecoration(
                                   color: AppTheme.surface,
                                   borderRadius: BorderRadius.circular(12),
@@ -281,7 +284,7 @@ class _BookingListPageState extends State<BookingListPage> {
                                     ),
                                   ],
                                 ),
-                              );
+                              ));
                             },
                           ),
                   ),
