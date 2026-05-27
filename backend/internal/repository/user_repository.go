@@ -18,73 +18,65 @@ func NewUserRepository(db *pgxpool.Pool) domain.UserRepository {
 
 func (r *userRepository) FindByEmail(email string) (*domain.User, string, error) {
 	query := `
-		SELECT id, email, password_hash, full_name, phone, role, 
-		       fcm_token, is_active, created_at, updated_at
-		FROM users 
-		WHERE email = $1 AND deleted_at IS NULL AND is_active = TRUE
+		SELECT u.id, u.email, u.password_hash, u.full_name, u.phone, u.role,
+		       u.fcm_token, u.is_active, u.created_at, u.updated_at,
+		       COALESCE(u.company_id::text, '') AS company_id,
+		       COALESCE(c.name, '') AS company_name
+		FROM users u
+		LEFT JOIN companies c ON u.company_id = c.id
+		WHERE u.email = $1 AND u.deleted_at IS NULL AND u.is_active = TRUE
 	`
 	var user domain.User
 	var passwordHash string
 	var phone, fcmToken *string
 
 	err := r.db.QueryRow(context.Background(), query, email).Scan(
-		&user.ID,
-		&user.Email,
-		&passwordHash,
-		&user.FullName,
-		&phone,
-		&user.Role,
-		&fcmToken,
-		&user.IsActive,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+		&user.ID, &user.Email, &passwordHash,
+		&user.FullName, &phone, &user.Role,
+		&fcmToken, &user.IsActive,
+		&user.CreatedAt, &user.UpdatedAt,
+		&user.CompanyID, &user.CompanyName,
 	)
 	if err != nil {
 		return nil, "", errors.New("user not found")
 	}
-
 	if phone != nil {
 		user.Phone = *phone
 	}
 	if fcmToken != nil {
 		user.FCMToken = *fcmToken
 	}
-
 	return &user, passwordHash, nil
 }
 
 func (r *userRepository) FindByID(id string) (*domain.User, error) {
 	query := `
-		SELECT id, email, full_name, phone, role,
-		       fcm_token, is_active, created_at, updated_at
-		FROM users 
-		WHERE id = $1 AND deleted_at IS NULL
+		SELECT u.id, u.email, u.full_name, u.phone, u.role,
+		       u.fcm_token, u.is_active, u.created_at, u.updated_at,
+		       COALESCE(u.company_id::text, '') AS company_id,
+		       COALESCE(c.name, '') AS company_name
+		FROM users u
+		LEFT JOIN companies c ON u.company_id = c.id
+		WHERE u.id = $1 AND u.deleted_at IS NULL
 	`
 	var user domain.User
 	var phone, fcmToken *string
 
 	err := r.db.QueryRow(context.Background(), query, id).Scan(
-		&user.ID,
-		&user.Email,
-		&user.FullName,
-		&phone,
-		&user.Role,
-		&fcmToken,
-		&user.IsActive,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+		&user.ID, &user.Email, &user.FullName,
+		&phone, &user.Role, &fcmToken,
+		&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+		&user.CompanyID, &user.CompanyName,
 	)
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
-
 	if phone != nil {
 		user.Phone = *phone
 	}
 	if fcmToken != nil {
 		user.FCMToken = *fcmToken
 	}
-
 	return &user, nil
 }
 

@@ -15,14 +15,26 @@ func NewEquipmentHandler(uc domain.EquipmentUsecase) *EquipmentHandler {
 }
 
 func (h *EquipmentHandler) GetAll(c *gin.Context) {
-	companyID := c.Query("company_id")
 	var equipments []domain.Equipment
 	var err error
 
-	if companyID != "" {
+	role := c.GetString("role")
+	if role == "client" || role == "sales" {
+		// Client/sales hanya boleh lihat equipment perusahaannya sendiri
+		companyID := c.GetString("company_id")
+		if companyID == "" {
+			response.Error(c, 403, "Akun tidak memiliki perusahaan terkait")
+			return
+		}
 		equipments, err = h.uc.GetEquipmentByCompany(companyID)
 	} else {
-		equipments, err = h.uc.GetAllEquipment()
+		// Manager/teknisi bisa filter atau lihat semua
+		companyID := c.Query("company_id")
+		if companyID != "" {
+			equipments, err = h.uc.GetEquipmentByCompany(companyID)
+		} else {
+			equipments, err = h.uc.GetAllEquipment()
+		}
 	}
 
 	if err != nil {
@@ -38,6 +50,17 @@ func (h *EquipmentHandler) Create(c *gin.Context) {
 		response.Error(c, 400, err.Error())
 		return
 	}
+
+	role := c.GetString("role")
+	if role == "client" || role == "sales" {
+		e.CompanyID = c.GetString("company_id")
+	}
+
+	if e.CompanyID == "" {
+		response.Error(c, 400, "company_id wajib diisi")
+		return
+	}
+
 	if err := h.uc.CreateEquipment(&e); err != nil {
 		response.Error(c, 500, err.Error())
 		return

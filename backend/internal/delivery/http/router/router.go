@@ -55,7 +55,7 @@ func Setup(
 		equipment := protected.Group("/equipment")
 		{
 			equipment.GET("", equipmentHandler.GetAll)
-			equipment.POST("", middleware.RoleMiddleware("manager"), equipmentHandler.Create)
+			equipment.POST("", middleware.RoleMiddleware("client", "sales", "manager"), equipmentHandler.Create)
 		}
 
 		// Notifications

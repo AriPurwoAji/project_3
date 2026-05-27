@@ -16,10 +16,6 @@ func NewBookingHandler(uc domain.BookingUsecase) *BookingHandler {
 
 func (h *BookingHandler) CreateBooking(c *gin.Context) {
 	userID := c.GetString("user_id")
-	companyID := c.Query("company_id")
-	if companyID == "" {
-		companyID = c.GetString("company_id")
-	}
 
 	var req domain.CreateBookingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -27,7 +23,7 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 		return
 	}
 
-	booking, err := h.bookingUsecase.CreateBooking(userID, companyID, req)
+	booking, err := h.bookingUsecase.CreateBooking(userID, req.CompanyID, req)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return
@@ -38,9 +34,15 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 
 func (h *BookingHandler) GetAllBookings(c *gin.Context) {
 	filters := map[string]string{
-		"status":         c.Query("status"),
-		"company_id":     c.Query("company_id"),
-		"technician_id":  c.Query("technician_id"),
+		"status":        c.Query("status"),
+		"company_id":    c.Query("company_id"),
+		"technician_id": c.Query("technician_id"),
+	}
+
+	// Client/sales hanya boleh lihat booking perusahaannya sendiri
+	role := c.GetString("role")
+	if role == "client" || role == "sales" {
+		filters["company_id"] = c.GetString("company_id")
 	}
 
 	bookings, err := h.bookingUsecase.GetAllBookings(filters)

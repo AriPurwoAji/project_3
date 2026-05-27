@@ -32,6 +32,7 @@ type Booking struct {
 }
 
 type CreateBookingRequest struct {
+	CompanyID    string   `json:"company_id" binding:"required"`
 	EquipmentID  string   `json:"equipment_id" binding:"required"`
 	ServiceType  string   `json:"service_type" binding:"required,oneof=repair inspeksi maintenance"`
 	UrgencyLevel string   `json:"urgency_level" binding:"required,oneof=emergency standard"`

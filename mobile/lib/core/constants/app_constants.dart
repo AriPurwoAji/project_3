@@ -13,6 +13,8 @@ class AppConstants {
   static const String userRoleKey     = 'user_role';
   static const String userIDKey       = 'user_id';
   static const String userNameKey     = 'user_name';
+  static const String companyIdKey    = 'company_id';
+  static const String companyNameKey  = 'company_name';
 
   // Roles
   static const String roleClient   = 'client';

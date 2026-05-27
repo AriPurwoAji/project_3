@@ -5,16 +5,18 @@ import (
 )
 
 type User struct {
-	ID        string     `json:"id"`
-	Email     string     `json:"email"`
-	FullName  string     `json:"full_name"`
-	Phone     string     `json:"phone"`
-	Role      string     `json:"role"`
-	FCMToken  string     `json:"fcm_token"`
-	IsActive  bool       `json:"is_active"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	ID          string     `json:"id"`
+	Email       string     `json:"email"`
+	FullName    string     `json:"full_name"`
+	Phone       string     `json:"phone"`
+	Role        string     `json:"role"`
+	CompanyID   string     `json:"company_id"`
+	CompanyName string     `json:"company_name,omitempty"`
+	FCMToken    string     `json:"fcm_token"`
+	IsActive    bool       `json:"is_active"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
 type LoginRequest struct {

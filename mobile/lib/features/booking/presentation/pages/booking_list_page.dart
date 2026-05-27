@@ -19,6 +19,8 @@ class _BookingListPageState extends State<BookingListPage> {
   bool _loading = true;
   String _role = '';
   String _name = '';
+  String _companyId = '';
+  String _companyName = '';
   String _selectedStatus = '';
 
   @override
@@ -30,11 +32,19 @@ class _BookingListPageState extends State<BookingListPage> {
   Future<void> _loadData() async {
     _role = await _storage.read(key: AppConstants.userRoleKey) ?? '';
     _name = await _storage.read(key: AppConstants.userNameKey) ?? '';
+    _companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
+    _companyName = await _storage.read(key: AppConstants.companyNameKey) ?? '';
     try {
-      final url = _selectedStatus.isEmpty
-          ? '/bookings'
-          : '/bookings?status=$_selectedStatus';
-      final res = await ApiClient.instance.get(url);
+      final params = <String, String>{};
+      if (_selectedStatus.isNotEmpty) params['status'] = _selectedStatus;
+      if (_companyId.isNotEmpty &&
+          (_role == AppConstants.roleClient || _role == AppConstants.roleSales)) {
+        params['company_id'] = _companyId;
+      }
+      final query = params.isEmpty
+          ? ''
+          : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+      final res = await ApiClient.instance.get('/bookings$query');
       setState(() {
         _bookings = res.data['data'] ?? [];
         _loading = false;
@@ -82,12 +92,15 @@ class _BookingListPageState extends State<BookingListPage> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Daftar Booking'),
-            Text('Halo, $_name',
+            Text(_name,
                 style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.normal,
-                    color: AppTheme.textSecondary)),
+                    fontSize: 16, fontWeight: FontWeight.w600)),
+            if (_companyName.isNotEmpty)
+              Text(_companyName,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.normal,
+                      color: AppTheme.textSecondary)),
           ],
         ),
         actions: [

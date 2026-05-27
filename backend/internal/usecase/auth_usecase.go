@@ -26,12 +26,12 @@ func (u *authUsecase) Login(req domain.LoginRequest) (*domain.LoginResponse, err
 		return nil, errors.New("email atau password salah")
 	}
 
-	accessToken, err := jwt.GenerateAccessToken(user.ID, user.Role)
+	accessToken, err := jwt.GenerateAccessToken(user.ID, user.Role, user.CompanyID)
 	if err != nil {
 		return nil, errors.New("gagal generate token")
 	}
 
-	refreshToken, err := jwt.GenerateRefreshToken(user.ID, user.Role)
+	refreshToken, err := jwt.GenerateRefreshToken(user.ID, user.Role, user.CompanyID)
 	if err != nil {
 		return nil, errors.New("gagal generate refresh token")
 	}

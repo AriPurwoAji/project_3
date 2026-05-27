@@ -63,7 +63,14 @@ class _LoginPageState extends State<LoginPage> {
         key: AppConstants.userNameKey,
         value: data['user']['full_name'],
       );
-
+      await _storage.write(
+        key: AppConstants.companyIdKey,
+        value: data['user']['company_id'] ?? '',
+      );
+      await _storage.write(
+        key: AppConstants.companyNameKey,
+        value: data['user']['company_name'] ?? '',
+      );
       if (!mounted) return;
       _navigateByRole(data['user']['role']);
     } on DioException catch (e) {
