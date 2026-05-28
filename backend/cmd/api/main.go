@@ -7,6 +7,7 @@ import (
 	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/handler"
 	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/router"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/database"
+	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/storage"
 	"github.com/AriPurwoAji/project_3/backend/internal/repository"
 	"github.com/AriPurwoAji/project_3/backend/internal/usecase"
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,9 @@ func main() {
 	dashboardUsecase := usecase.NewDashboardUsecase(dashboardRepo)
 	equipmentUsecase := usecase.NewEquipmentUsecase(equipmentRepo)
 
+	// Infrastructure
+	supabaseStorage := storage.NewSupabaseStorage()
+
 	// Handlers
 	authHandler      := handler.NewAuthHandler(authUsecase)
 	bookingHandler   := handler.NewBookingHandler(bookingUsecase)
@@ -47,6 +51,7 @@ func main() {
 	notifHandler     := handler.NewNotificationHandler(notifUsecase)
 	dashboardHandler := handler.NewDashboardHandler(dashboardUsecase)
 	equipmentHandler := handler.NewEquipmentHandler(equipmentUsecase)
+	uploadHandler    := handler.NewUploadHandler(supabaseStorage)
 
 	// Router
 	r := gin.Default()
@@ -54,7 +59,6 @@ func main() {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
-	// ← router.Setup ada di sini
 	router.Setup(
 		r,
 		authHandler,
@@ -63,6 +67,7 @@ func main() {
 		notifHandler,
 		dashboardHandler,
 		equipmentHandler,
+		uploadHandler,
 	)
 
 	port := os.Getenv("APP_PORT")

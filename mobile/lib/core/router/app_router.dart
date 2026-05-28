@@ -56,13 +56,13 @@ final appRouter = GoRouter(
     // ── Shared ───────────────────────────────────────────────────────────
     GoRoute(path: '/bookings',
         builder: (_, __) => const BookingListPage()),
+    GoRoute(path: '/booking/create',
+        builder: (_, __) => const CreateBookingPage()),
     GoRoute(
       path: '/booking/:id',
       builder: (_, state) =>
           BookingDetailPage(bookingId: state.pathParameters['id']!),
     ),
-    GoRoute(path: '/booking/create',
-        builder: (_, __) => const CreateBookingPage()),
     GoRoute(
       path: '/report/create',
       builder: (_, state) {

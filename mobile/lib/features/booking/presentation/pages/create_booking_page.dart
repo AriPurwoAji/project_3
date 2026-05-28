@@ -210,12 +210,12 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                               border: Border.all(color: AppTheme.border),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Row(
+                            child: const Row(
                               children: [
-                                const Icon(Icons.info_outline,
+                                Icon(Icons.info_outline,
                                     size: 16, color: AppTheme.textTertiary),
-                                const SizedBox(width: 8),
-                                const Expanded(
+                                SizedBox(width: 8),
+                                Expanded(
                                   child: Text(
                                     'Belum ada equipment. Tap "+ Tambah" untuk menambahkan.',
                                     style: TextStyle(
@@ -301,7 +301,23 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                           ? 'Kota wajib diisi'
                           : null,
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 16),
+
+                    // Foto kerusakan (optional, UI placeholder)
+                    const Text('Foto kerusakan (opsional)',
+                        style: TextStyle(
+                            fontSize: 13, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _photoBox(Icons.photo_library_outlined),
+                        const SizedBox(width: 10),
+                        _photoBox(Icons.camera_alt_outlined),
+                        const SizedBox(width: 10),
+                        _photoBox(Icons.add),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
 
                     ElevatedButton(
                       onPressed: _loading ? null : _submit,
@@ -368,6 +384,24 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
       ),
     );
   }
+
+  Widget _photoBox(IconData icon) => Expanded(
+        child: AspectRatio(
+          aspectRatio: 1,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppTheme.border,
+                width: 1.5,
+                // dashed effect via solid border (Flutter doesn't support dashed natively)
+              ),
+            ),
+            child: Icon(icon, color: AppTheme.textTertiary, size: 28),
+          ),
+        ),
+      );
 
   Widget _serviceChip(String type) {
     final isSelected = _serviceType == type;

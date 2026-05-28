@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -17,37 +19,36 @@ class CreateReportPage extends StatefulWidget {
 class _CreateReportPageState extends State<CreateReportPage> {
   final _formKey = GlobalKey<FormState>();
 
-  // Deskripsi & rekomendasi
-  final _descCtrl = TextEditingController();
-  final _recsCtrl = TextEditingController();
-
-  // Kondisi hydraulic
+  final _descCtrl        = TextEditingController();
+  final _recsCtrl        = TextEditingController();
   final _pressBeforeCtrl = TextEditingController();
   final _pressAfterCtrl  = TextEditingController();
   final _leakLocCtrl     = TextEditingController();
+
   String? _oilCondition;
   String? _oilLevel;
   String? _leakSeverity;
 
-  // Parts replaced & inspection items
-  final List<Map<String, dynamic>> _partsReplaced   = [];
   final List<Map<String, dynamic>> _inspectionItems = [];
 
-  // Maintenance checklist — default items, status diubah teknisi
   final List<Map<String, dynamic>> _maintenanceChecklist = [
-    {'item': 'Cek level oli',                  'status': 'done', 'notes': ''},
-    {'item': 'Ganti filter oli',               'status': 'done', 'notes': ''},
-    {'item': 'Cek kebocoran semua fitting',    'status': 'done', 'notes': ''},
-    {'item': 'Cek tekanan sistem',             'status': 'done', 'notes': ''},
-    {'item': 'Bersihkan strainer',             'status': 'done', 'notes': ''},
-    {'item': 'Cek kondisi hose',               'status': 'done', 'notes': ''},
+    {'item': 'Cek level oli',               'status': 'done', 'notes': ''},
+    {'item': 'Ganti filter oli',            'status': 'done', 'notes': ''},
+    {'item': 'Cek kebocoran semua fitting', 'status': 'done', 'notes': ''},
+    {'item': 'Cek tekanan sistem',          'status': 'done', 'notes': ''},
+    {'item': 'Bersihkan strainer',          'status': 'done', 'notes': ''},
+    {'item': 'Cek kondisi hose',            'status': 'done', 'notes': ''},
   ];
 
   bool _loading = false;
 
-  String get _serviceType    => widget.booking['service_type'] ?? '';
-  bool   get _isInspeksi     => _serviceType == 'inspeksi';
-  bool   get _isMaintenance  => _serviceType == 'maintenance';
+  // Foto before/after/kerusakan — File lokal + URL setelah upload
+  final List<_PhotoEntry> _photos = [];
+  final _picker = ImagePicker();
+
+  String get _serviceType   => widget.booking['service_type'] ?? '';
+  bool   get _isInspeksi    => _serviceType == 'inspeksi';
+  bool   get _isMaintenance => _serviceType == 'maintenance';
 
   @override
   void dispose() {
@@ -69,13 +70,28 @@ class _CreateReportPageState extends State<CreateReportPage> {
       return;
     }
 
+    // Block submit if any photo is still uploading
+    if (_photos.any((p) => p.url == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Tunggu hingga semua foto selesai diupload'),
+        backgroundColor: AppTheme.warning,
+      ));
+      return;
+    }
+
     setState(() => _loading = true);
+
+    final photoUrls = _photos.asMap().entries.map((e) {
+      final types = ['before', 'after', 'damage'];
+      final type  = e.key < types.length ? types[e.key] : 'damage';
+      return {'url': e.value.url!, 'type': type};
+    }).toList();
 
     final data = <String, dynamic>{
       'work_description':      _descCtrl.text.trim(),
       'recommendations':       _recsCtrl.text.trim(),
-      'parts_replaced':        _partsReplaced,
-      'photo_urls':            [],
+      'parts_replaced':        [],
+      'photo_urls':            photoUrls,
       'inspection_items':      _inspectionItems,
       'maintenance_checklist': _isMaintenance ? _maintenanceChecklist : [],
     };
@@ -86,10 +102,10 @@ class _CreateReportPageState extends State<CreateReportPage> {
     if (_pressAfterCtrl.text.isNotEmpty) {
       data['pressure_after_bar'] = int.tryParse(_pressAfterCtrl.text);
     }
-    if (_oilCondition != null)          data['oil_condition']  = _oilCondition;
-    if (_oilLevel != null)              data['oil_level']      = _oilLevel;
-    if (_leakLocCtrl.text.isNotEmpty)   data['leak_location']  = _leakLocCtrl.text.trim();
-    if (_leakSeverity != null)          data['leak_severity']  = _leakSeverity;
+    if (_oilCondition != null)        data['oil_condition'] = _oilCondition;
+    if (_oilLevel != null)            data['oil_level']     = _oilLevel;
+    if (_leakLocCtrl.text.isNotEmpty) data['leak_location'] = _leakLocCtrl.text.trim();
+    if (_leakSeverity != null)        data['leak_severity'] = _leakSeverity;
 
     try {
       await ApiClient.instance.post(
@@ -134,7 +150,7 @@ class _CreateReportPageState extends State<CreateReportPage> {
           padding: const EdgeInsets.all(16),
           children: [
             _bookingSummaryCard(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             _sectionCard(
               icon: Icons.description_outlined,
               title: 'Deskripsi Pekerjaan',
@@ -148,10 +164,9 @@ class _CreateReportPageState extends State<CreateReportPage> {
             ),
             const SizedBox(height: 12),
             _sectionCard(
-              icon: Icons.build_outlined,
-              title: 'Part Diganti',
-              trailing: _addButton('Tambah', _showAddPartDialog),
-              child: _partsSection(),
+              icon: Icons.photo_camera_outlined,
+              title: 'Foto Before & After (opsional)',
+              child: _fotoSection(),
             ),
             if (_isInspeksi) ...[
               const SizedBox(height: 12),
@@ -170,7 +185,7 @@ class _CreateReportPageState extends State<CreateReportPage> {
                 child: _maintenanceSection(),
               ),
             ],
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _loading ? null : _submit,
               child: _loading
@@ -178,7 +193,7 @@ class _CreateReportPageState extends State<CreateReportPage> {
                       height: 20, width: 20,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Text('Kirim Laporan',
+                  : const Text('Submit laporan & generate PDF',
                       style: TextStyle(fontSize: 15)),
             ),
             const SizedBox(height: 24),
@@ -282,132 +297,265 @@ class _CreateReportPageState extends State<CreateReportPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Pressure colored boxes
         Row(
           children: [
-            Expanded(child: _numberField('Tekanan Sebelum (bar)', _pressBeforeCtrl)),
+            Expanded(
+              child: _pressureBox(
+                label: 'Tekanan Sebelum',
+                ctrl: _pressBeforeCtrl,
+                color: AppTheme.danger,
+                bgColor: AppTheme.dangerLight,
+                icon: Icons.arrow_downward,
+              ),
+            ),
             const SizedBox(width: 12),
-            Expanded(child: _numberField('Tekanan Sesudah (bar)', _pressAfterCtrl)),
+            Expanded(
+              child: _pressureBox(
+                label: 'Tekanan Sesudah',
+                ctrl: _pressAfterCtrl,
+                color: AppTheme.secondary,
+                bgColor: AppTheme.secondaryLight,
+                icon: Icons.arrow_upward,
+              ),
+            ),
           ],
+        ),
+        const SizedBox(height: 14),
+
+        // Kondisi Oli chips
+        _label('Kondisi Oli'),
+        const SizedBox(height: 6),
+        _chipSelector(
+          options: const {
+            'good': 'Baik',
+            'contaminated': 'Terkontaminasi',
+            'critical': 'Kritis',
+          },
+          selected: _oilCondition,
+          onSelect: (v) => setState(() => _oilCondition = v),
+          activeColors: const {
+            'good': AppTheme.secondary,
+            'contaminated': AppTheme.warning,
+            'critical': AppTheme.danger,
+          },
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _dropdownField(
-                label: 'Kondisi Oli',
-                value: _oilCondition,
-                items: const {
-                  'good': 'Baik',
-                  'contaminated': 'Terkontaminasi',
-                  'critical': 'Kritis',
-                },
-                onChanged: (v) => setState(() => _oilCondition = v),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _dropdownField(
-                label: 'Level Oli',
-                value: _oilLevel,
-                items: const {
-                  'low': 'Rendah',
-                  'normal': 'Normal',
-                  'overfill': 'Kelebihan',
-                },
-                onChanged: (v) => setState(() => _oilLevel = v),
-              ),
-            ),
-          ],
+
+        // Level Oli chips
+        _label('Level Oli'),
+        const SizedBox(height: 6),
+        _chipSelector(
+          options: const {
+            'low': 'Rendah',
+            'normal': 'Normal',
+            'overfill': 'Kelebihan',
+          },
+          selected: _oilLevel,
+          onSelect: (v) => setState(() => _oilLevel = v),
+          activeColors: const {
+            'low': AppTheme.danger,
+            'normal': AppTheme.secondary,
+            'overfill': AppTheme.warning,
+          },
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _label('Lokasi Kebocoran'),
-                  TextFormField(
-                    controller: _leakLocCtrl,
-                    decoration:
-                        const InputDecoration(hintText: 'Contoh: Selang utama'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _dropdownField(
-                label: 'Tingkat Kebocoran',
-                value: _leakSeverity,
-                items: const {
-                  'none': 'Tidak ada',
-                  'minor': 'Minor',
-                  'moderate': 'Sedang',
-                  'severe': 'Parah',
-                },
-                onChanged: (v) => setState(() => _leakSeverity = v),
-              ),
-            ),
-          ],
+
+        // Tingkat Kebocoran chips
+        _label('Tingkat Kebocoran'),
+        const SizedBox(height: 6),
+        _chipSelector(
+          options: const {
+            'none': 'Tidak ada',
+            'minor': 'Minor',
+            'moderate': 'Sedang',
+            'severe': 'Parah',
+          },
+          selected: _leakSeverity,
+          onSelect: (v) => setState(() => _leakSeverity = v),
+          activeColors: const {
+            'none': AppTheme.secondary,
+            'minor': AppTheme.warning,
+            'moderate': AppTheme.warning,
+            'severe': AppTheme.danger,
+          },
         ),
+
+        // Lokasi kebocoran — only if not 'none'
+        if (_leakSeverity != null && _leakSeverity != 'none') ...[
+          const SizedBox(height: 12),
+          _label('Lokasi Kebocoran'),
+          TextFormField(
+            controller: _leakLocCtrl,
+            decoration:
+                const InputDecoration(hintText: 'Contoh: Selang utama'),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _partsSection() {
-    if (_partsReplaced.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 4),
-        child: Text('Belum ada part yang ditambahkan',
-            style: TextStyle(fontSize: 13, color: AppTheme.textTertiary)),
-      );
+  void _showPhotoSourcePicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Pilih dari galeri'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickPhoto(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Ambil foto'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickPhoto(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickPhoto(ImageSource source) async {
+    final xfile = await _picker.pickImage(
+      source: source,
+      imageQuality: 80,
+      maxWidth: 1920,
+    );
+    if (xfile == null || !mounted) return;
+
+    final entry = _PhotoEntry(file: File(xfile.path));
+    setState(() => _photos.add(entry));
+
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(xfile.path, filename: xfile.name),
+      });
+      final res = await ApiClient.instance.post('/upload', data: formData);
+      final url = res.data['data']['url'] as String;
+      if (mounted) setState(() => entry.url = url);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _photos.remove(entry));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Gagal upload foto, coba lagi'),
+          backgroundColor: AppTheme.danger,
+        ));
+      }
     }
-    return Column(
-      children: _partsReplaced.asMap().entries.map((e) {
-        final i = e.key;
-        final p = e.value;
-        return Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.settings, size: 15, color: AppTheme.textTertiary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(p['name'] ?? '',
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w500)),
-                    if ((p['part_number'] ?? '').isNotEmpty)
-                      Text('P/N: ${p['part_number']}',
-                          style: const TextStyle(
-                              fontSize: 11, color: AppTheme.textTertiary)),
-                  ],
+  }
+
+  Widget _fotoSection() {
+    const typeLabels = ['Before', 'After', 'Kerusakan'];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ..._photos.asMap().entries.map((e) {
+          final i     = e.key;
+          final entry = e.value;
+          return SizedBox(
+            width: 72, height: 72,
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.file(
+                    entry.file,
+                    width: 72, height: 72,
+                    fit: BoxFit.cover,
+                  ),
                 ),
+                // Upload progress overlay
+                if (entry.url == null)
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        color: Colors.black45,
+                        child: const Center(
+                          child: SizedBox(
+                            width: 18, height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                // Type label
+                Positioned(
+                  bottom: 0, left: 0, right: 0,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(10)),
+                    child: Container(
+                      color: Colors.black54,
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(
+                        i < typeLabels.length ? typeLabels[i] : 'Foto',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 9, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+                // Delete (only when upload done)
+                if (entry.url != null)
+                  Positioned(
+                    top: 2, right: 2,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _photos.removeAt(i)),
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.danger,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close,
+                            size: 10, color: Colors.white),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
+        // Add button — max 6 photos
+        if (_photos.length < 6)
+          GestureDetector(
+            onTap: _showPhotoSourcePicker,
+            child: Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.border),
               ),
-              Text('x${p['qty']}',
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primary)),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => setState(() => _partsReplaced.removeAt(i)),
-                child: const Icon(Icons.close,
-                    size: 16, color: AppTheme.danger),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_photo_alternate_outlined,
+                      color: AppTheme.textTertiary, size: 24),
+                  SizedBox(height: 4),
+                  Text('Tambah',
+                      style: TextStyle(
+                          fontSize: 9, color: AppTheme.textTertiary)),
+                ],
               ),
-            ],
+            ),
           ),
-        );
-      }).toList(),
+      ],
     );
   }
 
@@ -422,8 +570,7 @@ class _CreateReportPageState extends State<CreateReportPage> {
         ),
         child: const Row(
           children: [
-            Icon(Icons.warning_amber_outlined,
-                size: 15, color: AppTheme.danger),
+            Icon(Icons.warning_amber_outlined, size: 15, color: AppTheme.danger),
             SizedBox(width: 8),
             Expanded(
               child: Text('Minimal 1 item inspeksi wajib ditambahkan',
@@ -433,81 +580,123 @@ class _CreateReportPageState extends State<CreateReportPage> {
         ),
       );
     }
+
+    final total   = _inspectionItems.length;
+    final baik    = _inspectionItems.where((i) => i['condition'] == 'good').length;
+    final monitor = _inspectionItems
+        .where((i) => i['condition'] == 'wear' || i['condition'] == 'cracked')
+        .length;
+    final ganti   = _inspectionItems
+        .where((i) => i['condition'] == 'leaking' || i['condition'] == 'critical')
+        .length;
+
     return Column(
-      children: _inspectionItems.asMap().entries.map((e) {
-        final i   = e.key;
-        final item = e.value;
-        final cColor = _conditionColor(item['condition'] ?? '');
-        return Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.all(12),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Summary stats
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.border),
+            color: AppTheme.background,
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _badge(item['item_type'] ?? '',
-                            AppTheme.primaryLight, AppTheme.primary),
-                        const SizedBox(width: 6),
-                        if ((item['item_code'] ?? '').isNotEmpty)
-                          Text(item['item_code'],
-                              style: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                    if ((item['location_desc'] ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(item['location_desc'],
-                          style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary)),
-                    ],
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        _badge(_conditionLabel(item['condition'] ?? ''),
-                            cColor.withValues(alpha: 0.12), cColor),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _recommendationLabel(
-                                item['recommendation'] ?? ''),
-                            style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textTertiary),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () =>
-                    setState(() => _inspectionItems.removeAt(i)),
-                child: const Icon(Icons.close,
-                    size: 16, color: AppTheme.danger),
-              ),
+              _inlineStatChip('$total', 'Total', AppTheme.primary),
+              const SizedBox(width: 12),
+              _inlineStatChip('$baik', 'Baik', AppTheme.secondary),
+              const SizedBox(width: 12),
+              _inlineStatChip('$monitor', 'Monitor', AppTheme.warning),
+              const SizedBox(width: 12),
+              _inlineStatChip('$ganti', 'Ganti', AppTheme.danger),
             ],
           ),
-        );
-      }).toList(),
+        ),
+        // Item cards
+        ..._inspectionItems.asMap().entries.map((e) {
+          final i    = e.key;
+          final item = e.value;
+          final cColor    = _conditionColor(item['condition'] ?? '');
+          final typeColor = _itemTypeColor(item['item_type'] ?? '');
+
+          return Container(
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border(
+                left:   BorderSide(color: typeColor, width: 3),
+                right:  const BorderSide(color: AppTheme.border, width: 0.5),
+                top:    const BorderSide(color: AppTheme.border, width: 0.5),
+                bottom: const BorderSide(color: AppTheme.border, width: 0.5),
+              ),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _badge(_itemTypeLabel(item['item_type'] ?? ''),
+                              typeColor.withValues(alpha: 0.12), typeColor),
+                          const SizedBox(width: 6),
+                          if ((item['item_code'] ?? '').isNotEmpty)
+                            Text(item['item_code'],
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                      if ((item['location_desc'] ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(item['location_desc'],
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary)),
+                      ],
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          _badge(_conditionLabel(item['condition'] ?? ''),
+                              cColor.withValues(alpha: 0.12), cColor),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _recommendationLabel(
+                                  item['recommendation'] ?? ''),
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textTertiary),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => setState(() => _inspectionItems.removeAt(i)),
+                  child: const Icon(Icons.close,
+                      size: 16, color: AppTheme.danger),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
 
   Widget _maintenanceSection() {
     const statusOptions = ['done', 'skip', 'not_applicable'];
-    const statusLabels  = {'done': 'Done', 'skip': 'Skip', 'not_applicable': 'N/A'};
-    const statusColors  = <String, Color>{
+    const statusLabels  = {
+      'done': 'Done', 'skip': 'Skip', 'not_applicable': 'N/A'
+    };
+    const statusColors = <String, Color>{
       'done':           AppTheme.secondary,
       'skip':           AppTheme.warning,
       'not_applicable': AppTheme.textTertiary,
@@ -515,8 +704,8 @@ class _CreateReportPageState extends State<CreateReportPage> {
 
     return Column(
       children: _maintenanceChecklist.asMap().entries.map((e) {
-        final i    = e.key;
-        final item = e.value;
+        final i             = e.key;
+        final item          = e.value;
         final currentStatus = item['status'] as String;
 
         return Container(
@@ -540,7 +729,7 @@ class _CreateReportPageState extends State<CreateReportPage> {
                   Row(
                     children: statusOptions.map((s) {
                       final selected = currentStatus == s;
-                      final color = statusColors[s]!;
+                      final color    = statusColors[s]!;
                       return GestureDetector(
                         onTap: () => setState(
                             () => _maintenanceChecklist[i]['status'] = s),
@@ -594,73 +783,6 @@ class _CreateReportPageState extends State<CreateReportPage> {
   }
 
   // ─── DIALOGS ──────────────────────────────────────────────────────────────
-
-  Future<void> _showAddPartDialog() async {
-    final nameCtrl   = TextEditingController();
-    final partNumCtrl = TextEditingController();
-    final qtyCtrl    = TextEditingController(text: '1');
-    final fKey       = GlobalKey<FormState>();
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Tambah Part'),
-        content: Form(
-          key: fKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Nama Part *'),
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Wajib diisi' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: partNumCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'Part Number'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: qtyCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly
-                ],
-                decoration: const InputDecoration(labelText: 'Jumlah *'),
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Wajib diisi' : null,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Batal')),
-          ElevatedButton(
-            onPressed: () {
-              if (!fKey.currentState!.validate()) return;
-              setState(() {
-                _partsReplaced.add({
-                  'name':        nameCtrl.text.trim(),
-                  'part_number': partNumCtrl.text.trim(),
-                  'qty':         int.tryParse(qtyCtrl.text) ?? 1,
-                });
-              });
-              Navigator.pop(ctx);
-            },
-            child: const Text('Tambah'),
-          ),
-        ],
-      ),
-    );
-    nameCtrl.dispose();
-    partNumCtrl.dispose();
-    qtyCtrl.dispose();
-  }
 
   Future<void> _showAddInspectionSheet() async {
     final result = await showModalBottomSheet<Map<String, dynamic>>(
@@ -716,82 +838,159 @@ class _CreateReportPageState extends State<CreateReportPage> {
         label: Text(label, style: const TextStyle(fontSize: 12)),
         style: TextButton.styleFrom(
           foregroundColor: AppTheme.primary,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       );
 
-  Widget _numberField(String labelText, TextEditingController ctrl) =>
-      Column(
+  Widget _pressureBox({
+    required String label,
+    required TextEditingController ctrl,
+    required Color color,
+    required Color bgColor,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _label(labelText),
+          Row(
+            children: [
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 4),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: color,
+                      fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 8),
           TextFormField(
             controller: ctrl,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(hintText: '0'),
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: color),
+            decoration: InputDecoration(
+              hintText: '0',
+              hintStyle: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: color.withValues(alpha: 0.3)),
+              suffixText: 'bar',
+              suffixStyle: TextStyle(fontSize: 13, color: color),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+              isDense: true,
+            ),
           ),
         ],
-      );
+      ),
+    );
+  }
 
-  Widget _dropdownField({
-    required String label,
-    required String? value,
-    required Map<String, String> items,
-    required ValueChanged<String?> onChanged,
-  }) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _label(label),
-          DropdownButtonFormField<String>(
-            value: value,
-            hint: const Text('Pilih'),
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppTheme.border),
+  Widget _chipSelector({
+    required Map<String, String> options,
+    required String? selected,
+    required ValueChanged<String> onSelect,
+    required Map<String, Color> activeColors,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: options.entries.map((e) {
+        final isSelected = selected == e.key;
+        final color = activeColors[e.key] ?? AppTheme.primary;
+        return GestureDetector(
+          onTap: () => onSelect(e.key),
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: isSelected ? color.withValues(alpha: 0.12) : AppTheme.surface,
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(
+                color: isSelected ? color : AppTheme.border,
+                width: isSelected ? 1.5 : 0.5,
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 14),
             ),
-            items: items.entries
-                .map((e) =>
-                    DropdownMenuItem(value: e.key, child: Text(e.value)))
-                .toList(),
-            onChanged: onChanged,
+            child: Text(
+              e.value,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected ? color : AppTheme.textSecondary),
+            ),
           ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _inlineStatChip(String value, String label, Color color) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: color)),
+          const SizedBox(width: 3),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11, color: AppTheme.textSecondary)),
         ],
       );
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.only(bottom: 4),
         child: Text(text,
             style: const TextStyle(
                 fontSize: 12, color: AppTheme.textSecondary)),
       );
 
   Widget _badge(String text, Color bg, Color fg) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration:
-            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
-        child: Text(text,
-            style: TextStyle(fontSize: 10, color: fg)),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+            color: bg, borderRadius: BorderRadius.circular(4)),
+        child: Text(text, style: TextStyle(fontSize: 10, color: fg)),
       );
 
   Color _conditionColor(String c) {
     switch (c) {
-      case 'good':     return AppTheme.secondary;
+      case 'good':    return AppTheme.secondary;
       case 'wear':
-      case 'cracked':  return AppTheme.warning;
+      case 'cracked': return AppTheme.warning;
       case 'leaking':
       case 'critical': return AppTheme.danger;
+      default:        return AppTheme.textTertiary;
+    }
+  }
+
+  Color _itemTypeColor(String t) {
+    switch (t) {
+      case 'hose':     return AppTheme.primary;
+      case 'cylinder': return AppTheme.warning;
+      case 'pump':     return AppTheme.secondary;
       default:         return AppTheme.textTertiary;
     }
+  }
+
+  String _itemTypeLabel(String t) {
+    const m = {'hose': 'Selang', 'cylinder': 'Silinder', 'pump': 'Pompa'};
+    return m[t] ?? t;
   }
 
   String _conditionLabel(String c) {
@@ -804,13 +1003,23 @@ class _CreateReportPageState extends State<CreateReportPage> {
 
   String _recommendationLabel(String r) {
     const m = {
-      'no_action':       'Tidak perlu tindakan',
-      'monitor':         'Perlu dipantau',
-      'schedule_replace':'Jadwalkan penggantian',
-      'urgent_replace':  'Ganti segera',
+      'no_action':        'Tidak perlu tindakan',
+      'monitor':          'Perlu dipantau',
+      'schedule_replace': 'Jadwalkan penggantian',
+      'urgent_replace':   'Ganti segera',
     };
     return m[r] ?? r;
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Photo entry: local file + uploaded URL
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PhotoEntry {
+  final File file;
+  String? url;
+  _PhotoEntry({required this.file});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -828,8 +1037,8 @@ class _AddInspectionItemSheet extends StatefulWidget {
 class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
   final _formKey = GlobalKey<FormState>();
 
-  String _itemType      = 'hose';
-  String _condition     = 'good';
+  String _itemType       = 'hose';
+  String _condition      = 'good';
   String _recommendation = 'no_action';
 
   final _codeCtrl     = TextEditingController();
@@ -874,43 +1083,52 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
     switch (_itemType) {
       case 'hose':
         return {
-          'length_m':     double.tryParse(_hoseLengthCtrl.text) ?? 0,
+          'length_m':      double.tryParse(_hoseLengthCtrl.text) ?? 0,
           'diameter_inch': _hoseDiamCtrl.text,
-          'pressure_bar': int.tryParse(_hosePressCtrl.text) ?? 0,
-          'material':     _hoseMaterialCtrl.text,
-          'qty':          int.tryParse(_hoseQtyCtrl.text) ?? 1,
-          'fitting_end1': {'standard': _fit1Std, 'angle': _fit1Angle, 'gender': _fit1Gender},
-          'fitting_end2': {'standard': _fit2Std, 'angle': _fit2Angle, 'gender': _fit2Gender},
+          'pressure_bar':  int.tryParse(_hosePressCtrl.text) ?? 0,
+          'material':      _hoseMaterialCtrl.text,
+          'qty':           int.tryParse(_hoseQtyCtrl.text) ?? 1,
+          'fitting_end1': {
+            'standard': _fit1Std,
+            'angle': _fit1Angle,
+            'gender': _fit1Gender
+          },
+          'fitting_end2': {
+            'standard': _fit2Std,
+            'angle': _fit2Angle,
+            'gender': _fit2Gender
+          },
         };
       case 'cylinder':
         return {
-          'bore_mm':       int.tryParse(_cylBoreCtrl.text) ?? 0,
-          'stroke_mm':     int.tryParse(_cylStrokeCtrl.text) ?? 0,
-          'pressure_bar':  int.tryParse(_cylPressCtrl.text) ?? 0,
+          'bore_mm':        int.tryParse(_cylBoreCtrl.text) ?? 0,
+          'stroke_mm':      int.tryParse(_cylStrokeCtrl.text) ?? 0,
+          'pressure_bar':   int.tryParse(_cylPressCtrl.text) ?? 0,
           'rod_condition':  _cylRodCond,
           'seal_condition': _cylSealCond,
         };
       case 'pump':
         return {
-          'pump_type':   _pumpTypeCtrl.text,
-          'flow_lpm':    double.tryParse(_pumpFlowCtrl.text) ?? 0,
-          'pressure_bar': int.tryParse(_pumpPressCtrl.text) ?? 0,
-          'noise_level': _pumpNoiseCtrl.text,
+          'pump_type':     _pumpTypeCtrl.text,
+          'flow_lpm':      double.tryParse(_pumpFlowCtrl.text) ?? 0,
+          'pressure_bar':  int.tryParse(_pumpPressCtrl.text) ?? 0,
+          'noise_level':   _pumpNoiseCtrl.text,
           'temperature_c': double.tryParse(_pumpTempCtrl.text) ?? 0,
         };
-      default: return {};
+      default:
+        return {};
     }
   }
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     Navigator.of(context).pop({
-      'item_type':    _itemType,
-      'item_code':    _codeCtrl.text.trim(),
-      'location_desc': _locationCtrl.text.trim(),
-      'condition':    _condition,
+      'item_type':      _itemType,
+      'item_code':      _codeCtrl.text.trim(),
+      'location_desc':  _locationCtrl.text.trim(),
+      'condition':      _condition,
       'recommendation': _recommendation,
-      'notes':        _notesCtrl.text.trim(),
+      'notes':          _notesCtrl.text.trim(),
       'specifications': _buildSpecs(),
     });
   }
@@ -956,7 +1174,6 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
               ),
               const SizedBox(height: 16),
 
-              // Tipe item
               _lbl('Tipe Item *'),
               DropdownButtonFormField<String>(
                 value: _itemType,
@@ -970,7 +1187,6 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
               ),
               const SizedBox(height: 12),
 
-              // Kode & Lokasi
               Row(children: [
                 Expanded(child: _field('Kode Item', _codeCtrl, hint: 'H-001')),
                 const SizedBox(width: 12),
@@ -978,28 +1194,32 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
               ]),
               const SizedBox(height: 12),
 
-              // Kondisi & Rekomendasi
               Row(children: [
                 Expanded(child: _dropdownField2(
                   'Kondisi *', _condition,
-                  const {'good':'Baik','wear':'Aus','cracked':'Retak','leaking':'Bocor','critical':'Kritis'},
+                  const {
+                    'good': 'Baik', 'wear': 'Aus', 'cracked': 'Retak',
+                    'leaking': 'Bocor', 'critical': 'Kritis'
+                  },
                   (v) => setState(() => _condition = v!),
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _dropdownField2(
                   'Rekomendasi *', _recommendation,
-                  const {'no_action':'Tidak ada','monitor':'Pantau','schedule_replace':'Jadwal ganti','urgent_replace':'Ganti segera'},
+                  const {
+                    'no_action': 'Tidak ada', 'monitor': 'Pantau',
+                    'schedule_replace': 'Jadwal ganti',
+                    'urgent_replace': 'Ganti segera'
+                  },
                   (v) => setState(() => _recommendation = v!),
                 )),
               ]),
               const SizedBox(height: 12),
 
-              // Spesifikasi per tipe
               if (_itemType == 'hose')     _hoseSpecs(),
               if (_itemType == 'cylinder') _cylinderSpecs(),
               if (_itemType == 'pump')     _pumpSpecs(),
 
-              // Catatan
               _lbl('Catatan'),
               TextFormField(
                 controller: _notesCtrl,
@@ -1021,7 +1241,6 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
     );
   }
 
-  // Hose specs
   Widget _hoseSpecs() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1054,7 +1273,6 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
         ],
       );
 
-  // Cylinder specs
   Widget _cylinderSpecs() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1080,7 +1298,6 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
         ],
       );
 
-  // Pump specs
   Widget _pumpSpecs() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1113,7 +1330,8 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
         children: [
           Text(title,
               style: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w500,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                   color: AppTheme.textSecondary)),
           const SizedBox(height: 6),
           Row(children: [
@@ -1152,8 +1370,6 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
             .toList(),
         onChanged: onChange,
       );
-
-  // ─── small helpers ───────────────────────────────────────────────────────
 
   Widget _field(String label, TextEditingController ctrl,
       {String hint = '', bool isDecimal = false}) =>

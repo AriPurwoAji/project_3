@@ -14,6 +14,7 @@ func Setup(
 	notifHandler     *handler.NotificationHandler,
 	dashboardHandler *handler.DashboardHandler,
 	equipmentHandler *handler.EquipmentHandler,
+	uploadHandler    *handler.UploadHandler,
 ) {
 	api := r.Group("/api/v1")
 
@@ -75,5 +76,8 @@ func Setup(
 			dashboard.GET("/technician-performance", dashboardHandler.GetTechnicianPerformance)
 			dashboard.GET("/service-trend", dashboardHandler.GetServiceTypeTrend)
 		}
+
+		// Upload foto
+		protected.POST("/upload", uploadHandler.UploadFile)
 	}
 }
