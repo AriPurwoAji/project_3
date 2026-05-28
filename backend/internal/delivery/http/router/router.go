@@ -68,6 +68,12 @@ func Setup(
 			notif.PATCH("/read-all", notifHandler.MarkAllAsRead)
 		}
 
+		// Users
+		users := protected.Group("/users")
+		{
+			users.GET("/teknisi", middleware.RoleMiddleware("manager"), authHandler.GetTechnicians)
+		}
+
 		// Dashboard — manager only
 		dashboard := protected.Group("/dashboard")
 		dashboard.Use(middleware.RoleMiddleware("manager"))

@@ -34,9 +34,11 @@ type UserRepository interface {
 	FindByEmail(email string) (*User, string, error)
 	FindByID(id string) (*User, error)
 	UpdateFCMToken(id, token string) error
+	FindAllByRole(role string) ([]User, error)
 }
 
 type AuthUsecase interface {
 	Login(req LoginRequest) (*LoginResponse, error)
 	GetProfile(id string) (*User, error)
+	GetTechnicians() ([]User, error)
 }

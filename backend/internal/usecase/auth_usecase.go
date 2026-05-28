@@ -46,3 +46,7 @@ func (u *authUsecase) Login(req domain.LoginRequest) (*domain.LoginResponse, err
 func (u *authUsecase) GetProfile(id string) (*domain.User, error) {
 	return u.userRepo.FindByID(id)
 }
+
+func (u *authUsecase) GetTechnicians() ([]domain.User, error) {
+	return u.userRepo.FindAllByRole("teknisi")
+}

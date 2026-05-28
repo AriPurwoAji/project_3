@@ -39,3 +39,12 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	}
 	response.Success(c, 200, "Success", user)
 }
+
+func (h *AuthHandler) GetTechnicians(c *gin.Context) {
+	users, err := h.authUsecase.GetTechnicians()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "Success", users)
+}

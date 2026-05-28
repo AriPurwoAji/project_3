@@ -85,3 +85,46 @@ func (r *userRepository) UpdateFCMToken(id, token string) error {
 	_, err := r.db.Exec(context.Background(), query, token, id)
 	return err
 }
+
+func (r *userRepository) FindAllByRole(role string) ([]domain.User, error) {
+	query := `
+		SELECT u.id, u.email, u.full_name, u.phone, u.role,
+		       u.fcm_token, u.is_active, u.created_at, u.updated_at,
+		       COALESCE(u.company_id::text, '') AS company_id,
+		       COALESCE(c.name, '') AS company_name
+		FROM users u
+		LEFT JOIN companies c ON u.company_id = c.id
+		WHERE u.role = $1 AND u.deleted_at IS NULL AND u.is_active = TRUE
+		ORDER BY u.full_name ASC
+	`
+	rows, err := r.db.Query(context.Background(), query, role)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []domain.User
+	for rows.Next() {
+		var u domain.User
+		var phone, fcmToken *string
+		if err := rows.Scan(
+			&u.ID, &u.Email, &u.FullName,
+			&phone, &u.Role, &fcmToken,
+			&u.IsActive, &u.CreatedAt, &u.UpdatedAt,
+			&u.CompanyID, &u.CompanyName,
+		); err != nil {
+			return nil, err
+		}
+		if phone != nil {
+			u.Phone = *phone
+		}
+		if fcmToken != nil {
+			u.FCMToken = *fcmToken
+		}
+		users = append(users, u)
+	}
+	if users == nil {
+		users = []domain.User{}
+	}
+	return users, rows.Err()
+}

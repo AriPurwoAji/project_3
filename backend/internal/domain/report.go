@@ -109,3 +109,11 @@ type ReportUsecase interface {
 	GetReportByBookingID(bookingID string) (*HydraulicReport, error)
 	GetMyReports(technicianID string) ([]HydraulicReport, error)
 }
+
+type PDFReportGenerator interface {
+	GenerateReport(report *HydraulicReport, booking *Booking) ([]byte, error)
+}
+
+type FileUploader interface {
+	Upload(data []byte, filename, contentType string) (string, error)
+}

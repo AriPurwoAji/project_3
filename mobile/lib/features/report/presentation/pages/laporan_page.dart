@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/bottom_nav.dart';
@@ -46,6 +47,17 @@ class _LaporanPageState extends State<LaporanPage> {
       return '${dt.day} ${months[dt.month]}';
     } catch (_) {
       return '-';
+    }
+  }
+
+  Future<void> _openPdf(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak dapat membuka PDF')),
+        );
+      }
     }
   }
 
@@ -121,15 +133,32 @@ class _LaporanPageState extends State<LaporanPage> {
                 const Text('Laporan terkirim',
                     style: TextStyle(
                         fontSize: 11, color: AppTheme.secondary)),
-                if (r['pdf_url'] != null) ...[
-                  const SizedBox(width: 12),
-                  const Icon(Icons.picture_as_pdf_outlined,
-                      size: 13, color: AppTheme.primary),
-                  const SizedBox(width: 4),
-                  const Text('PDF tersedia',
-                      style: TextStyle(
-                          fontSize: 11, color: AppTheme.primary)),
-                ],
+                const Spacer(),
+                if (r['pdf_url'] != null)
+                  GestureDetector(
+                    onTap: () => _openPdf(r['pdf_url'] as String),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryLight,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.picture_as_pdf_outlined,
+                              size: 12, color: AppTheme.primary),
+                          SizedBox(width: 4),
+                          Text('Buka PDF',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ],

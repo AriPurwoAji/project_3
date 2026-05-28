@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
+	"log"
 
 	"github.com/AriPurwoAji/project_3/backend/internal/domain"
 )
@@ -9,12 +11,21 @@ import (
 type reportUsecase struct {
 	reportRepo  domain.ReportRepository
 	bookingRepo domain.BookingRepository
+	pdfGen      domain.PDFReportGenerator
+	uploader    domain.FileUploader
 }
 
-func NewReportUsecase(reportRepo domain.ReportRepository, bookingRepo domain.BookingRepository) domain.ReportUsecase {
+func NewReportUsecase(
+	reportRepo domain.ReportRepository,
+	bookingRepo domain.BookingRepository,
+	pdfGen domain.PDFReportGenerator,
+	uploader domain.FileUploader,
+) domain.ReportUsecase {
 	return &reportUsecase{
 		reportRepo:  reportRepo,
 		bookingRepo: bookingRepo,
+		pdfGen:      pdfGen,
+		uploader:    uploader,
 	}
 }
 
@@ -81,6 +92,26 @@ func (u *reportUsecase) CreateReport(bookingID, technicianID string, req domain.
 
 	// Update booking status jadi done
 	u.bookingRepo.UpdateStatus(bookingID, technicianID, "done")
+
+	// Generate PDF (best-effort; does not fail the report creation)
+	if u.pdfGen != nil && u.uploader != nil {
+		pdfBytes, err := u.pdfGen.GenerateReport(report, booking)
+		if err != nil {
+			log.Printf("PDF generation failed for report %s: %v", report.ID, err)
+		} else {
+			filename := fmt.Sprintf("laporan_%s.pdf", report.ID)
+			pdfURL, err := u.uploader.Upload(pdfBytes, filename, "application/pdf")
+			if err != nil {
+				log.Printf("PDF upload failed for report %s: %v", report.ID, err)
+			} else {
+				if err := u.reportRepo.UpdatePDFUrl(report.ID, pdfURL); err != nil {
+					log.Printf("UpdatePDFUrl failed for report %s: %v", report.ID, err)
+				} else {
+					report.PDFUrl = &pdfURL
+				}
+			}
+		}
+	}
 
 	return report, nil
 }

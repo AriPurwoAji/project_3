@@ -9,6 +9,7 @@ import '../../features/booking/presentation/pages/booking_detail_page.dart';
 import '../../features/booking/presentation/pages/create_booking_page.dart';
 import '../../features/booking/presentation/pages/home_client_page.dart';
 import '../../features/booking/presentation/pages/riwayat_page.dart';
+import '../../features/booking/presentation/pages/technician_list_page.dart';
 import '../../features/report/presentation/pages/create_report_page.dart';
 import '../../features/report/presentation/pages/laporan_page.dart';
 import '../constants/app_constants.dart';
@@ -37,7 +38,7 @@ final appRouter = GoRouter(
     GoRoute(path: '/dashboard',
         builder: (_, __) => const DashboardPage()),
     GoRoute(path: '/technicians',
-        builder: (_, __) => const BookingListPage()),
+        builder: (_, __) => const TechnicianListPage()),
 
     // ── Teknisi ──────────────────────────────────────────────────────────
     GoRoute(path: '/job-board',

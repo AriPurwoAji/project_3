@@ -7,6 +7,7 @@ import (
 	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/handler"
 	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/router"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/database"
+	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/pdf"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/storage"
 	"github.com/AriPurwoAji/project_3/backend/internal/repository"
 	"github.com/AriPurwoAji/project_3/backend/internal/usecase"
@@ -33,16 +34,17 @@ func main() {
 	dashboardRepo := repository.NewDashboardRepository(db)
 	equipmentRepo := repository.NewEquipmentRepository(db)
 
+	// Infrastructure
+	supabaseStorage := storage.NewSupabaseStorage()
+	pdfGenerator    := pdf.NewReportGenerator()
+
 	// Usecases
 	authUsecase      := usecase.NewAuthUsecase(userRepo)
 	bookingUsecase   := usecase.NewBookingUsecase(bookingRepo)
-	reportUsecase    := usecase.NewReportUsecase(reportRepo, bookingRepo)
+	reportUsecase    := usecase.NewReportUsecase(reportRepo, bookingRepo, pdfGenerator, supabaseStorage)
 	notifUsecase     := usecase.NewNotificationUsecase(notifRepo)
 	dashboardUsecase := usecase.NewDashboardUsecase(dashboardRepo)
 	equipmentUsecase := usecase.NewEquipmentUsecase(equipmentRepo)
-
-	// Infrastructure
-	supabaseStorage := storage.NewSupabaseStorage()
 
 	// Handlers
 	authHandler      := handler.NewAuthHandler(authUsecase)

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -13,6 +14,7 @@ class BookingDetailPage extends StatefulWidget {
 
 class _BookingDetailPageState extends State<BookingDetailPage> {
   Map<String, dynamic>? _booking;
+  Map<String, dynamic>? _report;
   bool _loading = true;
   String _error = '';
 
@@ -25,11 +27,14 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   Future<void> _loadBooking() async {
     try {
       final res = await ApiClient.instance.get('/bookings/${widget.bookingId}');
-      if (mounted) {
-        setState(() {
-          _booking = Map<String, dynamic>.from(res.data['data'] ?? {});
-          _loading = false;
-        });
+      if (!mounted) return;
+      final booking = Map<String, dynamic>.from(res.data['data'] ?? {});
+      setState(() {
+        _booking = booking;
+        _loading = false;
+      });
+      if (booking['status'] == 'done') {
+        _loadReport();
       }
     } catch (e) {
       if (mounted) {
@@ -37,6 +42,29 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
           _error   = 'Gagal memuat detail booking';
           _loading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _loadReport() async {
+    try {
+      final res = await ApiClient.instance
+          .get('/reports/${widget.bookingId}');
+      if (mounted) {
+        setState(() {
+          _report = Map<String, dynamic>.from(res.data['data'] ?? {});
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _openPdf(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak dapat membuka PDF')),
+        );
       }
     }
   }
@@ -140,6 +168,10 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       ],
                       const SizedBox(height: 16),
                       _buildEquipmentCard(),
+                      if (_report != null) ...[
+                        const SizedBox(height: 16),
+                        _buildReportCard(),
+                      ],
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -466,6 +498,67 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
           if ((b['description'] ?? '').isNotEmpty)
             _infoRow('Deskripsi', b['description'] ?? ''),
           _infoRow('Lokasi', '${b['site_address'] ?? '-'}, ${b['site_city'] ?? ''}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReportCard() {
+    final pdfUrl = _report?['pdf_url'] as String?;
+    final workDesc = _report?['work_description'] as String? ?? '-';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.assignment_outlined,
+                  size: 15, color: AppTheme.primary),
+              const SizedBox(width: 6),
+              const Text('Laporan servis',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              if (pdfUrl != null)
+                GestureDetector(
+                  onTap: () => _openPdf(pdfUrl),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.picture_as_pdf_outlined,
+                            size: 13, color: AppTheme.primary),
+                        SizedBox(width: 4),
+                        Text('Buka PDF',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(workDesc,
+              style: const TextStyle(
+                  fontSize: 12, color: AppTheme.textSecondary),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis),
         ],
       ),
     );
