@@ -97,13 +97,16 @@ func (u *reportUsecase) CreateReport(bookingID, technicianID string, req domain.
 	u.bookingRepo.UpdateStatus(bookingID, technicianID, "done")
 
 	// Notify client that work is complete
-	u.notifRepo.Create(&domain.Notification{ //nolint
+	if err := u.notifRepo.Create(&domain.Notification{
 		UserID:    booking.CreatedBy,
 		BookingID: &bookingID,
-		Type:      "report_submitted",
+		Type:      "job_done",
 		Title:     "Pekerjaan selesai",
 		Body:      "Laporan servis telah dibuat. Silakan cek detail dan unduh PDF di aplikasi.",
-	})
+		Payload:   map[string]interface{}{},
+	}); err != nil {
+		log.Printf("[notify] gagal buat notif laporan selesai userID=%s: %v", booking.CreatedBy, err)
+	}
 
 	// Generate PDF (best-effort; does not fail the report creation)
 	if u.pdfGen != nil && u.uploader != nil {

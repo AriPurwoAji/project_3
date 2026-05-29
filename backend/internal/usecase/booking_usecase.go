@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"log"
 
 	"github.com/AriPurwoAji/project_3/backend/internal/domain"
 )
@@ -15,15 +16,18 @@ func NewBookingUsecase(repo domain.BookingRepository, notifRepo domain.Notificat
 	return &bookingUsecase{bookingRepo: repo, notifRepo: notifRepo}
 }
 
-// notify creates a notification best-effort (never blocks on error)
-func (u *bookingUsecase) notify(userID string, bookingID *string, title, body string) {
-	u.notifRepo.Create(&domain.Notification{ //nolint
+// notify creates a notification best-effort; logs on error
+func (u *bookingUsecase) notify(userID string, bookingID *string, notifType, title, body string) {
+	if err := u.notifRepo.Create(&domain.Notification{
 		UserID:    userID,
 		BookingID: bookingID,
-		Type:      "booking_update",
+		Type:      notifType,
 		Title:     title,
 		Body:      body,
-	})
+		Payload:   map[string]interface{}{},
+	}); err != nil {
+		log.Printf("[notify] gagal buat notif userID=%s type=%s: %v", userID, notifType, err)
+	}
 }
 
 func (u *bookingUsecase) CreateBooking(userID, companyID string, req domain.CreateBookingRequest) (*domain.Booking, error) {
@@ -80,7 +84,7 @@ func (u *bookingUsecase) ClaimBooking(bookingID, technicianID string) error {
 	if err := u.bookingRepo.ClaimBooking(bookingID, technicianID); err != nil {
 		return err
 	}
-	u.notify(booking.CreatedBy, &bookingID,
+	u.notify(booking.CreatedBy, &bookingID, "job_claimed",
 		"Teknisi ditemukan",
 		"Job Anda sudah diambil dan sedang diproses oleh teknisi.")
 	return nil
@@ -99,11 +103,11 @@ func (u *bookingUsecase) UpdateStatus(bookingID, technicianID, status string) er
 	}
 	switch status {
 	case "on_the_way":
-		u.notify(booking.CreatedBy, &bookingID,
+		u.notify(booking.CreatedBy, &bookingID, "status_changed",
 			"Teknisi dalam perjalanan",
 			"Teknisi sedang menuju lokasi Anda.")
 	case "on_site":
-		u.notify(booking.CreatedBy, &bookingID,
+		u.notify(booking.CreatedBy, &bookingID, "status_changed",
 			"Teknisi tiba di lokasi",
 			"Pengerjaan sedang dimulai.")
 	}
@@ -118,12 +122,10 @@ func (u *bookingUsecase) AssignTechnician(bookingID, technicianID string) error 
 	if err := u.bookingRepo.AssignTechnician(bookingID, technicianID); err != nil {
 		return err
 	}
-	// Notify technician about assignment
-	u.notify(technicianID, &bookingID,
+	u.notify(technicianID, &bookingID, "job_claimed",
 		"Job baru ditugaskan",
 		"Manager telah menugaskan Anda untuk mengerjakan sebuah job.")
-	// Notify client that a technician has been assigned
-	u.notify(booking.CreatedBy, &bookingID,
+	u.notify(booking.CreatedBy, &bookingID, "job_claimed",
 		"Teknisi ditugaskan",
 		"Teknisi telah ditetapkan untuk mengerjakan job Anda.")
 	return nil
