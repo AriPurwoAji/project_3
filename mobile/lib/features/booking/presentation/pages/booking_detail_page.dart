@@ -352,6 +352,32 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
               ),
             ],
           ),
+          if ((b['scheduled_at'] ?? '').isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.calendar_month_outlined,
+                      size: 13, color: AppTheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Dijadwalkan: ${_formatDateTime(b['scheduled_at'])}',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

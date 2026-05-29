@@ -29,6 +29,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   List<dynamic> _equipments = [];
   bool _loading = false;
   bool _loadingEquipment = true;
+  DateTime? _scheduledAt;
 
   // Photo upload
   final _picker    = ImagePicker();
@@ -88,6 +89,8 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
         'site_address':  _addressCtrl.text.trim(),
         'site_city':     _cityCtrl.text.trim(),
         'photo_urls':    _photoUrls,
+        if (_scheduledAt != null)
+          'scheduled_at': _scheduledAt!.toUtc().toIso8601String(),
       });
 
       if (!mounted) return;
@@ -116,6 +119,38 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  String _formatScheduled(DateTime dt) {
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '${dt.day} ${months[dt.month]} ${dt.year} · $h:$m';
+  }
+
+  Future<void> _pickScheduledAt() async {
+    final now  = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _scheduledAt ?? now.add(const Duration(days: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_scheduledAt ?? now),
+    );
+    if (time == null || !mounted) return;
+
+    setState(() {
+      _scheduledAt = DateTime(
+          date.year, date.month, date.day, time.hour, time.minute);
+    });
   }
 
   // Buka bottom sheet tambah equipment
@@ -168,6 +203,60 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                             'Respon < 4 jam', Icons.warning_amber_outlined)),
                       ],
                     ),
+                    // Jadwal booking (hanya untuk standard)
+                    if (_urgencyLevel == 'standard') ...[
+                      const SizedBox(height: 16),
+                      const Text('Jadwal servis (opsional)',
+                          style: TextStyle(
+                              fontSize: 13, color: AppTheme.textSecondary)),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: _pickScheduledAt,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: AppTheme.surface,
+                            border: Border.all(color: AppTheme.border),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_month_outlined,
+                                size: 18,
+                                color: _scheduledAt != null
+                                    ? AppTheme.primary
+                                    : AppTheme.textTertiary,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _scheduledAt != null
+                                      ? _formatScheduled(_scheduledAt!)
+                                      : 'Pilih tanggal & jam',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: _scheduledAt != null
+                                        ? AppTheme.textPrimary
+                                        : AppTheme.textTertiary,
+                                  ),
+                                ),
+                              ),
+                              if (_scheduledAt != null)
+                                GestureDetector(
+                                  onTap: () =>
+                                      setState(() => _scheduledAt = null),
+                                  child: const Icon(Icons.close,
+                                      size: 16,
+                                      color: AppTheme.textTertiary),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 16),
 
                     // Service type
@@ -364,7 +453,10 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
     final bgColor = isEmergency ? AppTheme.dangerLight : AppTheme.primaryLight;
 
     return GestureDetector(
-      onTap: () => setState(() => _urgencyLevel = value),
+      onTap: () => setState(() {
+        _urgencyLevel = value;
+        if (value == 'emergency') _scheduledAt = null;
+      }),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
