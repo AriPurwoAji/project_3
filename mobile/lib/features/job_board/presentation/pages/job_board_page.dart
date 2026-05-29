@@ -18,20 +18,15 @@ class _JobBoardPageState extends State<JobBoardPage>
   final _storage = const FlutterSecureStorage();
 
   List<dynamic> _openJobs = [];
-  List<dynamic> _myJobs   = [];
+  List<dynamic> _doneJobs = [];
   bool   _loading = true;
   String _name    = '';
   late TabController _tabController;
 
-  List<dynamic> get _activeJobs =>
-      _myJobs.where((j) => j['status'] != 'done').toList();
-  List<dynamic> get _doneJobs =>
-      _myJobs.where((j) => j['status'] == 'done').toList();
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _loadData();
   }
 
@@ -49,9 +44,13 @@ class _JobBoardPageState extends State<JobBoardPage>
         ApiClient.instance.get('/my-jobs'),
       ]);
       if (mounted) {
+        final allMyJobs = List<dynamic>.from(
+            results[1].data['data'] ?? []);
         setState(() {
           _openJobs = results[0].data['data'] ?? [];
-          _myJobs   = results[1].data['data'] ?? [];
+          _doneJobs = allMyJobs
+              .where((j) => j['status'] == 'done')
+              .toList();
           _loading  = false;
         });
       }
@@ -59,8 +58,6 @@ class _JobBoardPageState extends State<JobBoardPage>
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  // ─── ACTIONS ─────────────────────────────────────────────────────────────
 
   Future<void> _claimJob(String bookingID) async {
     try {
@@ -75,36 +72,6 @@ class _JobBoardPageState extends State<JobBoardPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Gagal mengambil job'),
-        backgroundColor: AppTheme.danger,
-      ));
-    }
-  }
-
-  Future<void> _updateStatus(dynamic job) async {
-    final status = job['status'] ?? '';
-    switch (status) {
-      case 'on_site':
-        await context.push('/report/create',
-            extra: Map<String, dynamic>.from(job));
-        if (mounted) _loadData();
-        return;
-    }
-    final nextStatus = status == 'in_progress' ? 'on_the_way' : 'on_site';
-    try {
-      await ApiClient.instance.patch(
-        '/bookings/${job['id']}/status',
-        data: {'status': nextStatus},
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Status diupdate ke $nextStatus'),
-        backgroundColor: AppTheme.secondary,
-      ));
-      _loadData();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Gagal update status'),
         backgroundColor: AppTheme.danger,
       ));
     }
@@ -125,26 +92,6 @@ class _JobBoardPageState extends State<JobBoardPage>
   Color _urgencyBg(String u) =>
       u == 'emergency' ? AppTheme.dangerLight : AppTheme.primaryLight;
 
-  Color _statusColor(String s) {
-    switch (s) {
-      case 'in_progress':
-      case 'on_the_way':  return AppTheme.warning;
-      case 'on_site':     return AppTheme.primary;
-      case 'done':        return AppTheme.secondary;
-      default:            return AppTheme.textTertiary;
-    }
-  }
-
-  String _statusLabel(String s) {
-    switch (s) {
-      case 'in_progress': return 'In Progress';
-      case 'on_the_way':  return 'On The Way';
-      case 'on_site':     return 'On Site';
-      case 'done':        return 'Selesai';
-      default:            return s;
-    }
-  }
-
   Color _serviceTypeColor(String s) {
     switch (s) {
       case 'repair':      return AppTheme.danger;
@@ -163,23 +110,14 @@ class _JobBoardPageState extends State<JobBoardPage>
     }
   }
 
-  String _nextStatusLabel(String s) {
-    switch (s) {
-      case 'in_progress': return 'Berangkat';
-      case 'on_the_way':  return 'Tiba di Lokasi';
-      case 'on_site':     return 'Submit Laporan';
-      default:            return 'Update Status';
-    }
-  }
-
   String _timeAgo(String? iso) {
     if (iso == null) return '';
     try {
       final dt   = DateTime.parse(iso).toLocal();
       final diff = DateTime.now().difference(dt);
-      if (diff.inMinutes < 60)  return '${diff.inMinutes} mnt lalu';
-      if (diff.inHours   < 24)  return '${diff.inHours} jam lalu';
-      if (diff.inDays    < 7)   return '${diff.inDays} hari lalu';
+      if (diff.inMinutes < 60) return '${diff.inMinutes} mnt lalu';
+      if (diff.inHours   < 24) return '${diff.inHours} jam lalu';
+      if (diff.inDays    < 7)  return '${diff.inDays} hari lalu';
       const m = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
                  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
       return '${dt.day} ${m[dt.month]}';
@@ -199,7 +137,6 @@ class _JobBoardPageState extends State<JobBoardPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Custom header ─────────────────────────────────────────────
             Container(
               color: AppTheme.surface,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -234,7 +171,8 @@ class _JobBoardPageState extends State<JobBoardPage>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              width: 7, height: 7,
+                              width: 7,
+                              height: 7,
                               decoration: const BoxDecoration(
                                 color: AppTheme.secondary,
                                 shape: BoxShape.circle,
@@ -252,18 +190,14 @@ class _JobBoardPageState extends State<JobBoardPage>
                     ],
                   ),
                   const SizedBox(height: 14),
-                  // Stats row
                   Row(
                     children: [
                       _statBox('Job tersedia', '${_openJobs.length}'),
-                      const SizedBox(width: 12),
-                      _statBox('My Jobs aktif', '${_activeJobs.length}'),
                       const SizedBox(width: 12),
                       _statBox('Selesai', '${_doneJobs.length}'),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // Tab bar
                   TabBar(
                     controller: _tabController,
                     labelColor: AppTheme.primary,
@@ -271,14 +205,12 @@ class _JobBoardPageState extends State<JobBoardPage>
                     indicatorColor: AppTheme.primary,
                     tabs: [
                       Tab(text: 'Open (${_openJobs.length})'),
-                      Tab(text: 'My Jobs (${_activeJobs.length})'),
                       Tab(text: 'Selesai (${_doneJobs.length})'),
                     ],
                   ),
                 ],
               ),
             ),
-            // ── Tab content ───────────────────────────────────────────────
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
@@ -286,8 +218,7 @@ class _JobBoardPageState extends State<JobBoardPage>
                       controller: _tabController,
                       children: [
                         _jobList(_openJobs, isOpen: true),
-                        _jobList(_activeJobs, isMyJob: true),
-                        _jobList(_doneJobs, isMyJob: true, isDone: true),
+                        _jobList(_doneJobs, isDone: true),
                       ],
                     ),
             ),
@@ -318,47 +249,39 @@ class _JobBoardPageState extends State<JobBoardPage>
       );
 
   Widget _jobList(List<dynamic> jobs,
-      {bool isOpen = false, bool isMyJob = false, bool isDone = false}) {
+      {bool isOpen = false, bool isDone = false}) {
     final emptyMsg = isOpen
         ? 'Tidak ada job tersedia'
-        : isDone
-            ? 'Belum ada job selesai'
-            : 'Belum ada job aktif';
+        : 'Belum ada job selesai';
 
     return RefreshIndicator(
       onRefresh: _loadData,
       child: jobs.isEmpty
-          ? ListView(
-              children: [
-                SizedBox(
-                  height: 200,
-                  child: Center(
-                    child: Text(emptyMsg,
-                        style: const TextStyle(
-                            color: AppTheme.textSecondary)),
-                  ),
+          ? ListView(children: [
+              SizedBox(
+                height: 200,
+                child: Center(
+                  child: Text(emptyMsg,
+                      style: const TextStyle(
+                          color: AppTheme.textSecondary)),
                 ),
-              ],
-            )
+              ),
+            ])
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: jobs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) => _buildJobCard(
-                jobs[i],
-                isOpen: isOpen,
-                isMyJob: isMyJob,
-                isDone: isDone,
-              ),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: 10),
+              itemBuilder: (_, i) =>
+                  _buildJobCard(jobs[i], isOpen: isOpen, isDone: isDone),
             ),
     );
   }
 
   Widget _buildJobCard(dynamic job,
-      {bool isOpen = false, bool isMyJob = false, bool isDone = false}) {
+      {bool isOpen = false, bool isDone = false}) {
     final urgency     = job['urgency_level'] ?? 'standard';
     final isEmergency = urgency == 'emergency';
-    final status      = job['status'] ?? '';
     final serviceType = job['service_type'] ?? '';
 
     return Container(
@@ -374,11 +297,11 @@ class _JobBoardPageState extends State<JobBoardPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Badges row
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: _urgencyBg(urgency),
                   borderRadius: BorderRadius.circular(99),
@@ -391,7 +314,8 @@ class _JobBoardPageState extends State<JobBoardPage>
               ),
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: _serviceTypeBg(serviceType),
                   borderRadius: BorderRadius.circular(99),
@@ -402,27 +326,12 @@ class _JobBoardPageState extends State<JobBoardPage>
                         color: _serviceTypeColor(serviceType))),
               ),
               const Spacer(),
-              if (isMyJob)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _statusColor(status).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(_statusLabel(status),
-                      style: TextStyle(
-                          fontSize: 9,
-                          color: _statusColor(status),
-                          fontWeight: FontWeight.w500)),
-                )
-              else
-                Text(_timeAgo(job['created_at']),
-                    style: const TextStyle(
-                        fontSize: 11, color: AppTheme.textTertiary)),
+              Text(_timeAgo(job['created_at']),
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTheme.textTertiary)),
             ],
           ),
           const SizedBox(height: 8),
-          // Job title (description — PT name)
           Text(
             '${job['description'] ?? '-'} — ${job['company_name'] ?? ''}',
             style: const TextStyle(
@@ -431,13 +340,11 @@ class _JobBoardPageState extends State<JobBoardPage>
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
-          // Equipment + location
           Text(
             '${job['equipment_name'] ?? '-'}  ·  ${job['site_city'] ?? '-'}',
             style: const TextStyle(
                 fontSize: 12, color: AppTheme.textSecondary),
           ),
-          // Action buttons
           if (isOpen) ...[
             const SizedBox(height: 12),
             Row(
@@ -456,7 +363,8 @@ class _JobBoardPageState extends State<JobBoardPage>
                     ),
                     child: const Text('Detail',
                         style: TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 13)),
+                            color: AppTheme.textSecondary,
+                            fontSize: 13)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -464,8 +372,9 @@ class _JobBoardPageState extends State<JobBoardPage>
                   child: ElevatedButton(
                     onPressed: () => _claimJob(job['id']),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          isEmergency ? AppTheme.danger : AppTheme.primary,
+                      backgroundColor: isEmergency
+                          ? AppTheme.danger
+                          : AppTheme.primary,
                       minimumSize: const Size(0, 38),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
@@ -475,24 +384,6 @@ class _JobBoardPageState extends State<JobBoardPage>
                   ),
                 ),
               ],
-            ),
-          ] else if (isMyJob && !isDone) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _updateStatus(job),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: status == 'on_site'
-                      ? AppTheme.secondary
-                      : AppTheme.primary,
-                  minimumSize: const Size(0, 38),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-                child: Text(_nextStatusLabel(status),
-                    style: const TextStyle(fontSize: 13)),
-              ),
             ),
           ] else if (isDone) ...[
             const SizedBox(height: 8),

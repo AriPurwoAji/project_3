@@ -4,6 +4,7 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/profile_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/job_board/presentation/pages/job_board_page.dart';
+import '../../features/job_board/presentation/pages/my_jobs_page.dart';
 import '../../features/booking/presentation/pages/booking_list_page.dart';
 import '../../features/booking/presentation/pages/booking_detail_page.dart';
 import '../../features/booking/presentation/pages/create_booking_page.dart';
@@ -45,7 +46,7 @@ final appRouter = GoRouter(
     GoRoute(path: '/job-board',
         builder: (_, __) => const JobBoardPage()),
     GoRoute(path: '/my-jobs',
-        builder: (_, __) => const JobBoardPage()),
+        builder: (_, __) => const MyJobsPage()),
     GoRoute(path: '/laporan',
         builder: (_, __) => const LaporanPage()),
 

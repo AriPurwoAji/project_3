@@ -93,6 +93,7 @@ flutter run
 | Email | Password | Role |
 |---|---|---|
 | `manager@hydraulic.com` | `Admin123!` | Manager |
+| `teknisi@hydraulic.com` | `Admin123!` | Teknisi |
 | `client.ptkai@hydraulic.com` | `Client123!` | Client (PT KAI) |
 | `client.pln@hydraulic.com` | `Client123!` | Client (PT PLN) |
 
