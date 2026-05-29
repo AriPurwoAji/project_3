@@ -153,8 +153,10 @@ class _BookingListPageState extends State<BookingListPage> {
                               final isEmergency =
                                   b['urgency_level'] == 'emergency';
                               return GestureDetector(
-                                onTap: () =>
-                                    context.push('/booking/${b['id']}'),
+                                onTap: () async {
+                                  await context.push('/booking/${b['id']}');
+                                  if (mounted) _loadData();
+                                },
                                 child: Container(
                                 decoration: BoxDecoration(
                                   color: AppTheme.surface,

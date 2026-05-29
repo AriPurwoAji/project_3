@@ -84,7 +84,9 @@ class _JobBoardPageState extends State<JobBoardPage>
     final status = job['status'] ?? '';
     switch (status) {
       case 'on_site':
-        context.push('/report/create', extra: Map<String, dynamic>.from(job));
+        await context.push('/report/create',
+            extra: Map<String, dynamic>.from(job));
+        if (mounted) _loadData();
         return;
     }
     final nextStatus = status == 'in_progress' ? 'on_the_way' : 'on_site';
@@ -442,7 +444,10 @@ class _JobBoardPageState extends State<JobBoardPage>
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => context.push('/booking/${job['id']}'),
+                    onPressed: () async {
+                      await context.push('/booking/${job['id']}');
+                      if (mounted) _loadData();
+                    },
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppTheme.border),
                       minimumSize: const Size(0, 38),
@@ -492,7 +497,10 @@ class _JobBoardPageState extends State<JobBoardPage>
           ] else if (isDone) ...[
             const SizedBox(height: 8),
             GestureDetector(
-              onTap: () => context.push('/booking/${job['id']}'),
+              onTap: () async {
+                await context.push('/booking/${job['id']}');
+                if (mounted) _loadData();
+              },
               child: const Row(
                 children: [
                   Icon(Icons.description_outlined,

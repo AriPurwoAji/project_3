@@ -1,6 +1,9 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/bottom_nav.dart';
@@ -50,14 +53,29 @@ class _LaporanPageState extends State<LaporanPage> {
     }
   }
 
-  Future<void> _openPdf(String url) async {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+  String? _downloadingReportId;
+
+  Future<void> _sharePdf(String url, String reportId) async {
+    if (_downloadingReportId != null) return;
+    setState(() => _downloadingReportId = reportId);
+    try {
+      final dir  = await getTemporaryDirectory();
+      final path = '${dir.path}/laporan_$reportId.pdf';
+      if (!File(path).existsSync()) {
+        await Dio().download(url, path);
+      }
+      await Share.shareXFiles(
+        [XFile(path, mimeType: 'application/pdf')],
+        subject: 'Laporan Servis HydroServ',
+      );
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tidak dapat membuka PDF')),
+          const SnackBar(content: Text('Gagal mengunduh PDF')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _downloadingReportId = null);
     }
   }
 
@@ -92,7 +110,10 @@ class _LaporanPageState extends State<LaporanPage> {
     final createdAt   = r['created_at'] ?? '';
 
     return GestureDetector(
-      onTap: () => context.push('/booking/${booking['id'] ?? ''}'),
+      onTap: () async {
+        await context.push('/booking/${booking['id'] ?? ''}');
+        if (mounted) _loadData();
+      },
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -135,33 +156,49 @@ class _LaporanPageState extends State<LaporanPage> {
                         fontSize: 11, color: AppTheme.secondary)),
                 const Spacer(),
                 if (r['pdf_url'] != null)
-                  GestureDetector(
-                    onTap: () => _openPdf(r['pdf_url'] as String),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryLight,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.picture_as_pdf_outlined,
-                              size: 12, color: AppTheme.primary),
-                          SizedBox(width: 4),
-                          Text('Buka PDF',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.primary,
-                                  fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _pdfButton(r['pdf_url'] as String, r['id'] as String? ?? ''),
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pdfButton(String url, String reportId) {
+    final loading = _downloadingReportId == reportId;
+    return GestureDetector(
+      onTap: loading ? null : () => _sharePdf(url, reportId),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryLight,
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: loading
+              ? const [
+                  SizedBox(
+                      width: 10,
+                      height: 10,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 1.5, color: AppTheme.primary)),
+                  SizedBox(width: 4),
+                  Text('Mengunduh...',
+                      style: TextStyle(
+                          fontSize: 11, color: AppTheme.primary)),
+                ]
+              : const [
+                  Icon(Icons.share_outlined,
+                      size: 12, color: AppTheme.primary),
+                  SizedBox(width: 4),
+                  Text('Bagikan PDF',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.w500)),
+                ],
         ),
       ),
     );

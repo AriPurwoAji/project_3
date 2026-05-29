@@ -196,7 +196,10 @@ class _HomeClientPageState extends State<HomeClientPage> {
     final isEmergency = b['urgency_level'] == 'emergency';
 
     return GestureDetector(
-      onTap: () => context.push('/booking/${b['id']}'),
+      onTap: () async {
+        await context.push('/booking/${b['id']}');
+        if (mounted) _loadData();
+      },
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -386,7 +389,10 @@ class _HomeClientPageState extends State<HomeClientPage> {
   Widget _recentCard(dynamic b) {
     final status = b['status'] ?? '';
     return GestureDetector(
-      onTap: () => context.push('/booking/${b['id']}'),
+      onTap: () async {
+        await context.push('/booking/${b['id']}');
+        if (mounted) _loadData();
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),

@@ -1,7 +1,10 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -61,14 +64,30 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     } catch (_) {}
   }
 
-  Future<void> _openPdf(String url) async {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+  bool _downloadingPdf = false;
+
+  Future<void> _sharePdf(String url) async {
+    if (_downloadingPdf) return;
+    setState(() => _downloadingPdf = true);
+    try {
+      final dir      = await getTemporaryDirectory();
+      final reportId = _report?['id'] as String? ?? 'report';
+      final path     = '${dir.path}/laporan_$reportId.pdf';
+      if (!File(path).existsSync()) {
+        await Dio().download(url, path);
+      }
+      await Share.shareXFiles(
+        [XFile(path, mimeType: 'application/pdf')],
+        subject: 'Laporan Servis HydroServ',
+      );
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tidak dapat membuka PDF')),
+          const SnackBar(content: Text('Gagal mengunduh PDF')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _downloadingPdf = false);
     }
   }
 
@@ -536,7 +555,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
               const Spacer(),
               if (pdfUrl != null)
                 GestureDetector(
-                  onTap: () => _openPdf(pdfUrl),
+                  onTap: _downloadingPdf ? null : () => _sharePdf(pdfUrl),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 4),
@@ -544,18 +563,32 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       color: AppTheme.primaryLight,
                       borderRadius: BorderRadius.circular(99),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.picture_as_pdf_outlined,
-                            size: 13, color: AppTheme.primary),
-                        SizedBox(width: 4),
-                        Text('Buka PDF',
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.primary,
-                                fontWeight: FontWeight.w500)),
-                      ],
+                      children: _downloadingPdf
+                          ? const [
+                              SizedBox(
+                                  width: 10,
+                                  height: 10,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: AppTheme.primary)),
+                              SizedBox(width: 4),
+                              Text('Mengunduh...',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.primary)),
+                            ]
+                          : const [
+                              Icon(Icons.share_outlined,
+                                  size: 13, color: AppTheme.primary),
+                              SizedBox(width: 4),
+                              Text('Bagikan PDF',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.primary,
+                                      fontWeight: FontWeight.w500)),
+                            ],
                     ),
                   ),
                 ),
