@@ -12,6 +12,7 @@ import '../../features/booking/presentation/pages/riwayat_page.dart';
 import '../../features/booking/presentation/pages/technician_list_page.dart';
 import '../../features/report/presentation/pages/create_report_page.dart';
 import '../../features/report/presentation/pages/laporan_page.dart';
+import '../../features/notification/presentation/pages/notification_page.dart';
 import '../constants/app_constants.dart';
 
 const _storage = FlutterSecureStorage();
@@ -71,6 +72,8 @@ final appRouter = GoRouter(
         return CreateReportPage(booking: booking);
       },
     ),
+    GoRoute(path: '/notifications',
+        builder: (_, __) => const NotificationPage()),
     GoRoute(path: '/profile',
         builder: (_, __) => const ProfilePage()),
   ],

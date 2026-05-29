@@ -19,6 +19,7 @@ class _HomeClientPageState extends State<HomeClientPage> {
   String _name        = '';
   String _companyName = '';
   bool   _loading     = true;
+  int    _unreadCount = 0;
 
   Map<String, dynamic>? _activeBooking;
   List<dynamic>         _recentDone = [];
@@ -33,6 +34,17 @@ class _HomeClientPageState extends State<HomeClientPage> {
     _name        = await _storage.read(key: AppConstants.userNameKey)    ?? '';
     _companyName = await _storage.read(key: AppConstants.companyNameKey) ?? '';
     final companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
+
+    try {
+      final countRes = await ApiClient.instance
+          .get('/notifications/unread-count');
+      if (mounted) {
+        setState(() {
+          _unreadCount =
+              (countRes.data['data']['unread_count'] as num?)?.toInt() ?? 0;
+        });
+      }
+    } catch (_) {}
 
     try {
       final query = companyId.isNotEmpty ? '?company_id=$companyId' : '';
@@ -158,10 +170,20 @@ class _HomeClientPageState extends State<HomeClientPage> {
             ],
           ),
         ),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.notifications_outlined),
-          color: AppTheme.textSecondary,
+        Badge(
+          label: Text('$_unreadCount'),
+          isLabelVisible: _unreadCount > 0,
+          child: IconButton(
+            onPressed: () => context.push('/notifications'),
+            icon: Icon(
+              _unreadCount > 0
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_outlined,
+            ),
+            color: _unreadCount > 0
+                ? AppTheme.primary
+                : AppTheme.textSecondary,
+          ),
         ),
       ],
     );

@@ -189,20 +189,12 @@ class _RiwayatPageState extends State<RiwayatPage> {
                         color: AppTheme.textSecondary)),
               ],
             ),
-            if (hasPressure || true) ...[
+            if (hasPressure) ...[
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                children: [
-                  if (hasPressure)
-                    _tag(
-                      '${b['pressure_before_bar'] ?? '?'} → ${b['pressure_after_bar'] ?? '?'} bar',
-                      AppTheme.primary,
-                      AppTheme.primaryLight,
-                    ),
-                  _tag('Laporan PDF', AppTheme.secondary,
-                      AppTheme.secondary.withValues(alpha: 0.1)),
-                ],
+              _tag(
+                '${b['pressure_before_bar'] ?? '?'} → ${b['pressure_after_bar'] ?? '?'} bar',
+                AppTheme.primary,
+                AppTheme.primaryLight,
               ),
             ],
           ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -13,10 +15,12 @@ class BookingDetailPage extends StatefulWidget {
 }
 
 class _BookingDetailPageState extends State<BookingDetailPage> {
+  final _storage = const FlutterSecureStorage();
   Map<String, dynamic>? _booking;
   Map<String, dynamic>? _report;
-  bool _loading = true;
-  String _error = '';
+  bool   _loading   = true;
+  String _error     = '';
+  String _userRole  = '';
 
   @override
   void initState() {
@@ -25,6 +29,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   }
 
   Future<void> _loadBooking() async {
+    _userRole = await _storage.read(key: AppConstants.userRoleKey) ?? '';
     try {
       final res = await ApiClient.instance.get('/bookings/${widget.bookingId}');
       if (!mounted) return;
@@ -33,9 +38,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         _booking = booking;
         _loading = false;
       });
-      if (booking['status'] == 'done') {
-        _loadReport();
-      }
+      if (booking['status'] == 'done') _loadReport();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -162,6 +165,11 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       _buildHeaderCard(),
                       const SizedBox(height: 16),
                       _buildTrackingSection(),
+                      if (_userRole == AppConstants.roleManager &&
+                          _booking!['status'] == 'open') ...[
+                        const SizedBox(height: 16),
+                        _buildAssignButton(),
+                      ],
                       if ((_booking!['technician_name'] ?? '').isNotEmpty) ...[
                         const SizedBox(height: 16),
                         _buildTechnicianCard(),
@@ -564,6 +572,48 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     );
   }
 
+  // ─── ASSIGN TEKNISI (manager only) ───────────────────────────────────────
+
+  Widget _buildAssignButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        icon: const Icon(Icons.person_add_outlined, size: 18),
+        label: const Text('Assign Teknisi'),
+        onPressed: _showAssignSheet,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  void _showAssignSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => _AssignTechnicianSheet(
+        bookingId: widget.bookingId,
+        onAssigned: () {
+          Navigator.pop(ctx);
+          _loadBooking();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Teknisi berhasil di-assign')),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _infoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -581,6 +631,196 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                 style: const TextStyle(
                     fontSize: 12, fontWeight: FontWeight.w500)),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── ASSIGN TECHNICIAN SHEET ──────────────────────────────────────────────────
+
+class _AssignTechnicianSheet extends StatefulWidget {
+  final String bookingId;
+  final VoidCallback onAssigned;
+
+  const _AssignTechnicianSheet({
+    required this.bookingId,
+    required this.onAssigned,
+  });
+
+  @override
+  State<_AssignTechnicianSheet> createState() =>
+      _AssignTechnicianSheetState();
+}
+
+class _AssignTechnicianSheetState extends State<_AssignTechnicianSheet> {
+  List<dynamic> _teknisi  = [];
+  bool          _loading  = true;
+  bool          _assigning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeknisi();
+  }
+
+  Future<void> _loadTeknisi() async {
+    try {
+      final res = await ApiClient.instance.get('/users/teknisi');
+      if (mounted) {
+        setState(() {
+          _teknisi = res.data['data'] ?? [];
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _assign(String technicianId) async {
+    setState(() => _assigning = true);
+    try {
+      await ApiClient.instance.post(
+        '/bookings/${widget.bookingId}/assign',
+        data: {'technician_id': technicianId},
+      );
+      widget.onAssigned();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal mengassign teknisi')),
+        );
+        setState(() => _assigning = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.border,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 8, 8),
+            child: Row(
+              children: [
+                const Text('Pilih Teknisi',
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            )
+          else if (_teknisi.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Text('Belum ada teknisi terdaftar',
+                  style: TextStyle(color: AppTheme.textSecondary)),
+            )
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.5,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                itemCount: _teknisi.length,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: 8),
+                itemBuilder: (_, i) {
+                  final t       = _teknisi[i];
+                  final name    = t['full_name'] as String? ?? '-';
+                  final phone   = t['phone'] as String? ?? '';
+                  final initial = name.isNotEmpty
+                      ? name[0].toUpperCase()
+                      : '?';
+
+                  return GestureDetector(
+                    onTap: _assigning
+                        ? null
+                        : () => _assign(t['id'] as String),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: AppTheme.border, width: 0.5),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: AppTheme.primaryLight,
+                            child: Text(initial,
+                                style: const TextStyle(
+                                    color: AppTheme.primary,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(name,
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500)),
+                                if (phone.isNotEmpty)
+                                  Text(phone,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondary)),
+                              ],
+                            ),
+                          ),
+                          if (_assigning)
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2),
+                            )
+                          else
+                            const Icon(Icons.chevron_right,
+                                size: 18,
+                                color: AppTheme.textTertiary),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );
