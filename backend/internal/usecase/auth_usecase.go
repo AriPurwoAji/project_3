@@ -50,3 +50,18 @@ func (u *authUsecase) GetProfile(id string) (*domain.User, error) {
 func (u *authUsecase) GetTechnicians() ([]domain.User, error) {
 	return u.userRepo.FindAllByRole("teknisi")
 }
+
+func (u *authUsecase) Register(req domain.RegisterRequest) (*domain.User, error) {
+	// Cek email sudah dipakai
+	if _, _, err := u.userRepo.FindByEmail(req.Email); err == nil {
+		return nil, errors.New("email sudah terdaftar")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, errors.New("gagal memproses password")
+	}
+	req.PasswordHash = string(hash)
+
+	return u.userRepo.Register(req)
+}

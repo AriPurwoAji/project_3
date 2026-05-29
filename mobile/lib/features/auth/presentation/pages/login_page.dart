@@ -282,7 +282,29 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                       ),
 
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Belum punya akun? ',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondary),
+                          ),
+                          GestureDetector(
+                            onTap: () => context.go('/register'),
+                            child: const Text(
+                              'Daftar sekarang',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       const Center(
                         child: Text(
                           'Akses akan disesuaikan berdasarkan role akun',

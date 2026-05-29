@@ -86,6 +86,49 @@ func (r *userRepository) UpdateFCMToken(id, token string) error {
 	return err
 }
 
+func (r *userRepository) Register(req domain.RegisterRequest) (*domain.User, error) {
+	ctx := context.Background()
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx) //nolint
+
+	// 1. Buat company baru
+	var companyID string
+	err = tx.QueryRow(ctx,
+		`INSERT INTO companies (name) VALUES ($1) RETURNING id`,
+		req.CompanyName,
+	).Scan(&companyID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Buat user dengan role client
+	var user domain.User
+	err = tx.QueryRow(ctx,
+		`INSERT INTO users (email, password_hash, full_name, phone, role, company_id)
+		 VALUES ($1, $2, $3, NULLIF($4,''), 'client', $5)
+		 RETURNING id, email, full_name, role, is_active, created_at, updated_at`,
+		req.Email, req.PasswordHash, req.FullName, req.Phone, companyID,
+	).Scan(
+		&user.ID, &user.Email, &user.FullName, &user.Role,
+		&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	user.Phone       = req.Phone
+	user.CompanyID   = companyID
+	user.CompanyName = req.CompanyName
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *userRepository) FindAllByRole(role string) ([]domain.User, error) {
 	query := `
 		SELECT u.id, u.email, u.full_name, u.phone, u.role,

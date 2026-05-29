@@ -38,6 +38,7 @@ func Setup(
 	// Public
 	auth := api.Group("/auth")
 	{
+		auth.POST("/register", authHandler.Register)
 		auth.POST("/login", authHandler.Login)
 		auth.GET("/me", middleware.AuthMiddleware(), authHandler.GetProfile)
 	}

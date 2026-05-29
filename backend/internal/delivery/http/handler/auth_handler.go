@@ -40,6 +40,21 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	response.Success(c, 200, "Success", user)
 }
 
+func (h *AuthHandler) Register(c *gin.Context) {
+	var req domain.RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Request tidak valid: "+err.Error())
+		return
+	}
+
+	user, err := h.authUsecase.Register(req)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 201, "Registrasi berhasil", user)
+}
+
 func (h *AuthHandler) GetTechnicians(c *gin.Context) {
 	users, err := h.authUsecase.GetTechnicians()
 	if err != nil {

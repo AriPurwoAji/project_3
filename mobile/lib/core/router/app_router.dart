@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/profile_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/job_board/presentation/pages/job_board_page.dart';
@@ -35,6 +36,8 @@ final appRouter = GoRouter(
   routes: [
     GoRoute(path: '/login',
         builder: (_, __) => const LoginPage()),
+    GoRoute(path: '/register',
+        builder: (_, __) => const RegisterPage()),
 
     // ── Manager ──────────────────────────────────────────────────────────
     GoRoute(path: '/dashboard',

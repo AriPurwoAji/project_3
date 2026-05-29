@@ -24,6 +24,16 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required,min=6"`
 }
 
+type RegisterRequest struct {
+	FullName    string `json:"full_name"    binding:"required"`
+	Email       string `json:"email"        binding:"required,email"`
+	Password    string `json:"password"     binding:"required,min=6"`
+	Phone       string `json:"phone"`
+	CompanyName string `json:"company_name" binding:"required"`
+	// set by usecase before passing to repository
+	PasswordHash string `json:"-"`
+}
+
 type LoginResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -35,10 +45,12 @@ type UserRepository interface {
 	FindByID(id string) (*User, error)
 	UpdateFCMToken(id, token string) error
 	FindAllByRole(role string) ([]User, error)
+	Register(req RegisterRequest) (*User, error)
 }
 
 type AuthUsecase interface {
 	Login(req LoginRequest) (*LoginResponse, error)
 	GetProfile(id string) (*User, error)
 	GetTechnicians() ([]User, error)
+	Register(req RegisterRequest) (*User, error)
 }
