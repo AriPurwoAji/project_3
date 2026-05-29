@@ -40,8 +40,8 @@ func main() {
 
 	// Usecases
 	authUsecase      := usecase.NewAuthUsecase(userRepo)
-	bookingUsecase   := usecase.NewBookingUsecase(bookingRepo)
-	reportUsecase    := usecase.NewReportUsecase(reportRepo, bookingRepo, pdfGenerator, supabaseStorage)
+	bookingUsecase   := usecase.NewBookingUsecase(bookingRepo, notifRepo)
+	reportUsecase    := usecase.NewReportUsecase(reportRepo, bookingRepo, pdfGenerator, supabaseStorage, notifRepo)
 	notifUsecase     := usecase.NewNotificationUsecase(notifRepo)
 	dashboardUsecase := usecase.NewDashboardUsecase(dashboardRepo)
 	equipmentUsecase := usecase.NewEquipmentUsecase(equipmentRepo)

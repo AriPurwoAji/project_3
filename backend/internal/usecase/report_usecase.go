@@ -13,6 +13,7 @@ type reportUsecase struct {
 	bookingRepo domain.BookingRepository
 	pdfGen      domain.PDFReportGenerator
 	uploader    domain.FileUploader
+	notifRepo   domain.NotificationRepository
 }
 
 func NewReportUsecase(
@@ -20,12 +21,14 @@ func NewReportUsecase(
 	bookingRepo domain.BookingRepository,
 	pdfGen domain.PDFReportGenerator,
 	uploader domain.FileUploader,
+	notifRepo domain.NotificationRepository,
 ) domain.ReportUsecase {
 	return &reportUsecase{
 		reportRepo:  reportRepo,
 		bookingRepo: bookingRepo,
 		pdfGen:      pdfGen,
 		uploader:    uploader,
+		notifRepo:   notifRepo,
 	}
 }
 
@@ -92,6 +95,15 @@ func (u *reportUsecase) CreateReport(bookingID, technicianID string, req domain.
 
 	// Update booking status jadi done
 	u.bookingRepo.UpdateStatus(bookingID, technicianID, "done")
+
+	// Notify client that work is complete
+	u.notifRepo.Create(&domain.Notification{ //nolint
+		UserID:    booking.CreatedBy,
+		BookingID: &bookingID,
+		Type:      "report_submitted",
+		Title:     "Pekerjaan selesai",
+		Body:      "Laporan servis telah dibuat. Silakan cek detail dan unduh PDF di aplikasi.",
+	})
 
 	// Generate PDF (best-effort; does not fail the report creation)
 	if u.pdfGen != nil && u.uploader != nil {

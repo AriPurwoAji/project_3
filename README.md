@@ -103,17 +103,25 @@ flutter run
 
 ## Status Fitur
 
-### Selesai
-- Login & autentikasi JWT per role
-- Buat booking + tambah equipment inline
+### Selesai ✅
+- Login & autentikasi JWT per role (manager / teknisi / client / sales)
+- Buat booking + tambah equipment inline + upload foto kerusakan
 - Isolasi data per perusahaan (booking & equipment)
-- Job board teknisi (claim job, update status)
-- Dashboard statistik manager
-- Profil user
+- Job board teknisi: Tab Open & Selesai; My Jobs terpisah dengan update status
+- Manager: assign teknisi ke booking open via bottom sheet
+- Manager: daftar semua teknisi (`/technicians`)
+- Dashboard statistik manager (summary, performa teknisi, tren servis)
+- Form laporan hydraulic lengkap (repair / inspeksi / maintenance) + foto before/after
+- Generate PDF laporan otomatis → upload ke Supabase Storage
+- Share PDF laporan via native share sheet (WhatsApp, Drive, dll)
+- Search & filter di halaman Laporan (by teks + tipe servis, dengan highlight)
+- Notifikasi in-app: auto-dibuat saat claim, assign, update status, laporan selesai
+- Bell icon dengan badge unread count; halaman notifikasi dengan mark-as-read
+- Profil user per role
+- Auto-refresh list setelah setiap aksi (back dari detail → list reload)
+- Riwayat booking client dengan filter tipe servis
 
-### Dalam Pengembangan
-- Form laporan hydraulic (teknisi)
-- Upload foto & generate PDF laporan
-- Notifikasi push (FCM)
+### Belum Diimplementasi
+- FCM push notification (perlu `google-services.json` + Firebase setup)
 - Registrasi akun mandiri oleh client
-- Fitur lokasi dengan GPS/Maps
+- Fitur lokasi / GPS / Maps

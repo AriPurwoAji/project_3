@@ -80,8 +80,8 @@ class _BookingListPageState extends State<BookingListPage> {
 
   int get _navIndex {
     switch (_role) {
-      case AppConstants.roleManager: return 1;
-      default: return 0;
+      case AppConstants.roleTeknisi: return 0;
+      default: return 1; // manager(1), client(1), sales(1)
     }
   }
 
