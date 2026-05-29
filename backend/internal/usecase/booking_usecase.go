@@ -114,6 +114,20 @@ func (u *bookingUsecase) UpdateStatus(bookingID, technicianID, status string) er
 	return nil
 }
 
+func (u *bookingUsecase) CancelBooking(bookingID, userID, role string) error {
+	booking, err := u.bookingRepo.FindByID(bookingID)
+	if err != nil {
+		return errors.New("booking tidak ditemukan")
+	}
+	if booking.Status != "open" {
+		return errors.New("hanya booking berstatus 'open' yang bisa dibatalkan")
+	}
+	if role != "manager" && booking.CreatedBy != userID {
+		return errors.New("kamu tidak berhak membatalkan booking ini")
+	}
+	return u.bookingRepo.CancelBooking(bookingID)
+}
+
 func (u *bookingUsecase) AssignTechnician(bookingID, technicianID string) error {
 	booking, err := u.bookingRepo.FindByID(bookingID)
 	if err != nil {

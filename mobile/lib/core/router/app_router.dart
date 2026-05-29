@@ -14,6 +14,7 @@ import '../../features/booking/presentation/pages/riwayat_page.dart';
 import '../../features/booking/presentation/pages/technician_list_page.dart';
 import '../../features/report/presentation/pages/create_report_page.dart';
 import '../../features/report/presentation/pages/laporan_page.dart';
+import '../../features/report/presentation/pages/report_detail_page.dart';
 import '../../features/notification/presentation/pages/notification_page.dart';
 import '../constants/app_constants.dart';
 
@@ -78,6 +79,11 @@ final appRouter = GoRouter(
     ),
     GoRoute(path: '/notifications',
         builder: (_, __) => const NotificationPage()),
+    GoRoute(
+      path: '/report/:bookingId',
+      builder: (_, state) =>
+          ReportDetailPage(bookingId: state.pathParameters['bookingId']!),
+    ),
     GoRoute(path: '/profile',
         builder: (_, __) => const ProfilePage()),
   ],

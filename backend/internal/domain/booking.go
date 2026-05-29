@@ -56,6 +56,7 @@ type BookingRepository interface {
 	ClaimBooking(bookingID, technicianID string) error
 	UpdateStatus(bookingID, technicianID, status string) error
 	AssignTechnician(bookingID, technicianID string) error
+	CancelBooking(bookingID string) error
 }
 
 type BookingUsecase interface {
@@ -67,4 +68,5 @@ type BookingUsecase interface {
 	ClaimBooking(bookingID, technicianID string) error
 	UpdateStatus(bookingID, technicianID, status string) error
 	AssignTechnician(bookingID, technicianID string) error
+	CancelBooking(bookingID, userID, role string) error
 }

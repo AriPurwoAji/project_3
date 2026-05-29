@@ -22,11 +22,32 @@ class _BookingListPageState extends State<BookingListPage> {
   String _companyId = '';
   String _companyName = '';
   String _selectedStatus = '';
+  String _query          = '';
+  final _searchCtrl = TextEditingController();
+
+  List<dynamic> get _filtered {
+    return _bookings.where((b) {
+      final q = _query.toLowerCase();
+      final matchQ = q.isEmpty ||
+          (b['description']    ?? '').toLowerCase().contains(q) ||
+          (b['company_name']   ?? '').toLowerCase().contains(q) ||
+          (b['equipment_name'] ?? '').toLowerCase().contains(q) ||
+          (b['technician_name']?? '').toLowerCase().contains(q);
+      return matchQ;
+    }).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -115,11 +136,43 @@ class _BookingListPageState extends State<BookingListPage> {
       bottomNavigationBar: BottomNav(currentIndex: _navIndex),
       body: Column(
         children: [
-          // Filter status
+          // Search bar
+          Container(
+            color: AppTheme.surface,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: 'Cari booking...',
+                hintStyle: const TextStyle(
+                    fontSize: 13, color: AppTheme.textTertiary),
+                prefixIcon: const Icon(Icons.search,
+                    size: 20, color: AppTheme.textTertiary),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close,
+                            size: 18, color: AppTheme.textTertiary),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _query = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppTheme.background,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          // Filter status chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               children: [
                 _filterChip('Semua', ''),
@@ -131,23 +184,43 @@ class _BookingListPageState extends State<BookingListPage> {
               ],
             ),
           ),
+          const Divider(height: 1),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: _loadData,
-                    child: _bookings.isEmpty
-                        ? const Center(
-                            child: Text('Belum ada booking',
-                                style: TextStyle(
-                                    color: AppTheme.textSecondary)))
+                    child: _filtered.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _query.isNotEmpty
+                                      ? Icons.search_off
+                                      : Icons.list_alt_outlined,
+                                  size: 48,
+                                  color: AppTheme.textTertiary,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _query.isNotEmpty
+                                      ? 'Tidak ada booking yang cocok'
+                                      : 'Belum ada booking',
+                                  style: const TextStyle(
+                                      color: AppTheme.textSecondary),
+                                ),
+                              ],
+                            ),
+                          )
                         : ListView.separated(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _bookings.length,
+                            padding: const EdgeInsets.fromLTRB(
+                                16, 8, 16, 24),
+                            itemCount: _filtered.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 10),
                             itemBuilder: (context, i) {
-                              final b = _bookings[i];
+                              final b = _filtered[i];
                               final status = b['status'] ?? '';
                               final statusColor = _statusColor(status);
                               final isEmergency =

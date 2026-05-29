@@ -21,9 +21,11 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   final _storage = const FlutterSecureStorage();
   Map<String, dynamic>? _booking;
   Map<String, dynamic>? _report;
-  bool   _loading   = true;
-  String _error     = '';
-  String _userRole  = '';
+  bool   _loading    = true;
+  String _error      = '';
+  String _userRole   = '';
+  String _userId     = '';
+  bool   _cancelling = false;
 
   @override
   void initState() {
@@ -33,6 +35,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
 
   Future<void> _loadBooking() async {
     _userRole = await _storage.read(key: AppConstants.userRoleKey) ?? '';
+    _userId   = await _storage.read(key: AppConstants.userIDKey)   ?? '';
     try {
       final res = await ApiClient.instance.get('/bookings/${widget.bookingId}');
       if (!mounted) return;
@@ -49,6 +52,52 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
           _loading = false;
         });
       }
+    }
+  }
+
+  Future<void> _cancelBooking() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Batalkan Booking?'),
+        content: const Text(
+            'Booking yang dibatalkan tidak bisa dikembalikan.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Tidak'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.danger,
+                foregroundColor: Colors.white),
+            child: const Text('Ya, batalkan'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    setState(() => _cancelling = true);
+    try {
+      await ApiClient.instance
+          .patch('/bookings/${widget.bookingId}/cancel');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Booking berhasil dibatalkan'),
+              backgroundColor: AppTheme.secondary),
+        );
+        _loadBooking();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal membatalkan booking')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
     }
   }
 
@@ -188,6 +237,13 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                           _booking!['status'] == 'open') ...[
                         const SizedBox(height: 16),
                         _buildAssignButton(),
+                      ],
+                      // Batalkan booking — untuk client/sales yang buat, atau manager
+                      if (_booking!['status'] == 'open' &&
+                          (_userRole == AppConstants.roleManager ||
+                              _booking!['created_by'] == _userId)) ...[
+                        const SizedBox(height: 12),
+                        _buildCancelButton(),
                       ],
                       if ((_booking!['technician_name'] ?? '').isNotEmpty) ...[
                         const SizedBox(height: 16),
@@ -600,7 +656,52 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                   fontSize: 12, color: AppTheme.textSecondary),
               maxLines: 3,
               overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () =>
+                context.push('/report/${widget.bookingId}'),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.open_in_new,
+                    size: 13, color: AppTheme.primary),
+                SizedBox(width: 4),
+                Text('Lihat Detail Laporan',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  // ─── CANCEL BOOKING ──────────────────────────────────────────────────────
+
+  Widget _buildCancelButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        icon: _cancelling
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppTheme.danger))
+            : const Icon(Icons.cancel_outlined,
+                size: 16, color: AppTheme.danger),
+        label: const Text('Batalkan Booking',
+            style: TextStyle(color: AppTheme.danger)),
+        onPressed: _cancelling ? null : _cancelBooking,
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: AppTheme.danger),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ),
       ),
     );
   }

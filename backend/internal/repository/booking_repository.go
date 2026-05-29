@@ -174,6 +174,22 @@ func (r *bookingRepository) AssignTechnician(bookingID, technicianID string) err
 	return nil
 }
 
+func (r *bookingRepository) CancelBooking(bookingID string) error {
+	query := `
+		UPDATE bookings SET status = 'cancelled', updated_at = NOW()
+		WHERE id = $1 AND status = 'open' AND deleted_at IS NULL
+	`
+	result, err := r.db.Exec(context.Background(), query, bookingID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return errors.New("booking tidak dapat dibatalkan (sudah diproses atau tidak ditemukan)")
+	}
+	r.logStatus(bookingID, "", "open", "cancelled")
+	return nil
+}
+
 func (r *bookingRepository) logStatus(bookingID, changedBy, from, to string) {
 	query := `
 		INSERT INTO booking_status_logs (booking_id, changed_by, from_status, to_status)

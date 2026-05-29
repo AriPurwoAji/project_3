@@ -113,6 +113,18 @@ func (h *BookingHandler) UpdateStatus(c *gin.Context) {
 	response.Success(c, 200, "Status berhasil diupdate", nil)
 }
 
+func (h *BookingHandler) CancelBooking(c *gin.Context) {
+	bookingID := c.Param("id")
+	userID    := c.GetString("user_id")
+	role      := c.GetString("role")
+
+	if err := h.bookingUsecase.CancelBooking(bookingID, userID, role); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Booking berhasil dibatalkan", nil)
+}
+
 func (h *BookingHandler) AssignTechnician(c *gin.Context) {
 	bookingID := c.Param("id")
 
