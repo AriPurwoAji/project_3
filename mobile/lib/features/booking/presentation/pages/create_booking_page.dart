@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -28,6 +29,11 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   List<dynamic> _equipments = [];
   bool _loading = false;
   bool _loadingEquipment = true;
+
+  // Photo upload
+  final _picker    = ImagePicker();
+  final List<String> _photoUrls = [];
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -81,7 +87,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
         'description':   _descCtrl.text.trim(),
         'site_address':  _addressCtrl.text.trim(),
         'site_city':     _cityCtrl.text.trim(),
-        'photo_urls':    [],
+        'photo_urls':    _photoUrls,
       });
 
       if (!mounted) return;
@@ -303,19 +309,22 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Foto kerusakan (optional, UI placeholder)
+                    // Foto kerusakan (opsional)
                     const Text('Foto kerusakan (opsional)',
                         style: TextStyle(
                             fontSize: 13, color: AppTheme.textSecondary)),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _photoBox(Icons.photo_library_outlined),
-                        const SizedBox(width: 10),
-                        _photoBox(Icons.camera_alt_outlined),
-                        const SizedBox(width: 10),
-                        _photoBox(Icons.add),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          ..._photoUrls.map((url) => _photoThumb(url)),
+                          if (_uploadingPhoto)
+                            _photoLoadingBox()
+                          else if (_photoUrls.length < 5)
+                            _addPhotoButton(),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 24),
 
@@ -385,21 +394,108 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
     );
   }
 
-  Widget _photoBox(IconData icon) => Expanded(
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: Container(
+  // ─── Photo helpers ───────────────────────────────────────────────────────
+
+  Future<void> _pickPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Pilih dari galeri'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Ambil foto'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    final xfile = await _picker.pickImage(
+        source: source, imageQuality: 80, maxWidth: 1920);
+    if (xfile == null || !mounted) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(xfile.path,
+            filename: xfile.name),
+      });
+      final res = await ApiClient.instance.post('/upload', data: formData);
+      final url = res.data['data']['url'] as String;
+      if (mounted) setState(() => _photoUrls.add(url));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal upload foto')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
+  Widget _photoThumb(String url) => Stack(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: AppTheme.border,
-                width: 1.5,
-                // dashed effect via solid border (Flutter doesn't support dashed natively)
+              borderRadius: BorderRadius.circular(8),
+              image: DecorationImage(
+                  image: NetworkImage(url), fit: BoxFit.cover),
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 10,
+            child: GestureDetector(
+              onTap: () => setState(() => _photoUrls.remove(url)),
+              child: Container(
+                decoration: const BoxDecoration(
+                    color: Colors.black54, shape: BoxShape.circle),
+                child: const Icon(Icons.close,
+                    size: 14, color: Colors.white),
               ),
             ),
-            child: Icon(icon, color: AppTheme.textTertiary, size: 28),
           ),
+        ],
+      );
+
+  Widget _photoLoadingBox() => Container(
+        width: 80,
+        height: 80,
+        margin: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.background,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: const Center(
+            child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+
+  Widget _addPhotoButton() => GestureDetector(
+        onTap: _uploadingPhoto ? null : _pickPhoto,
+        child: Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.border, width: 1.5),
+          ),
+          child: const Icon(Icons.add_photo_alternate_outlined,
+              color: AppTheme.textTertiary, size: 28),
         ),
       );
 

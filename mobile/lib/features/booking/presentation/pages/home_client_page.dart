@@ -51,13 +51,14 @@ class _HomeClientPageState extends State<HomeClientPage> {
       final res   = await ApiClient.instance.get('/bookings$query');
       final all   = List<dynamic>.from(res.data['data'] ?? []);
 
-      final activeStatuses = {'in_progress', 'on_the_way', 'on_site'};
+      const activeStatuses = {'in_progress', 'on_the_way', 'on_site'};
       final active = all
           .where((b) => activeStatuses.contains(b['status'] ?? ''))
           .toList();
 
-      final done = all.where((b) => b['status'] == 'done').toList();
-      done.sort((a, b) =>
+      final activeId = active.isNotEmpty ? active.first['id'] : null;
+      final recent = all.where((b) => b['id'] != activeId).toList();
+      recent.sort((a, b) =>
           (b['updated_at'] ?? '').compareTo(a['updated_at'] ?? ''));
 
       if (mounted) {
@@ -65,7 +66,7 @@ class _HomeClientPageState extends State<HomeClientPage> {
           _activeBooking = active.isNotEmpty
               ? Map<String, dynamic>.from(active.first)
               : null;
-          _recentDone = done.take(3).toList();
+          _recentDone = recent.take(3).toList();
           _loading    = false;
         });
       }
@@ -203,14 +204,13 @@ class _HomeClientPageState extends State<HomeClientPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isEmergency
-                ? [AppTheme.danger, AppTheme.danger.withValues(alpha: 0.75)]
-                : [AppTheme.primary, AppTheme.primary.withValues(alpha: 0.75)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: isEmergency ? AppTheme.dangerLight : AppTheme.primaryLight,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isEmergency
+                ? AppTheme.danger.withValues(alpha: 0.3)
+                : AppTheme.primary.withValues(alpha: 0.3),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,55 +221,63 @@ class _HomeClientPageState extends State<HomeClientPage> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
+                    color: isEmergency
+                        ? AppTheme.danger.withValues(alpha: 0.12)
+                        : AppTheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(_statusLabel(status),
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500)),
+                          color: isEmergency
+                              ? AppTheme.danger
+                              : AppTheme.primary,
+                          fontWeight: FontWeight.w600)),
                 ),
                 const Spacer(),
-                const Icon(Icons.arrow_forward_ios,
-                    size: 12, color: Colors.white70),
+                Icon(Icons.arrow_forward_ios,
+                    size: 12,
+                    color: isEmergency
+                        ? AppTheme.danger
+                        : AppTheme.primary),
               ],
             ),
             const SizedBox(height: 10),
             Text(
               b['description'] ?? '-',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white),
+                  fontWeight: FontWeight.w700,
+                  color: isEmergency
+                      ? AppTheme.danger
+                      : AppTheme.primary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Row(
               children: [
                 if ((b['technician_name'] ?? '').isNotEmpty) ...[
                   const Icon(Icons.person_outline,
-                      size: 13, color: Colors.white70),
+                      size: 13, color: AppTheme.textSecondary),
                   const SizedBox(width: 4),
                   Text(b['technician_name'],
                       style: const TextStyle(
-                          fontSize: 12, color: Colors.white70)),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 3, height: 3,
-                    decoration: const BoxDecoration(
-                        color: Colors.white54, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 8),
+                          fontSize: 12,
+                          color: AppTheme.textSecondary)),
+                  const SizedBox(width: 6),
+                  const Text('·',
+                      style: TextStyle(color: AppTheme.textTertiary)),
+                  const SizedBox(width: 6),
                 ],
                 const Icon(Icons.location_on_outlined,
-                    size: 13, color: Colors.white70),
+                    size: 13, color: AppTheme.textTertiary),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(b['site_city'] ?? '-',
                       style: const TextStyle(
-                          fontSize: 12, color: Colors.white70),
+                          fontSize: 12,
+                          color: AppTheme.textSecondary),
                       overflow: TextOverflow.ellipsis),
                 ),
               ],
@@ -387,7 +395,15 @@ class _HomeClientPageState extends State<HomeClientPage> {
   }
 
   Widget _recentCard(dynamic b) {
-    final status = b['status'] ?? '';
+    final status      = b['status'] ?? '';
+    final statusColor = _statusColor(status);
+    final serviceType = b['service_type'] ?? '';
+    const serviceLabel = {
+      'repair':      'Repair',
+      'inspeksi':    'Inspeksi',
+      'maintenance': 'Maintenance',
+    };
+
     return GestureDetector(
       onTap: () async {
         await context.push('/booking/${b['id']}');
@@ -416,16 +432,35 @@ class _HomeClientPageState extends State<HomeClientPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${b['equipment_name'] ?? '-'}  ·  ${b['technician_name'] ?? ''}',
+                    [
+                      if ((b['equipment_name'] ?? '').isNotEmpty)
+                        b['equipment_name'],
+                      if ((b['technician_name'] ?? '').isNotEmpty)
+                        b['technician_name'],
+                    ].join('  ·  '),
                     style: const TextStyle(
                         fontSize: 11, color: AppTheme.textSecondary),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    _formatDate(b['updated_at'] ?? ''),
-                    style: const TextStyle(
-                        fontSize: 11, color: AppTheme.textTertiary),
+                  Row(
+                    children: [
+                      Text(
+                        _formatDate(b['updated_at'] ?? ''),
+                        style: const TextStyle(
+                            fontSize: 11, color: AppTheme.textTertiary),
+                      ),
+                      if (serviceLabel[serviceType] != null) ...[
+                        const Text('  ·  ',
+                            style: TextStyle(
+                                color: AppTheme.textTertiary,
+                                fontSize: 11)),
+                        Text(serviceLabel[serviceType]!,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textTertiary)),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -435,14 +470,14 @@ class _HomeClientPageState extends State<HomeClientPage> {
               padding: const EdgeInsets.symmetric(
                   horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: _statusColor(status).withValues(alpha: 0.1),
+                color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(99),
               ),
               child: Text(
                 _statusLabel(status),
                 style: TextStyle(
                     fontSize: 11,
-                    color: _statusColor(status),
+                    color: statusColor,
                     fontWeight: FontWeight.w500),
               ),
             ),

@@ -94,7 +94,7 @@ class _LoginPageState extends State<LoginPage> {
         break;
       case AppConstants.roleClient:
       case AppConstants.roleSales:
-        context.go('/bookings');
+        context.go('/home');
         break;
       default:
         context.go('/login');
