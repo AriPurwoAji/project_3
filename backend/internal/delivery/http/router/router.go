@@ -76,6 +76,8 @@ func Setup(
 		{
 			equipment.GET("", equipmentHandler.GetAll)
 			equipment.POST("", middleware.RoleMiddleware("client", "sales", "manager"), equipmentHandler.Create)
+			equipment.PATCH("/:id", middleware.RoleMiddleware("client", "sales", "manager"), equipmentHandler.Update)
+			equipment.DELETE("/:id", middleware.RoleMiddleware("client", "sales", "manager"), equipmentHandler.Delete)
 		}
 
 		// Notifications
@@ -86,6 +88,10 @@ func Setup(
 			notif.PATCH("/:id/read", notifHandler.MarkAsRead)
 			notif.PATCH("/read-all", notifHandler.MarkAllAsRead)
 		}
+
+		// Auth — protected
+		protected.PATCH("/auth/profile", authHandler.UpdateProfile)
+		protected.POST("/auth/change-password", authHandler.ChangePassword)
 
 		// Users
 		users := protected.Group("/users")

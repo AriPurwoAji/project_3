@@ -20,12 +20,16 @@ type Equipment struct {
 type EquipmentRepository interface {
 	FindAll() ([]Equipment, error)
 	FindByCompanyID(companyID string) ([]Equipment, error)
+	FindByID(id string) (*Equipment, error)
 	Create(equipment *Equipment) error
 	Update(equipment *Equipment) error
+	Delete(id string) error
 }
 
 type EquipmentUsecase interface {
 	GetAllEquipment() ([]Equipment, error)
 	GetEquipmentByCompany(companyID string) ([]Equipment, error)
 	CreateEquipment(equipment *Equipment) error
+	UpdateEquipment(id, companyID, role string, e *Equipment) error
+	DeleteEquipment(id, companyID, role string) error
 }

@@ -54,6 +54,15 @@ func (u *bookingUsecase) CreateBooking(userID, companyID string, req domain.Crea
 		return nil, errors.New("gagal membuat booking: " + err.Error())
 	}
 
+	// Notify all managers about new booking
+	urgencyNote := ""
+	if req.UrgencyLevel == "emergency" {
+		urgencyNote = " [EMERGENCY]"
+	}
+	u.notifRepo.BroadcastToRole("manager", &booking.ID, "job_open", //nolint
+		"Booking baru masuk"+urgencyNote,
+		"Ada permintaan servis "+req.ServiceType+" dari "+req.SiteCity+".")
+
 	return booking, nil
 }
 

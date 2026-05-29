@@ -44,6 +44,35 @@ func (h *EquipmentHandler) GetAll(c *gin.Context) {
 	response.Success(c, 200, "Success", equipments)
 }
 
+func (h *EquipmentHandler) Update(c *gin.Context) {
+	id        := c.Param("id")
+	companyID := c.GetString("company_id")
+	role      := c.GetString("role")
+
+	var e domain.Equipment
+	if err := c.ShouldBindJSON(&e); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	if err := h.uc.UpdateEquipment(id, companyID, role, &e); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Equipment berhasil diperbarui", e)
+}
+
+func (h *EquipmentHandler) Delete(c *gin.Context) {
+	id        := c.Param("id")
+	companyID := c.GetString("company_id")
+	role      := c.GetString("role")
+
+	if err := h.uc.DeleteEquipment(id, companyID, role); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Equipment berhasil dihapus", nil)
+}
+
 func (h *EquipmentHandler) Create(c *gin.Context) {
 	var e domain.Equipment
 	if err := c.ShouldBindJSON(&e); err != nil {

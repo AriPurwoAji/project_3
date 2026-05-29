@@ -51,6 +51,28 @@ func (u *authUsecase) GetTechnicians() ([]domain.User, error) {
 	return u.userRepo.FindAllByRole("teknisi")
 }
 
+func (u *authUsecase) UpdateProfile(userID string, req domain.UpdateProfileRequest) (*domain.User, error) {
+	if err := u.userRepo.UpdateProfile(userID, req.FullName, req.Phone); err != nil {
+		return nil, errors.New("gagal memperbarui profil")
+	}
+	return u.userRepo.FindByID(userID)
+}
+
+func (u *authUsecase) ChangePassword(userID string, req domain.ChangePasswordRequest) error {
+	hash, err := u.userRepo.FindPasswordHashByID(userID)
+	if err != nil {
+		return errors.New("user tidak ditemukan")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.OldPassword)); err != nil {
+		return errors.New("password lama tidak sesuai")
+	}
+	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("gagal memproses password")
+	}
+	return u.userRepo.ChangePassword(userID, string(newHash))
+}
+
 func (u *authUsecase) Register(req domain.RegisterRequest) (*domain.User, error) {
 	// Cek email sudah dipakai
 	if _, _, err := u.userRepo.FindByEmail(req.Email); err == nil {

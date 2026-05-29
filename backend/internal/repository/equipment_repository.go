@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"github.com/AriPurwoAji/project_3/backend/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -67,6 +68,40 @@ func (r *equipmentRepository) Create(e *domain.Equipment) error {
 		e.CompanyID, e.Name, e.Type, e.Brand, e.Model,
 		e.SerialNumber, e.RatedPressureBar, e.LocationDetail,
 	).Scan(&e.ID, &e.CreatedAt)
+}
+
+func (r *equipmentRepository) FindByID(id string) (*domain.Equipment, error) {
+	query := `
+		SELECT e.id, e.company_id, e.name, e.type,
+		       COALESCE(e.brand,'') as brand,
+		       COALESCE(e.model,'') as model,
+		       COALESCE(e.serial_number,'') as serial_number,
+		       COALESCE(e.rated_pressure_bar, 0) as rated_pressure_bar,
+		       COALESCE(e.location_detail,'') as location_detail,
+		       e.is_active, e.created_at,
+		       COALESCE(c.name,'') as company_name
+		FROM hydraulic_equipment e
+		LEFT JOIN companies c ON e.company_id = c.id
+		WHERE e.id = $1 AND e.deleted_at IS NULL
+	`
+	rows, err := r.db.Query(context.Background(), query, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	list, err := r.scan(rows)
+	if err != nil || len(list) == 0 {
+		return nil, errors.New("equipment tidak ditemukan")
+	}
+	return &list[0], nil
+}
+
+func (r *equipmentRepository) Delete(id string) error {
+	_, err := r.db.Exec(context.Background(),
+		`UPDATE hydraulic_equipment SET deleted_at = NOW(), is_active = FALSE WHERE id = $1`,
+		id,
+	)
+	return err
 }
 
 func (r *equipmentRepository) Update(e *domain.Equipment) error {

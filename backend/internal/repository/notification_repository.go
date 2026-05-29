@@ -28,6 +28,19 @@ func (r *notificationRepository) Create(n *domain.Notification) error {
 	).Scan(&n.ID, &n.CreatedAt)
 }
 
+func (r *notificationRepository) BroadcastToRole(role string, bookingID *string, notifType, title, body string) error {
+	query := `
+		INSERT INTO notifications (user_id, booking_id, type, title, body, payload)
+		SELECT id, $1, $2, $3, $4, '{}'::JSONB
+		FROM users
+		WHERE role = $5 AND deleted_at IS NULL AND is_active = TRUE
+	`
+	_, err := r.db.Exec(context.Background(), query,
+		bookingID, notifType, title, body, role,
+	)
+	return err
+}
+
 func (r *notificationRepository) FindByUserID(userID string) ([]domain.Notification, error) {
 	query := `
 		SELECT id, user_id, booking_id, type, title, body,

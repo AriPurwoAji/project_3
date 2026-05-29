@@ -80,6 +80,30 @@ func (r *userRepository) FindByID(id string) (*domain.User, error) {
 	return &user, nil
 }
 
+func (r *userRepository) FindPasswordHashByID(id string) (string, error) {
+	var hash string
+	err := r.db.QueryRow(context.Background(),
+		`SELECT password_hash FROM users WHERE id = $1 AND deleted_at IS NULL`, id,
+	).Scan(&hash)
+	return hash, err
+}
+
+func (r *userRepository) UpdateProfile(userID, fullName, phone string) error {
+	_, err := r.db.Exec(context.Background(),
+		`UPDATE users SET full_name = $1, phone = NULLIF($2,''), updated_at = NOW() WHERE id = $3`,
+		fullName, phone, userID,
+	)
+	return err
+}
+
+func (r *userRepository) ChangePassword(userID, newHash string) error {
+	_, err := r.db.Exec(context.Background(),
+		`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+		newHash, userID,
+	)
+	return err
+}
+
 func (r *userRepository) UpdateFCMToken(id, token string) error {
 	query := `UPDATE users SET fcm_token = $1, updated_at = NOW() WHERE id = $2`
 	_, err := r.db.Exec(context.Background(), query, token, id)

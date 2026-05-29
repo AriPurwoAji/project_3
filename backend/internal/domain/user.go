@@ -24,6 +24,16 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required,min=6"`
 }
 
+type UpdateProfileRequest struct {
+	FullName string `json:"full_name" binding:"required"`
+	Phone    string `json:"phone"`
+}
+
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
 type RegisterRequest struct {
 	FullName    string `json:"full_name"    binding:"required"`
 	Email       string `json:"email"        binding:"required,email"`
@@ -43,7 +53,10 @@ type LoginResponse struct {
 type UserRepository interface {
 	FindByEmail(email string) (*User, string, error)
 	FindByID(id string) (*User, error)
+	FindPasswordHashByID(id string) (string, error)
 	UpdateFCMToken(id, token string) error
+	UpdateProfile(userID, fullName, phone string) error
+	ChangePassword(userID, newHash string) error
 	FindAllByRole(role string) ([]User, error)
 	Register(req RegisterRequest) (*User, error)
 }
@@ -53,4 +66,6 @@ type AuthUsecase interface {
 	GetProfile(id string) (*User, error)
 	GetTechnicians() ([]User, error)
 	Register(req RegisterRequest) (*User, error)
+	UpdateProfile(userID string, req UpdateProfileRequest) (*User, error)
+	ChangePassword(userID string, req ChangePasswordRequest) error
 }

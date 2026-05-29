@@ -55,6 +55,35 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	response.Success(c, 201, "Registrasi berhasil", user)
 }
 
+func (h *AuthHandler) UpdateProfile(c *gin.Context) {
+	userID := c.GetString("user_id")
+	var req domain.UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Request tidak valid: "+err.Error())
+		return
+	}
+	user, err := h.authUsecase.UpdateProfile(userID, req)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Profil berhasil diperbarui", user)
+}
+
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	userID := c.GetString("user_id")
+	var req domain.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Request tidak valid: "+err.Error())
+		return
+	}
+	if err := h.authUsecase.ChangePassword(userID, req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Password berhasil diubah", nil)
+}
+
 func (h *AuthHandler) GetTechnicians(c *gin.Context) {
 	users, err := h.authUsecase.GetTechnicians()
 	if err != nil {

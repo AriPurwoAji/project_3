@@ -17,6 +17,7 @@ type Notification struct {
 
 type NotificationRepository interface {
 	Create(notif *Notification) error
+	BroadcastToRole(role string, bookingID *string, notifType, title, body string) error
 	FindByUserID(userID string) ([]Notification, error)
 	MarkAsRead(notifID, userID string) error
 	MarkAllAsRead(userID string) error
