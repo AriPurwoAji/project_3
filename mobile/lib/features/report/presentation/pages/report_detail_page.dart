@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/photo_viewer.dart';
 
 class ReportDetailPage extends StatefulWidget {
   final String bookingId;
@@ -465,6 +466,12 @@ class _ReportDetailPageState extends State<ReportDetailPage> {
       'damage': AppTheme.danger,
     };
 
+    final urls   = photos.map<String>((p) => p['url'] as String? ?? '').toList();
+    final labels = photos.map<String>((p) {
+      final type = p['type'] as String? ?? '';
+      return typeLabel[type] ?? type;
+    }).toList();
+
     return _card(children: [
       _sectionHeader(
           'Foto Dokumentasi', Icons.photo_library_outlined, AppTheme.primary),
@@ -472,49 +479,76 @@ class _ReportDetailPageState extends State<ReportDetailPage> {
       SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: photos.map<Widget>((p) {
+          children: photos.asMap().entries.map<Widget>((entry) {
+            final i     = entry.key;
+            final p     = entry.value;
             final url   = p['url'] as String? ?? '';
             final type  = p['type'] as String? ?? '';
             final color = typeColor[type] ?? AppTheme.textTertiary;
-            return Container(
-              margin: const EdgeInsets.only(right: 10),
-              child: Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      url,
-                      width: 110,
-                      height: 110,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 110,
-                        height: 110,
-                        color: AppTheme.background,
-                        child: const Icon(Icons.broken_image_outlined,
-                            color: AppTheme.textTertiary),
-                      ),
-                      loadingBuilder: (_, child, progress) =>
-                          progress == null
-                              ? child
-                              : Container(
-                                  width: 110,
-                                  height: 110,
-                                  color: AppTheme.background,
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  ),
-                                ),
+            return GestureDetector(
+              onTap: () => showPhotoViewer(
+                context, urls,
+                labels: labels,
+                initialIndex: i,
+              ),
+              child: Container(
+                margin: const EdgeInsets.only(right: 10),
+                child: Column(
+                  children: [
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            url,
+                            width: 110,
+                            height: 110,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 110,
+                              height: 110,
+                              color: AppTheme.background,
+                              child: const Icon(Icons.broken_image_outlined,
+                                  color: AppTheme.textTertiary),
+                            ),
+                            loadingBuilder: (_, child, progress) =>
+                                progress == null
+                                    ? child
+                                    : Container(
+                                        width: 110,
+                                        height: 110,
+                                        color: AppTheme.background,
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
+                                        ),
+                                      ),
+                          ),
+                        ),
+                        // ikon zoom di pojok kanan bawah
+                        Positioned(
+                          bottom: 4,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.black45,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.zoom_in,
+                                size: 14, color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(typeLabel[type] ?? type,
-                      style: TextStyle(
-                          fontSize: 10,
-                          color: color,
-                          fontWeight: FontWeight.w600)),
-                ],
+                    const SizedBox(height: 4),
+                    Text(typeLabel[type] ?? type,
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: color,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
               ),
             );
           }).toList(),
