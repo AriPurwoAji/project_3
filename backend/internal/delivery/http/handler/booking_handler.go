@@ -33,10 +33,13 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 }
 
 func (h *BookingHandler) GetAllBookings(c *gin.Context) {
+	limit := c.DefaultQuery("limit", "20")
 	filters := map[string]string{
 		"status":        c.Query("status"),
 		"company_id":    c.Query("company_id"),
 		"technician_id": c.Query("technician_id"),
+		"limit":         limit,
+		"offset":        c.DefaultQuery("offset", "0"),
 	}
 
 	role := c.GetString("role")
@@ -78,7 +81,15 @@ func (h *BookingHandler) GetOpenBookings(c *gin.Context) {
 
 func (h *BookingHandler) GetMyJobs(c *gin.Context) {
 	technicianID := c.GetString("user_id")
-	bookings, err := h.bookingUsecase.GetMyJobs(technicianID)
+	filters := map[string]string{
+		"technician_id": technicianID,
+		"limit":         c.DefaultQuery("limit", "20"),
+		"offset":        c.DefaultQuery("offset", "0"),
+	}
+	if status := c.Query("status"); status != "" {
+		filters["status"] = status
+	}
+	bookings, err := h.bookingUsecase.GetAllBookings(filters)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return

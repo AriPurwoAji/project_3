@@ -15,12 +15,17 @@ class JobBoardPage extends StatefulWidget {
 
 class _JobBoardPageState extends State<JobBoardPage>
     with SingleTickerProviderStateMixin {
-  final _storage = const FlutterSecureStorage();
+  final _storage       = const FlutterSecureStorage();
+  final _doneScrollCtrl = ScrollController();
 
   List<dynamic> _openJobs = [];
   List<dynamic> _doneJobs = [];
-  bool   _loading = true;
-  String _name    = '';
+  bool   _loading      = true;
+  bool   _loadingMore  = false;
+  bool   _hasMoreDone  = true;
+  int    _doneOffset   = 0;
+  static const _limit  = 20;
+  String _name         = '';
   late TabController _tabController;
 
   @override
@@ -28,34 +33,70 @@ class _JobBoardPageState extends State<JobBoardPage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadData();
+    _doneScrollCtrl.addListener(_onDoneScroll);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _doneScrollCtrl.dispose();
     super.dispose();
+  }
+
+  void _onDoneScroll() {
+    if (_doneScrollCtrl.position.pixels >=
+            _doneScrollCtrl.position.maxScrollExtent - 200 &&
+        !_loadingMore &&
+        _hasMoreDone) {
+      _loadMoreDone();
+    }
   }
 
   Future<void> _loadData() async {
     _name = await _storage.read(key: AppConstants.userNameKey) ?? '';
+    setState(() {
+      _loading     = true;
+      _doneOffset  = 0;
+      _hasMoreDone = true;
+      _doneJobs    = [];
+    });
     try {
       final results = await Future.wait([
         ApiClient.instance.get('/job-board'),
-        ApiClient.instance.get('/my-jobs'),
+        ApiClient.instance.get('/my-jobs?status=done&limit=$_limit&offset=0'),
       ]);
       if (mounted) {
-        final allMyJobs = List<dynamic>.from(
-            results[1].data['data'] ?? []);
+        final done = List<dynamic>.from(results[1].data['data'] ?? []);
         setState(() {
-          _openJobs = results[0].data['data'] ?? [];
-          _doneJobs = allMyJobs
-              .where((j) => j['status'] == 'done')
-              .toList();
-          _loading  = false;
+          _openJobs    = results[0].data['data'] ?? [];
+          _doneJobs    = done;
+          _hasMoreDone = done.length == _limit;
+          _doneOffset  = done.length;
+          _loading     = false;
         });
       }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMoreDone() async {
+    if (_loadingMore || !_hasMoreDone) return;
+    setState(() => _loadingMore = true);
+    try {
+      final res  = await ApiClient.instance
+          .get('/my-jobs?status=done&limit=$_limit&offset=$_doneOffset');
+      final data = List<dynamic>.from(res.data['data'] ?? []);
+      if (mounted) {
+        setState(() {
+          _doneJobs.addAll(data);
+          _hasMoreDone  = data.length == _limit;
+          _doneOffset  += data.length;
+          _loadingMore  = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -218,7 +259,9 @@ class _JobBoardPageState extends State<JobBoardPage>
                       controller: _tabController,
                       children: [
                         _jobList(_openJobs, isOpen: true),
-                        _jobList(_doneJobs, isDone: true),
+                        _jobList(_doneJobs, isDone: true,
+                            scrollCtrl: _doneScrollCtrl,
+                            loadingMore: _loadingMore),
                       ],
                     ),
             ),
@@ -248,11 +291,14 @@ class _JobBoardPageState extends State<JobBoardPage>
         ),
       );
 
-  Widget _jobList(List<dynamic> jobs,
-      {bool isOpen = false, bool isDone = false}) {
-    final emptyMsg = isOpen
-        ? 'Tidak ada job tersedia'
-        : 'Belum ada job selesai';
+  Widget _jobList(
+    List<dynamic> jobs, {
+    bool isOpen = false,
+    bool isDone = false,
+    ScrollController? scrollCtrl,
+    bool loadingMore = false,
+  }) {
+    final emptyMsg = isOpen ? 'Tidak ada job tersedia' : 'Belum ada job selesai';
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -262,18 +308,25 @@ class _JobBoardPageState extends State<JobBoardPage>
                 height: 200,
                 child: Center(
                   child: Text(emptyMsg,
-                      style: const TextStyle(
-                          color: AppTheme.textSecondary)),
+                      style: const TextStyle(color: AppTheme.textSecondary)),
                 ),
               ),
             ])
           : ListView.separated(
+              controller: scrollCtrl,
               padding: const EdgeInsets.all(16),
-              itemCount: jobs.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(height: 10),
-              itemBuilder: (_, i) =>
-                  _buildJobCard(jobs[i], isOpen: isOpen, isDone: isDone),
+              itemCount: jobs.length + (loadingMore ? 1 : 0),
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (_, i) {
+                if (i == jobs.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                  );
+                }
+                return _buildJobCard(jobs[i], isOpen: isOpen, isDone: isDone);
+              },
             ),
     );
   }

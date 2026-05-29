@@ -77,6 +77,18 @@ func (r *bookingRepository) FindAll(filters map[string]string) ([]domain.Booking
 
 	query += ` ORDER BY b.created_at DESC`
 
+	if limit, ok := filters["limit"]; ok && limit != "" {
+		query += ` LIMIT $` + itoa(i)
+		args = append(args, limit)
+		i++
+	}
+	if offset, ok := filters["offset"]; ok && offset != "" {
+		query += ` OFFSET $` + itoa(i)
+		args = append(args, offset)
+		i++
+	}
+	_ = i
+
 	rows, err := r.db.Query(context.Background(), query, args...)
 	if err != nil {
 		return nil, err
