@@ -29,10 +29,11 @@ class _BookingListPageState extends State<BookingListPage> {
     return _bookings.where((b) {
       final q = _query.toLowerCase();
       final matchQ = q.isEmpty ||
-          (b['description']    ?? '').toLowerCase().contains(q) ||
-          (b['company_name']   ?? '').toLowerCase().contains(q) ||
-          (b['equipment_name'] ?? '').toLowerCase().contains(q) ||
-          (b['technician_name']?? '').toLowerCase().contains(q);
+          (b['description']      ?? '').toLowerCase().contains(q) ||
+          (b['company_name']     ?? '').toLowerCase().contains(q) ||
+          (b['equipment_name']   ?? '').toLowerCase().contains(q) ||
+          (b['technician_name']  ?? '').toLowerCase().contains(q) ||
+          (b['created_by_name']  ?? '').toLowerCase().contains(q);
       return matchQ;
     }).toList();
   }
@@ -51,9 +52,9 @@ class _BookingListPageState extends State<BookingListPage> {
   }
 
   Future<void> _loadData() async {
-    _role = await _storage.read(key: AppConstants.userRoleKey) ?? '';
-    _name = await _storage.read(key: AppConstants.userNameKey) ?? '';
-    _companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
+    _role        = await _storage.read(key: AppConstants.userRoleKey)    ?? '';
+    _name        = await _storage.read(key: AppConstants.userNameKey)    ?? '';
+    _companyId   = await _storage.read(key: AppConstants.companyIdKey)   ?? '';
     _companyName = await _storage.read(key: AppConstants.companyNameKey) ?? '';
     try {
       final params = <String, String>{};
@@ -116,12 +117,17 @@ class _BookingListPageState extends State<BookingListPage> {
             Text(_name,
                 style: const TextStyle(
                     fontSize: 16, fontWeight: FontWeight.w600)),
-            if (_companyName.isNotEmpty)
-              Text(_companyName,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.normal,
-                      color: AppTheme.textSecondary)),
+            Text(
+              _role == AppConstants.roleSales
+                  ? 'Sales · Semua booking perusahaan'
+                  : _companyName.isNotEmpty
+                      ? _companyName
+                      : '',
+              style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.normal,
+                  color: AppTheme.textSecondary),
+            ),
           ],
         ),
         actions: [
@@ -357,6 +363,26 @@ class _BookingListPageState extends State<BookingListPage> {
                                         ],
                                       ],
                                     ),
+                                    // Sales: tampilkan siapa yang buat booking
+                                    if (_role == AppConstants.roleSales &&
+                                        (b['created_by_name'] ?? '').isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.badge_outlined,
+                                              size: 13,
+                                              color: AppTheme.primary),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Dibuat oleh: ${b['created_by_name']}',
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.primary,
+                                                fontWeight: FontWeight.w500),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ));

@@ -39,10 +39,13 @@ func (h *BookingHandler) GetAllBookings(c *gin.Context) {
 		"technician_id": c.Query("technician_id"),
 	}
 
-	// Client/sales hanya boleh lihat booking perusahaannya sendiri
 	role := c.GetString("role")
 	if role == "client" || role == "sales" {
 		filters["company_id"] = c.GetString("company_id")
+	}
+	// Client hanya lihat booking milik sendiri
+	if role == "client" {
+		filters["created_by"] = c.GetString("user_id")
 	}
 
 	bookings, err := h.bookingUsecase.GetAllBookings(filters)

@@ -42,11 +42,13 @@ func (r *bookingRepository) FindAll(filters map[string]string) ([]domain.Booking
 			   b.created_at, b.updated_at,
 			   c.name as company_name,
 			   COALESCE(u.full_name, '') as technician_name,
-			   COALESCE(e.name, '') as equipment_name
+			   COALESCE(e.name, '') as equipment_name,
+			   COALESCE(cu.full_name, '') as created_by_name
 		FROM bookings b
 		LEFT JOIN companies c ON b.company_id = c.id
 		LEFT JOIN users u ON b.technician_id = u.id
 		LEFT JOIN hydraulic_equipment e ON b.equipment_id = e.id
+		LEFT JOIN users cu ON b.created_by = cu.id
 		WHERE b.deleted_at IS NULL
 	`
 	args := []interface{}{}
@@ -65,6 +67,11 @@ func (r *bookingRepository) FindAll(filters map[string]string) ([]domain.Booking
 	if techID, ok := filters["technician_id"]; ok && techID != "" {
 		query += ` AND b.technician_id = $` + itoa(i)
 		args = append(args, techID)
+		i++
+	}
+	if createdBy, ok := filters["created_by"]; ok && createdBy != "" {
+		query += ` AND b.created_by = $` + itoa(i)
+		args = append(args, createdBy)
 		i++
 	}
 
@@ -88,11 +95,13 @@ func (r *bookingRepository) FindByID(id string) (*domain.Booking, error) {
 			   b.created_at, b.updated_at,
 			   c.name as company_name,
 			   COALESCE(u.full_name, '') as technician_name,
-			   COALESCE(e.name, '') as equipment_name
+			   COALESCE(e.name, '') as equipment_name,
+			   COALESCE(cu.full_name, '') as created_by_name
 		FROM bookings b
 		LEFT JOIN companies c ON b.company_id = c.id
 		LEFT JOIN users u ON b.technician_id = u.id
 		LEFT JOIN hydraulic_equipment e ON b.equipment_id = e.id
+		LEFT JOIN users cu ON b.created_by = cu.id
 		WHERE b.id = $1 AND b.deleted_at IS NULL
 	`
 	rows, err := r.db.Query(context.Background(), query, id)
@@ -217,7 +226,7 @@ func scanBookings(rows interface{ Next() bool; Scan(...interface{}) error; Err()
 			&b.SiteAddress, &b.SiteCity, &photoJSON,
 			&scheduledAt, &claimedAt, &startedAt, &completedAt,
 			&b.CreatedAt, &b.UpdatedAt,
-			&b.CompanyName, &b.TechnicianName, &b.EquipmentName,
+			&b.CompanyName, &b.TechnicianName, &b.EquipmentName, &b.CreatedByName,
 		)
 		if err != nil {
 			return nil, err
