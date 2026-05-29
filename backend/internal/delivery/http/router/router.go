@@ -1,10 +1,25 @@
 package router
 
 import (
+	"net/http"
+
 	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/handler"
 	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/middleware"
 	"github.com/gin-gonic/gin"
 )
+
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
+}
 
 func Setup(
 	r *gin.Engine,
@@ -16,6 +31,8 @@ func Setup(
 	equipmentHandler *handler.EquipmentHandler,
 	uploadHandler    *handler.UploadHandler,
 ) {
+	r.Use(corsMiddleware())
+
 	api := r.Group("/api/v1")
 
 	// Public
