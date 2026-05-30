@@ -153,6 +153,34 @@ func (r *userRepository) Register(req domain.RegisterRequest) (*domain.User, err
 	return &user, nil
 }
 
+func (r *userRepository) CreateUser(req domain.CreateUserRequest) (*domain.User, error) {
+	ctx := context.Background()
+	var user domain.User
+	companyID := req.CompanyID
+	if companyID == "" {
+		companyID = "NULL"
+	}
+	var companyIDArg interface{}
+	if req.CompanyID != "" {
+		companyIDArg = req.CompanyID
+	}
+	err := r.db.QueryRow(ctx,
+		`INSERT INTO users (email, password_hash, full_name, phone, role, company_id)
+		 VALUES ($1, $2, $3, NULLIF($4,''), $5, $6)
+		 RETURNING id, email, full_name, role, is_active, created_at, updated_at`,
+		req.Email, req.PasswordHash, req.FullName, req.Phone, req.Role, companyIDArg,
+	).Scan(
+		&user.ID, &user.Email, &user.FullName, &user.Role,
+		&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	user.Phone     = req.Phone
+	user.CompanyID = req.CompanyID
+	return &user, nil
+}
+
 func (r *userRepository) FindAllByRole(role string) ([]domain.User, error) {
 	query := `
 		SELECT u.id, u.email, u.full_name, u.phone, u.role,

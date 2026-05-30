@@ -87,3 +87,15 @@ func (u *authUsecase) Register(req domain.RegisterRequest) (*domain.User, error)
 
 	return u.userRepo.Register(req)
 }
+
+func (u *authUsecase) CreateUser(req domain.CreateUserRequest) (*domain.User, error) {
+	if _, _, err := u.userRepo.FindByEmail(req.Email); err == nil {
+		return nil, errors.New("email sudah terdaftar")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, errors.New("gagal memproses password")
+	}
+	req.PasswordHash = string(hash)
+	return u.userRepo.CreateUser(req)
+}

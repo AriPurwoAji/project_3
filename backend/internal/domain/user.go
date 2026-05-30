@@ -50,6 +50,17 @@ type LoginResponse struct {
 	User         User   `json:"user"`
 }
 
+type CreateUserRequest struct {
+	FullName  string `json:"full_name"  binding:"required"`
+	Email     string `json:"email"      binding:"required,email"`
+	Password  string `json:"password"   binding:"required,min=6"`
+	Phone     string `json:"phone"`
+	Role      string `json:"role"       binding:"required,oneof=teknisi sales client"`
+	CompanyID string `json:"company_id"`
+	// set by usecase
+	PasswordHash string `json:"-"`
+}
+
 type UserRepository interface {
 	FindByEmail(email string) (*User, string, error)
 	FindByID(id string) (*User, error)
@@ -59,6 +70,7 @@ type UserRepository interface {
 	ChangePassword(userID, newHash string) error
 	FindAllByRole(role string) ([]User, error)
 	Register(req RegisterRequest) (*User, error)
+	CreateUser(req CreateUserRequest) (*User, error)
 }
 
 type AuthUsecase interface {
@@ -68,4 +80,5 @@ type AuthUsecase interface {
 	Register(req RegisterRequest) (*User, error)
 	UpdateProfile(userID string, req UpdateProfileRequest) (*User, error)
 	ChangePassword(userID string, req ChangePasswordRequest) error
+	CreateUser(req CreateUserRequest) (*User, error)
 }

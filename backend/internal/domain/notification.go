@@ -22,6 +22,8 @@ type NotificationRepository interface {
 	MarkAsRead(notifID, userID string) error
 	MarkAllAsRead(userID string) error
 	CountUnread(userID string) (int, error)
+	Delete(notifID, userID string) error
+	DeleteAll(userID string) error
 }
 
 type NotificationUsecase interface {
@@ -29,4 +31,6 @@ type NotificationUsecase interface {
 	MarkAsRead(notifID, userID string) error
 	MarkAllAsRead(userID string) error
 	CountUnread(userID string) (int, error)
+	Delete(notifID, userID string) error
+	DeleteAll(userID string) error
 }

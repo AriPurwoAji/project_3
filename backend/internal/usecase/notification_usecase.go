@@ -25,3 +25,11 @@ func (u *notificationUsecase) MarkAllAsRead(userID string) error {
 func (u *notificationUsecase) CountUnread(userID string) (int, error) {
 	return u.repo.CountUnread(userID)
 }
+
+func (u *notificationUsecase) Delete(notifID, userID string) error {
+	return u.repo.Delete(notifID, userID)
+}
+
+func (u *notificationUsecase) DeleteAll(userID string) error {
+	return u.repo.DeleteAll(userID)
+}

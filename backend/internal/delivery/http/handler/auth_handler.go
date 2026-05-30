@@ -84,6 +84,24 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	response.Success(c, 200, "Password berhasil diubah", nil)
 }
 
+func (h *AuthHandler) CreateUser(c *gin.Context) {
+	managerCompanyID := c.GetString("company_id")
+	var req domain.CreateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Request tidak valid: "+err.Error())
+		return
+	}
+	if req.Role == "sales" && req.CompanyID == "" {
+		req.CompanyID = managerCompanyID
+	}
+	user, err := h.authUsecase.CreateUser(req)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 201, "Akun berhasil dibuat", user)
+}
+
 func (h *AuthHandler) GetTechnicians(c *gin.Context) {
 	users, err := h.authUsecase.GetTechnicians()
 	if err != nil {

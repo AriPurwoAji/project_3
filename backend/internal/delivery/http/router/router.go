@@ -87,6 +87,8 @@ func Setup(
 			notif.GET("/unread-count", notifHandler.CountUnread)
 			notif.PATCH("/:id/read", notifHandler.MarkAsRead)
 			notif.PATCH("/read-all", notifHandler.MarkAllAsRead)
+			notif.DELETE("/:id", notifHandler.Delete)
+			notif.DELETE("", notifHandler.DeleteAll)
 		}
 
 		// Auth — protected
@@ -97,6 +99,7 @@ func Setup(
 		users := protected.Group("/users")
 		{
 			users.GET("/teknisi", middleware.RoleMiddleware("manager"), authHandler.GetTechnicians)
+			users.POST("", middleware.RoleMiddleware("manager"), authHandler.CreateUser)
 		}
 
 		// Dashboard — manager only

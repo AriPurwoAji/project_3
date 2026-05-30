@@ -52,3 +52,22 @@ func (h *NotificationHandler) CountUnread(c *gin.Context) {
 	}
 	response.Success(c, 200, "Success", gin.H{"unread_count": count})
 }
+
+func (h *NotificationHandler) Delete(c *gin.Context) {
+	userID  := c.GetString("user_id")
+	notifID := c.Param("id")
+	if err := h.uc.Delete(notifID, userID); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Notifikasi berhasil dihapus", nil)
+}
+
+func (h *NotificationHandler) DeleteAll(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if err := h.uc.DeleteAll(userID); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Semua notifikasi berhasil dihapus", nil)
+}
