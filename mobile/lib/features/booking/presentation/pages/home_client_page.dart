@@ -175,7 +175,10 @@ class _HomeClientPageState extends State<HomeClientPage> {
           label: Text('$_unreadCount'),
           isLabelVisible: _unreadCount > 0,
           child: IconButton(
-            onPressed: () => context.push('/notifications'),
+            onPressed: () async {
+              await context.push('/notifications');
+              if (mounted) _loadData();
+            },
             icon: Icon(
               _unreadCount > 0
                   ? Icons.notifications_active_outlined

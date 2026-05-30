@@ -153,23 +153,6 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
     });
   }
 
-  // Buka bottom sheet tambah equipment
-  Future<void> _showAddEquipmentSheet() async {
-    final newEquipment = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _AddEquipmentSheet(companyId: _companyId),
-    );
-
-    if (newEquipment != null) {
-      setState(() {
-        _equipments.add(newEquipment);
-        _selectedEquipmentId = newEquipment['id'];
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -272,30 +255,11 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Equipment dropdown + tombol tambah
-                    Row(
-                      children: [
-                        const Text('Equipment',
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textSecondary)),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed: _companyId.isEmpty
-                              ? null
-                              : _showAddEquipmentSheet,
-                          icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Tambah', style: TextStyle(fontSize: 12)),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppTheme.primary,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
-                      ],
-                    ),
+                    // Equipment dropdown
+                    const Text('Equipment',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary)),
                     const SizedBox(height: 8),
                     _equipments.isEmpty
                         ? Container(

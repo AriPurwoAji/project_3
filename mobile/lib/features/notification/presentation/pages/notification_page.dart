@@ -43,20 +43,33 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   Future<void> _onTapNotif(dynamic n) async {
-    final id       = n['id'] as String?;
+    final id        = n['id'] as String?;
     final bookingId = n['booking_id'] as String?;
-    final isRead   = n['is_read'] as bool? ?? false;
+    final isRead    = n['is_read'] as bool? ?? false;
 
     if (!isRead && id != null) {
       try {
         await ApiClient.instance.patch('/notifications/$id/read');
+        // Update state lokal langsung agar warna biru hilang tanpa reload
+        if (mounted) {
+          setState(() {
+            final idx = _notifications.indexWhere((x) => x['id'] == id);
+            if (idx != -1) {
+              _notifications[idx] = Map<String, dynamic>.from(
+                  _notifications[idx])
+                ..['is_read'] = true;
+            }
+          });
+        }
       } catch (_) {}
     }
 
     if (!mounted) return;
 
     if (bookingId != null) {
-      context.push('/booking/$bookingId');
+      await context.push('/booking/$bookingId');
+      // Reload setelah kembali dari halaman booking
+      if (mounted) _loadData();
     } else {
       _loadData();
     }

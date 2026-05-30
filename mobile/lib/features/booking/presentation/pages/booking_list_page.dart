@@ -40,7 +40,9 @@ class _BookingListPageState extends State<BookingListPage> {
           (b['company_name']     ?? '').toLowerCase().contains(q) ||
           (b['equipment_name']   ?? '').toLowerCase().contains(q) ||
           (b['technician_name']  ?? '').toLowerCase().contains(q) ||
-          (b['created_by_name']  ?? '').toLowerCase().contains(q);
+          (b['created_by_name']  ?? '').toLowerCase().contains(q) ||
+          (b['site_address']     ?? '').toLowerCase().contains(q) ||
+          (b['site_city']        ?? '').toLowerCase().contains(q);
       return matchQ;
     }).toList();
   }
@@ -187,14 +189,7 @@ class _BookingListPageState extends State<BookingListPage> {
             ),
           ],
         ),
-        actions: [
-          if (_role == AppConstants.roleClient ||
-              _role == AppConstants.roleSales)
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () => context.go('/booking/create'),
-            ),
-        ],
+        actions: const [],
       ),
       bottomNavigationBar: BottomNav(currentIndex: _navIndex),
       body: Column(

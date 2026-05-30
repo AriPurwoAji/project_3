@@ -362,21 +362,39 @@ class _LaporanPageState extends State<LaporanPage> {
               ],
             ),
             const SizedBox(height: 8),
-            highlighted(r['work_description'] ?? '-'),
-            const SizedBox(height: 3),
-            highlighted(
-              companyName,
-              base: const TextStyle(
-                  fontSize: 12, color: AppTheme.textSecondary),
-            ),
+            // Equipment di atas
             if (equipName.isNotEmpty) ...[
-              const SizedBox(height: 2),
               highlighted(
                 equipName,
                 base: const TextStyle(
-                    fontSize: 11, color: AppTheme.textTertiary),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary),
               ),
+              const SizedBox(height: 3),
             ],
+            // Deskripsi pekerjaan
+            highlighted(
+              r['work_description'] ?? '-',
+              base: const TextStyle(
+                  fontSize: 12, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 4),
+            // Nama PT paling bawah
+            Row(
+              children: [
+                const Icon(Icons.business_outlined,
+                    size: 12, color: AppTheme.textTertiary),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: highlighted(
+                    companyName,
+                    base: const TextStyle(
+                        fontSize: 11, color: AppTheme.textTertiary),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Row(
               children: [

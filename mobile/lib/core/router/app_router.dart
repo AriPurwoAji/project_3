@@ -24,11 +24,12 @@ final appRouter = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
     final token = await _storage.read(key: AppConstants.accessTokenKey);
-    final isLoggedIn  = token != null;
-    final isLoginPage = state.matchedLocation == '/login';
+    final isLoggedIn   = token != null;
+    final loc          = state.matchedLocation;
+    final isPublicPage = loc == '/login' || loc == '/register';
 
-    if (!isLoggedIn && !isLoginPage) return '/login';
-    if (isLoggedIn && isLoginPage) {
+    if (!isLoggedIn && !isPublicPage) return '/login';
+    if (isLoggedIn && loc == '/login') {
       final role = await _storage.read(key: AppConstants.userRoleKey);
       return _getHomeRoute(role ?? '');
     }

@@ -12,12 +12,30 @@ class TechnicianListPage extends StatefulWidget {
 
 class _TechnicianListPageState extends State<TechnicianListPage> {
   List<dynamic> _technicians = [];
-  bool _loading = true;
+  bool   _loading = true;
+  String _query   = '';
+  final _searchCtrl = TextEditingController();
+
+  List<dynamic> get _filtered {
+    if (_query.isEmpty) return _technicians;
+    final q = _query.toLowerCase();
+    return _technicians.where((t) =>
+        (t['full_name'] ?? '').toLowerCase().contains(q) ||
+        (t['email']     ?? '').toLowerCase().contains(q) ||
+        (t['phone']     ?? '').toLowerCase().contains(q)).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -37,27 +55,71 @@ class _TechnicianListPageState extends State<TechnicianListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _filtered;
     return Scaffold(
       appBar: AppBar(title: const Text('Daftar Teknisi')),
-      bottomNavigationBar: const BottomNav(currentIndex: 1),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: _technicians.isEmpty
-                  ? const Center(
-                      child: Text('Belum ada teknisi terdaftar',
-                          style:
-                              TextStyle(color: AppTheme.textSecondary)))
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _technicians.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 10),
-                      itemBuilder: (_, i) =>
-                          _techCard(_technicians[i]),
-                    ),
+      bottomNavigationBar: const BottomNav(currentIndex: 2),
+      body: Column(
+        children: [
+          Container(
+            color: AppTheme.surface,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: 'Cari nama, email, atau no. HP...',
+                hintStyle: const TextStyle(
+                    fontSize: 13, color: AppTheme.textTertiary),
+                prefixIcon: const Icon(Icons.search,
+                    size: 20, color: AppTheme.textTertiary),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close,
+                            size: 18, color: AppTheme.textTertiary),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _query = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppTheme.background,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _loadData,
+                    child: filtered.isEmpty
+                        ? Center(
+                            child: Text(
+                              _query.isNotEmpty
+                                  ? 'Tidak ada teknisi yang cocok'
+                                  : 'Belum ada teknisi terdaftar',
+                              style: const TextStyle(
+                                  color: AppTheme.textSecondary),
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (_, i) => _techCard(filtered[i]),
+                          ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
