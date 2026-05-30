@@ -3,6 +3,13 @@ package pdf
 import (
 	"bytes"
 	"fmt"
+	stdimage "image"
+	_ "image/jpeg"
+	_ "image/png"
+	"io"
+	"net/http"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/AriPurwoAji/project_3/backend/internal/domain"
@@ -281,12 +288,70 @@ func (g *ReportGenerator) GenerateReport(report *domain.HydraulicReport, booking
 			"after":  "Sesudah",
 			"damage": "Kerusakan",
 		}
+
+		// Download image from URL, validate, then register with fpdf.
+		tryEmbedImage := func(url string) bool {
+			client := &http.Client{Timeout: 10 * time.Second}
+			resp, err := client.Get(url)
+			if err != nil || resp.StatusCode != 200 {
+				return false
+			}
+			defer resp.Body.Close()
+
+			imgBytes, err := io.ReadAll(resp.Body)
+			if err != nil || len(imgBytes) == 0 {
+				return false
+			}
+
+			// Validate with Go's image package — if this succeeds, fpdf will too
+			_, format, err := stdimage.DecodeConfig(bytes.NewReader(imgBytes))
+			if err != nil {
+				return false
+			}
+
+			imgType := format
+			if imgType == "jpeg" {
+				imgType = "jpg"
+			}
+			if imgType != "jpg" && imgType != "png" {
+				// Try to detect from URL extension as fallback
+				urlNoQuery := strings.SplitN(url, "?", 2)[0]
+				ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(urlNoQuery)), ".")
+				if ext == "png" {
+					imgType = "png"
+				} else {
+					imgType = "jpg"
+				}
+			}
+
+			f.RegisterImageOptionsReader(url, gofpdf.ImageOptions{ImageType: imgType}, bytes.NewReader(imgBytes))
+			return true
+		}
+
+		imgW := pageW * 0.90
+
 		for _, photo := range report.PhotoURLs {
 			lbl := typeLabel[photo.Type]
 			if lbl == "" {
 				lbl = photo.Type
 			}
-			row1(lbl, photo.URL)
+
+			f.Ln(3)
+			// Label
+			f.SetFont("Helvetica", "B", 8)
+			setColor(107, 114, 128)
+			f.CellFormat(pageW, 5, "[ "+lbl+" ]", "", 1, "L", false, 0, "")
+
+			if tryEmbedImage(photo.URL) {
+				// Center image horizontally, auto height, flow=true advances Y
+				xImg := (pageW-imgW)/2.0 + 15
+				f.ImageOptions(photo.URL, xImg, -1, imgW, 0, true, gofpdf.ImageOptions{}, 0, "")
+			} else {
+				// Fallback: tampilkan URL sebagai teks
+				f.SetFont("Helvetica", "I", 7)
+				setColor(150, 150, 150)
+				f.CellFormat(pageW, 5, "[ Foto tidak dapat ditampilkan ]", "", 1, "C", false, 0, "")
+			}
 		}
 	}
 

@@ -92,8 +92,8 @@ flutter run
 
 | Email | Password | Role |
 |---|---|---|
-| `manager@hydraulic.com` | `Admin123!` | Manager |
-| `teknisi@hydraulic.com` | `Admin123!` | Teknisi |
+| `manager@hydraulic.com` | `Manager123!` | Manager |
+| `teknisi@hydraulic.com` | `Teknisi123!` | Teknisi |
 | `client.ptkai@hydraulic.com` | `Client123!` | Client (PT KAI) |
 | `client.pln@hydraulic.com` | `Client123!` | Client (PT PLN) |
 
@@ -105,23 +105,25 @@ flutter run
 
 ### Selesai ✅
 - Login & autentikasi JWT per role (manager / teknisi / client / sales)
-- Buat booking + tambah equipment inline + upload foto kerusakan
+- Registrasi akun mandiri untuk client
+- Buat booking + upload foto kerusakan + jadwal servis (scheduled_at)
 - Isolasi data per perusahaan (booking & equipment)
+- Sales: lihat semua booking perusahaan + badge nama pembuat
 - Job board teknisi: Tab Open & Selesai; My Jobs terpisah dengan update status
-- Manager: assign teknisi ke booking open via bottom sheet
-- Manager: daftar semua teknisi (`/technicians`)
+- Paginasi infinite scroll (booking list & job board)
+- Manager: assign teknisi, daftar teknisi, search teknisi
 - Dashboard statistik manager (summary, performa teknisi, tren servis)
-- Form laporan hydraulic lengkap (repair / inspeksi / maintenance) + foto before/after
-- Generate PDF laporan otomatis → upload ke Supabase Storage
+- Form laporan hydraulic lengkap (repair / inspeksi / maintenance) + foto before/after/damage
+- Generate PDF laporan otomatis dengan foto → upload ke Supabase Storage
 - Share PDF laporan via native share sheet (WhatsApp, Drive, dll)
-- Search & filter di halaman Laporan (by teks + tipe servis, dengan highlight)
-- Notifikasi in-app: auto-dibuat saat claim, assign, update status, laporan selesai
-- Bell icon dengan badge unread count; halaman notifikasi dengan mark-as-read
-- Profil user per role
-- Auto-refresh list setelah setiap aksi (back dari detail → list reload)
-- Riwayat booking client dengan filter tipe servis
+- Search & filter di semua halaman daftar (booking, laporan, job board, teknisi)
+- Fullscreen photo viewer dengan swipe & pinch-to-zoom
+- Notifikasi in-app otomatis (booking, claim, assign, update status)
+- Bell icon dengan badge unread count; mark single / baca semua
+- Edit profil, ganti password, equipment CRUD
+- Profil per role: stats teknisi, daftar equipment untuk client
+- Batalkan booking (client/manager, status open saja)
 
 ### Belum Diimplementasi
 - FCM push notification (perlu `google-services.json` + Firebase setup)
-- Registrasi akun mandiri oleh client
 - Fitur lokasi / GPS / Maps

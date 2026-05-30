@@ -26,7 +26,20 @@ class _JobBoardPageState extends State<JobBoardPage>
   int    _doneOffset   = 0;
   static const _limit  = 20;
   String _name         = '';
+  String _query        = '';
+  final _searchCtrl    = TextEditingController();
   late TabController _tabController;
+
+  List<dynamic> _applyFilter(List<dynamic> jobs) {
+    if (_query.isEmpty) return jobs;
+    final q = _query.toLowerCase();
+    return jobs.where((j) =>
+        (j['description']    ?? '').toLowerCase().contains(q) ||
+        (j['company_name']   ?? '').toLowerCase().contains(q) ||
+        (j['equipment_name'] ?? '').toLowerCase().contains(q) ||
+        (j['site_city']      ?? '').toLowerCase().contains(q) ||
+        (j['site_address']   ?? '').toLowerCase().contains(q)).toList();
+  }
 
   @override
   void initState() {
@@ -34,12 +47,14 @@ class _JobBoardPageState extends State<JobBoardPage>
     _tabController = TabController(length: 2, vsync: this);
     _loadData();
     _doneScrollCtrl.addListener(_onDoneScroll);
+    _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _doneScrollCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -238,7 +253,37 @@ class _JobBoardPageState extends State<JobBoardPage>
                       _statBox('Selesai', '${_doneJobs.length}'),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
+                  // Search bar
+                  TextField(
+                    controller: _searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Cari deskripsi, perusahaan, kota...',
+                      hintStyle: const TextStyle(
+                          fontSize: 13, color: AppTheme.textTertiary),
+                      prefixIcon: const Icon(Icons.search,
+                          size: 20, color: AppTheme.textTertiary),
+                      suffixIcon: _query.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close,
+                                  size: 18, color: AppTheme.textTertiary),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _query = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: AppTheme.background,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   TabBar(
                     controller: _tabController,
                     labelColor: AppTheme.primary,
@@ -258,8 +303,8 @@ class _JobBoardPageState extends State<JobBoardPage>
                   : TabBarView(
                       controller: _tabController,
                       children: [
-                        _jobList(_openJobs, isOpen: true),
-                        _jobList(_doneJobs, isDone: true,
+                        _jobList(_applyFilter(_openJobs), isOpen: true),
+                        _jobList(_applyFilter(_doneJobs), isDone: true,
                             scrollCtrl: _doneScrollCtrl,
                             loadingMore: _loadingMore),
                       ],
