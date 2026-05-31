@@ -74,12 +74,14 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       _navigateByRole(data['user']['role']);
     } on DioException catch (e) {
-      print('ERROR: ${e.message}');
-      print('RESPONSE: ${e.response?.data}');
-      print('URL: ${e.requestOptions.uri}');
       setState(() {
-        _error =
-            e.response?.data['message'] ?? 'Terjadi kesalahan: ${e.message}';
+        _loading = false;
+        _error   = e.response?.data['message'] ?? 'Email atau password salah';
+      });
+    } catch (_) {
+      setState(() {
+        _loading = false;
+        _error   = 'Terjadi kesalahan, coba lagi';
       });
     }
   }
@@ -93,8 +95,10 @@ class _LoginPageState extends State<LoginPage> {
         context.go('/job-board');
         break;
       case AppConstants.roleClient:
-      case AppConstants.roleSales:
         context.go('/home');
+        break;
+      case AppConstants.roleSales:
+        context.go('/bookings');
         break;
       default:
         context.go('/login');

@@ -42,21 +42,79 @@ class _NotificationPageState extends State<NotificationPage> {
     } catch (_) {}
   }
 
+  Future<void> _deleteNotif(String id) async {
+    try {
+      await ApiClient.instance.delete('/notifications/$id');
+      setState(() =>
+          _notifications.removeWhere((n) => n['id'] == id));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal menghapus notifikasi')));
+      }
+    }
+  }
+
+  Future<void> _deleteAll() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus semua notifikasi?'),
+        content: const Text('Semua notifikasi akan dihapus permanen.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.danger,
+                foregroundColor: Colors.white),
+            child: const Text('Hapus semua'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await ApiClient.instance.delete('/notifications');
+      setState(() => _notifications.clear());
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal menghapus notifikasi')));
+      }
+    }
+  }
+
   Future<void> _onTapNotif(dynamic n) async {
-    final id       = n['id'] as String?;
+    final id        = n['id'] as String?;
     final bookingId = n['booking_id'] as String?;
-    final isRead   = n['is_read'] as bool? ?? false;
+    final isRead    = n['is_read'] as bool? ?? false;
 
     if (!isRead && id != null) {
       try {
         await ApiClient.instance.patch('/notifications/$id/read');
+        // Update state lokal langsung agar warna biru hilang tanpa reload
+        if (mounted) {
+          setState(() {
+            final idx = _notifications.indexWhere((x) => x['id'] == id);
+            if (idx != -1) {
+              _notifications[idx] = Map<String, dynamic>.from(
+                  _notifications[idx])
+                ..['is_read'] = true;
+            }
+          });
+        }
       } catch (_) {}
     }
 
     if (!mounted) return;
 
     if (bookingId != null) {
-      context.push('/booking/$bookingId');
+      await context.push('/booking/$bookingId');
+      // Reload setelah kembali dari halaman booking
+      if (mounted) _loadData();
     } else {
       _loadData();
     }
@@ -99,9 +157,28 @@ class _NotificationPageState extends State<NotificationPage> {
           if (unread > 0)
             TextButton(
               onPressed: _markAllRead,
-              child: const Text('Baca semua',
-                  style: TextStyle(fontSize: 12)),
+              child: const Text('Baca semua', style: TextStyle(fontSize: 12)),
             ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (v) {
+              if (v == 'delete_all') _deleteAll();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'delete_all',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep_outlined,
+                        size: 18, color: AppTheme.danger),
+                    SizedBox(width: 8),
+                    Text('Hapus semua',
+                        style: TextStyle(color: AppTheme.danger)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       body: _loading
@@ -134,6 +211,7 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   Widget _notifCard(dynamic n) {
+    final id        = n['id'] as String?;
     final isRead    = n['is_read'] as bool? ?? false;
     final title     = n['title'] as String? ?? '';
     final body      = n['body'] as String? ?? '';
@@ -142,6 +220,31 @@ class _NotificationPageState extends State<NotificationPage> {
 
     return InkWell(
       onTap: () => _onTapNotif(n),
+      onLongPress: () async {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Hapus notifikasi?'),
+            content: Text(title,
+                style: const TextStyle(fontSize: 13),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Batal')),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.danger,
+                    foregroundColor: Colors.white),
+                child: const Text('Hapus'),
+              ),
+            ],
+          ),
+        );
+        if (ok == true && id != null) _deleteNotif(id);
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(

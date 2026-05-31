@@ -21,6 +21,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String _phone       = '';
   String _role        = '';
   String _companyName = '';
+  String _companyId   = '';
 
   // Client/sales
   List<dynamic> _equipment = [];
@@ -37,15 +38,19 @@ class _ProfilePageState extends State<ProfilePage> {
 
   int get _navIndex {
     switch (_role) {
-      case AppConstants.roleManager: return 3;
-      case AppConstants.roleTeknisi: return 3;
-      default:                       return 3;
+      case AppConstants.roleSales:   return 2; // Booking=0, Riwayat=1, Profil=2
+      case AppConstants.roleTeknisi: return 2; // JobBoard=0, Laporan=1, Profil=2
+      default:                       return 3; // manager/client index 3
     }
   }
 
   @override
   void initState() {
     super.initState();
+    // Pre-load role agar navIndex benar sebelum BottomNav selesai build
+    _storage.read(key: AppConstants.userRoleKey).then((r) {
+      if (mounted && _role.isEmpty) setState(() => _role = r ?? '');
+    });
     _loadData();
   }
 
@@ -54,7 +59,8 @@ class _ProfilePageState extends State<ProfilePage> {
     _email       = await _storage.read(key: AppConstants.userIDKey)      ?? '';
     _role        = await _storage.read(key: AppConstants.userRoleKey)    ?? '';
     _companyName = await _storage.read(key: AppConstants.companyNameKey) ?? '';
-    final companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
+    _companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
+    final companyId = _companyId;
 
     // Fetch email from /auth/me
     try {
@@ -306,6 +312,140 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   // ─── EQUIPMENT CRUD ───────────────────────────────────────────────────────
+
+  void _showAddEquipmentSheet() {
+    final nameCtrl     = TextEditingController();
+    final brandCtrl    = TextEditingController();
+    final modelCtrl    = TextEditingController();
+    final serialCtrl   = TextEditingController();
+    final pressureCtrl = TextEditingController();
+    final locCtrl      = TextEditingController();
+    String type        = 'pump';
+    bool saving        = false;
+
+    const typeLabels = {
+      'pump': 'Pompa', 'hose': 'Selang',
+      'accumulator': 'Akumulator', 'cylinder': 'Silinder',
+    };
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _sheetHandle(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text('Tambah Equipment',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 16),
+                      _sheetField('Nama Equipment *', nameCtrl),
+                      const SizedBox(height: 10),
+                      // Tipe
+                      DropdownButtonFormField<String>(
+                        value: type,
+                        decoration: InputDecoration(
+                          labelText: 'Tipe Equipment',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 14),
+                        ),
+                        items: typeLabels.entries
+                            .map((e) => DropdownMenuItem(
+                                  value: e.key,
+                                  child: Text(e.value),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setSt(() => type = v!),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(child: _sheetField('Brand', brandCtrl)),
+                          const SizedBox(width: 10),
+                          Expanded(child: _sheetField('Model', modelCtrl)),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _sheetField('Serial Number', serialCtrl)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                              child: _sheetField('Tekanan (bar)', pressureCtrl,
+                                  keyboardType: TextInputType.number)),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _sheetField('Lokasi Detail', locCtrl),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                if (nameCtrl.text.trim().isEmpty) return;
+                                setSt(() => saving = true);
+                                try {
+                                  await ApiClient.instance.post(
+                                      '/equipment',
+                                      data: {
+                                        'company_id':   _companyId,
+                                        'name':         nameCtrl.text.trim(),
+                                        'type':         type,
+                                        'brand':        brandCtrl.text.trim(),
+                                        'model':        modelCtrl.text.trim(),
+                                        'serial_number': serialCtrl.text.trim(),
+                                        'rated_pressure_bar':
+                                            int.tryParse(pressureCtrl.text) ?? 0,
+                                        'location_detail':
+                                            locCtrl.text.trim(),
+                                      });
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                  _loadData();
+                                } catch (_) {
+                                  setSt(() => saving = false);
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.white,
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: saving
+                            ? const SizedBox(
+                                height: 18, width: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : const Text('Simpan Equipment'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showEditEquipmentSheet(dynamic e) {
     final nameCtrl  = TextEditingController(text: e['name'] ?? '');
@@ -710,7 +850,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   style: TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w600)),
               GestureDetector(
-                onTap: () => context.go('/booking/create'),
+                onTap: _showAddEquipmentSheet,
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(

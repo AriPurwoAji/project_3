@@ -33,17 +33,23 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 }
 
 func (h *BookingHandler) GetAllBookings(c *gin.Context) {
+	limit := c.DefaultQuery("limit", "20")
 	filters := map[string]string{
-		"status":        c.Query("status"),
-		"company_id":    c.Query("company_id"),
+		"status":       c.Query("status"),
+		"company_id":   c.Query("company_id"),
 		"technician_id": c.Query("technician_id"),
+		"service_type": c.Query("service_type"),
+		"limit":        limit,
+		"offset":       c.DefaultQuery("offset", "0"),
 	}
 
-	// Client/sales hanya boleh lihat booking perusahaannya sendiri
 	role := c.GetString("role")
-	if role == "client" || role == "sales" {
+	// Client hanya lihat booking perusahaannya + milik sendiri
+	if role == "client" {
 		filters["company_id"] = c.GetString("company_id")
+		filters["created_by"] = c.GetString("user_id")
 	}
+	// Sales (HydroServ) lihat semua booking tanpa filter
 
 	bookings, err := h.bookingUsecase.GetAllBookings(filters)
 	if err != nil {
@@ -75,7 +81,15 @@ func (h *BookingHandler) GetOpenBookings(c *gin.Context) {
 
 func (h *BookingHandler) GetMyJobs(c *gin.Context) {
 	technicianID := c.GetString("user_id")
-	bookings, err := h.bookingUsecase.GetMyJobs(technicianID)
+	filters := map[string]string{
+		"technician_id": technicianID,
+		"limit":         c.DefaultQuery("limit", "20"),
+		"offset":        c.DefaultQuery("offset", "0"),
+	}
+	if status := c.Query("status"); status != "" {
+		filters["status"] = status
+	}
+	bookings, err := h.bookingUsecase.GetAllBookings(filters)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return

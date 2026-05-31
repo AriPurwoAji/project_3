@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/photo_viewer.dart';
 
 class BookingDetailPage extends StatefulWidget {
   final String bookingId;
@@ -251,6 +252,10 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       ],
                       const SizedBox(height: 16),
                       _buildEquipmentCard(),
+                      if ((_booking!['photo_urls'] as List?)?.isNotEmpty == true) ...[
+                        const SizedBox(height: 16),
+                        _buildBookingPhotosCard(),
+                      ],
                       if (_report != null) ...[
                         const SizedBox(height: 16),
                         _buildReportCard(),
@@ -352,6 +357,32 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
               ),
             ],
           ),
+          if ((b['scheduled_at'] ?? '').isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.calendar_month_outlined,
+                      size: 13, color: AppTheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Dijadwalkan: ${_formatDateTime(b['scheduled_at'])}',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -672,6 +703,77 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                         color: AppTheme.primary,
                         fontWeight: FontWeight.w500)),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── BOOKING PHOTOS ──────────────────────────────────────────────────────
+
+  Widget _buildBookingPhotosCard() {
+    final photos = List<String>.from(_booking!['photo_urls'] as List? ?? []);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.photo_library_outlined,
+                  size: 15, color: AppTheme.textSecondary),
+              SizedBox(width: 6),
+              Text('Foto kerusakan',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: photos.asMap().entries.map((entry) {
+                final i   = entry.key;
+                final url = entry.value;
+                return GestureDetector(
+                  onTap: () => showPhotoViewer(context, photos,
+                      initialIndex: i),
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 90,
+                        height: 90,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          image: DecorationImage(
+                              image: NetworkImage(url),
+                              fit: BoxFit.cover),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 4,
+                        right: 12,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.black45,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.zoom_in,
+                              size: 13, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
             ),
           ),
         ],

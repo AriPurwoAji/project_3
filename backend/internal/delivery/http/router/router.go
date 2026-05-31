@@ -50,13 +50,13 @@ func Setup(
 		// Bookings
 		booking := protected.Group("/bookings")
 		{
-			booking.POST("", middleware.RoleMiddleware("client", "sales", "manager"), bookingHandler.CreateBooking)
+			booking.POST("", middleware.RoleMiddleware("client", "manager"), bookingHandler.CreateBooking)
 			booking.GET("", bookingHandler.GetAllBookings)
 			booking.GET("/:id", bookingHandler.GetBookingByID)
 			booking.POST("/:id/claim", middleware.RoleMiddleware("teknisi"), bookingHandler.ClaimBooking)
 			booking.PATCH("/:id/status", middleware.RoleMiddleware("teknisi"), bookingHandler.UpdateStatus)
 			booking.POST("/:id/assign", middleware.RoleMiddleware("manager"), bookingHandler.AssignTechnician)
-			booking.PATCH("/:id/cancel", middleware.RoleMiddleware("client", "sales", "manager"), bookingHandler.CancelBooking)
+			booking.PATCH("/:id/cancel", middleware.RoleMiddleware("client", "manager"), bookingHandler.CancelBooking)
 		}
 
 		// Job board & my jobs
@@ -87,6 +87,8 @@ func Setup(
 			notif.GET("/unread-count", notifHandler.CountUnread)
 			notif.PATCH("/:id/read", notifHandler.MarkAsRead)
 			notif.PATCH("/read-all", notifHandler.MarkAllAsRead)
+			notif.DELETE("/:id", notifHandler.Delete)
+			notif.DELETE("", notifHandler.DeleteAll)
 		}
 
 		// Auth — protected
@@ -97,6 +99,9 @@ func Setup(
 		users := protected.Group("/users")
 		{
 			users.GET("/teknisi", middleware.RoleMiddleware("manager"), authHandler.GetTechnicians)
+			users.GET("/sales",   middleware.RoleMiddleware("manager"), authHandler.GetSales)
+			users.GET("/client",  middleware.RoleMiddleware("manager"), authHandler.GetClients)
+			users.POST("",        middleware.RoleMiddleware("manager"), authHandler.CreateUser)
 		}
 
 		// Dashboard — manager only

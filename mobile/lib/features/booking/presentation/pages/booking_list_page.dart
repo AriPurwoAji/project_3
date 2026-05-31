@@ -14,12 +14,19 @@ class BookingListPage extends StatefulWidget {
 }
 
 class _BookingListPageState extends State<BookingListPage> {
-  final _storage = const FlutterSecureStorage();
+  final _storage    = const FlutterSecureStorage();
+  final _scrollCtrl = ScrollController();
+
   List<dynamic> _bookings = [];
-  bool _loading = true;
-  String _role = '';
-  String _name = '';
-  String _companyId = '';
+  bool   _loading     = true;
+  bool   _loadingMore = false;
+  bool   _hasMore     = true;
+  int    _offset      = 0;
+  static const _limit = 20;
+
+  String _role        = '';
+  String _name        = '';
+  String _companyId   = '';
   String _companyName = '';
   String _selectedStatus = '';
   String _query          = '';
@@ -29,10 +36,13 @@ class _BookingListPageState extends State<BookingListPage> {
     return _bookings.where((b) {
       final q = _query.toLowerCase();
       final matchQ = q.isEmpty ||
-          (b['description']    ?? '').toLowerCase().contains(q) ||
-          (b['company_name']   ?? '').toLowerCase().contains(q) ||
-          (b['equipment_name'] ?? '').toLowerCase().contains(q) ||
-          (b['technician_name']?? '').toLowerCase().contains(q);
+          (b['description']      ?? '').toLowerCase().contains(q) ||
+          (b['company_name']     ?? '').toLowerCase().contains(q) ||
+          (b['equipment_name']   ?? '').toLowerCase().contains(q) ||
+          (b['technician_name']  ?? '').toLowerCase().contains(q) ||
+          (b['created_by_name']  ?? '').toLowerCase().contains(q) ||
+          (b['site_address']     ?? '').toLowerCase().contains(q) ||
+          (b['site_city']        ?? '').toLowerCase().contains(q);
       return matchQ;
     }).toList();
   }
@@ -42,37 +52,87 @@ class _BookingListPageState extends State<BookingListPage> {
     super.initState();
     _loadData();
     _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
+    _scrollCtrl.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    _role = await _storage.read(key: AppConstants.userRoleKey) ?? '';
-    _name = await _storage.read(key: AppConstants.userNameKey) ?? '';
-    _companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
-    _companyName = await _storage.read(key: AppConstants.companyNameKey) ?? '';
-    try {
-      final params = <String, String>{};
-      if (_selectedStatus.isNotEmpty) params['status'] = _selectedStatus;
-      if (_companyId.isNotEmpty &&
-          (_role == AppConstants.roleClient || _role == AppConstants.roleSales)) {
-        params['company_id'] = _companyId;
-      }
-      final query = params.isEmpty
-          ? ''
-          : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
-      final res = await ApiClient.instance.get('/bookings$query');
-      setState(() {
-        _bookings = res.data['data'] ?? [];
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() => _loading = false);
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels >=
+            _scrollCtrl.position.maxScrollExtent - 200 &&
+        !_loadingMore &&
+        _hasMore) {
+      _loadMore();
     }
+  }
+
+  Future<void> _loadData() async {
+    _role        = await _storage.read(key: AppConstants.userRoleKey)    ?? '';
+    _name        = await _storage.read(key: AppConstants.userNameKey)    ?? '';
+    _companyId   = await _storage.read(key: AppConstants.companyIdKey)   ?? '';
+    _companyName = await _storage.read(key: AppConstants.companyNameKey) ?? '';
+
+    setState(() {
+      _loading = true;
+      _offset  = 0;
+      _hasMore = true;
+      _bookings = [];
+    });
+
+    try {
+      final params = _buildParams(offset: 0);
+      final res = await ApiClient.instance.get('/bookings?$params');
+      final data = List<dynamic>.from(res.data['data'] ?? []);
+      if (mounted) {
+        setState(() {
+          _bookings = data;
+          _hasMore  = data.length == _limit;
+          _offset   = data.length;
+          _loading  = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final params = _buildParams(offset: _offset);
+      final res  = await ApiClient.instance.get('/bookings?$params');
+      final data = List<dynamic>.from(res.data['data'] ?? []);
+      if (mounted) {
+        setState(() {
+          _bookings.addAll(data);
+          _hasMore      = data.length == _limit;
+          _offset      += data.length;
+          _loadingMore  = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  String _buildParams({required int offset}) {
+    final params = <String, String>{
+      'limit':  '$_limit',
+      'offset': '$offset',
+    };
+    if (_selectedStatus.isNotEmpty) params['status'] = _selectedStatus;
+    if (_companyId.isNotEmpty &&
+        (_role == AppConstants.roleClient ||
+            _role == AppConstants.roleSales)) {
+      params['company_id'] = _companyId;
+    }
+    return params.entries.map((e) => '${e.key}=${e.value}').join('&');
   }
 
   Color _statusColor(String status) {
@@ -102,7 +162,8 @@ class _BookingListPageState extends State<BookingListPage> {
   int get _navIndex {
     switch (_role) {
       case AppConstants.roleTeknisi: return 0;
-      default: return 1; // manager(1), client(1), sales(1)
+      case AppConstants.roleSales:   return 0; // sales: Booking di index 0
+      default:                       return 1; // manager(1), client(1)
     }
   }
 
@@ -116,17 +177,21 @@ class _BookingListPageState extends State<BookingListPage> {
             Text(_name,
                 style: const TextStyle(
                     fontSize: 16, fontWeight: FontWeight.w600)),
-            if (_companyName.isNotEmpty)
-              Text(_companyName,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.normal,
-                      color: AppTheme.textSecondary)),
+            Text(
+              _role == AppConstants.roleSales
+                  ? 'Sales · Monitoring semua booking'
+                  : _companyName.isNotEmpty
+                      ? _companyName
+                      : '',
+              style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.normal,
+                  color: AppTheme.textSecondary),
+            ),
           ],
         ),
         actions: [
-          if (_role == AppConstants.roleClient ||
-              _role == AppConstants.roleSales)
+          if (_role == AppConstants.roleClient)
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () => context.go('/booking/create'),
@@ -181,6 +246,7 @@ class _BookingListPageState extends State<BookingListPage> {
                 _filterChip('On The Way', 'on_the_way'),
                 _filterChip('On Site', 'on_site'),
                 _filterChip('Selesai', 'done'),
+                _filterChip('Batal', 'cancelled'),
               ],
             ),
           ),
@@ -214,12 +280,22 @@ class _BookingListPageState extends State<BookingListPage> {
                             ),
                           )
                         : ListView.separated(
+                            controller: _scrollCtrl,
                             padding: const EdgeInsets.fromLTRB(
                                 16, 8, 16, 24),
-                            itemCount: _filtered.length,
+                            itemCount: _filtered.length + (_loadingMore ? 1 : 0),
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 10),
                             itemBuilder: (context, i) {
+                              if (i == _filtered.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                );
+                              }
                               final b = _filtered[i];
                               final status = b['status'] ?? '';
                               final statusColor = _statusColor(status);
@@ -357,6 +433,26 @@ class _BookingListPageState extends State<BookingListPage> {
                                         ],
                                       ],
                                     ),
+                                    // Sales: tampilkan siapa yang buat booking
+                                    if (_role == AppConstants.roleSales &&
+                                        (b['created_by_name'] ?? '').isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.badge_outlined,
+                                              size: 13,
+                                              color: AppTheme.primary),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Dibuat oleh: ${b['created_by_name']}',
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.primary,
+                                                fontWeight: FontWeight.w500),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ));
@@ -366,15 +462,13 @@ class _BookingListPageState extends State<BookingListPage> {
           ),
         ],
       ),
-      floatingActionButton:
-          (_role == AppConstants.roleClient ||
-                  _role == AppConstants.roleSales)
-              ? FloatingActionButton(
-                  onPressed: () => context.go('/booking/create'),
-                  backgroundColor: AppTheme.primary,
-                  child: const Icon(Icons.add, color: Colors.white),
-                )
-              : null,
+      floatingActionButton: _role == AppConstants.roleClient
+          ? FloatingActionButton(
+              onPressed: () => context.go('/booking/create'),
+              backgroundColor: AppTheme.primary,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
     );
   }
 

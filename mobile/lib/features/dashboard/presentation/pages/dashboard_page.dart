@@ -15,7 +15,8 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   final _storage = const FlutterSecureStorage();
-  String _name = '';
+  String _name        = '';
+  int    _unreadCount = 0;
   Map<String, dynamic>? _summary;
   List<dynamic> _techPerformance = [];
   List<dynamic> _serviceTrend = [];
@@ -34,21 +35,19 @@ class _DashboardPageState extends State<DashboardPage> {
         ApiClient.instance.get('/dashboard/summary'),
         ApiClient.instance.get('/dashboard/technician-performance'),
         ApiClient.instance.get('/dashboard/service-trend'),
+        ApiClient.instance.get('/notifications/unread-count'),
       ]);
       setState(() {
-        _summary = results[0].data['data'];
+        _summary         = results[0].data['data'];
         _techPerformance = results[1].data['data'] ?? [];
-        _serviceTrend = results[2].data['data'] ?? [];
+        _serviceTrend    = results[2].data['data'] ?? [];
+        _unreadCount     = (results[3].data['data']['unread_count'] as num?)
+                              ?.toInt() ?? 0;
         _loading = false;
       });
     } catch (e) {
       setState(() => _loading = false);
     }
-  }
-
-  Future<void> _logout() async {
-    await ApiClient.clearToken();
-    if (mounted) context.go('/login');
   }
 
   @override
@@ -57,9 +56,21 @@ class _DashboardPageState extends State<DashboardPage> {
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+          Badge(
+            label: Text('$_unreadCount'),
+            isLabelVisible: _unreadCount > 0,
+            child: IconButton(
+              icon: Icon(_unreadCount > 0
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_outlined),
+              color: _unreadCount > 0
+                  ? AppTheme.primary
+                  : null,
+              onPressed: () async {
+                await context.push('/notifications');
+                if (mounted) _loadData();
+              },
+            ),
           ),
         ],
       ),

@@ -13,12 +13,14 @@ class BottomNav extends StatelessWidget {
     return FutureBuilder<String?>(
       future: const FlutterSecureStorage().read(key: AppConstants.userRoleKey),
       builder: (context, snapshot) {
-        final role = snapshot.data ?? '';
+        final role         = snapshot.data ?? '';
+        final destinations = _getDestinations(role);
+        final safeIndex    = currentIndex.clamp(0, destinations.length - 1);
         return NavigationBar(
-          selectedIndex: currentIndex,
+          selectedIndex: safeIndex,
           backgroundColor: AppTheme.surface,
           indicatorColor: AppTheme.primaryLight,
-          destinations: _getDestinations(role),
+          destinations: destinations,
           onDestinationSelected: (i) => _onTap(context, i, role),
         );
       },
@@ -38,9 +40,9 @@ class BottomNav extends StatelessWidget {
               selectedIcon: Icon(Icons.list_alt),
               label: 'Booking'),
           NavigationDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people),
-              label: 'Teknisi'),
+              icon: Icon(Icons.groups_outlined),
+              selectedIcon: Icon(Icons.groups),
+              label: 'Tim'),
           NavigationDestination(
               icon: Icon(Icons.person_outline),
               selectedIcon: Icon(Icons.person),
@@ -53,10 +55,6 @@ class BottomNav extends StatelessWidget {
               selectedIcon: Icon(Icons.work),
               label: 'Job Board'),
           NavigationDestination(
-              icon: Icon(Icons.assignment_outlined),
-              selectedIcon: Icon(Icons.assignment),
-              label: 'My Jobs'),
-          NavigationDestination(
               icon: Icon(Icons.description_outlined),
               selectedIcon: Icon(Icons.description),
               label: 'Laporan'),
@@ -65,7 +63,22 @@ class BottomNav extends StatelessWidget {
               selectedIcon: Icon(Icons.person),
               label: 'Profil'),
         ];
-      default: // client & sales
+      case AppConstants.roleSales:
+        return const [
+          NavigationDestination(
+              icon: Icon(Icons.list_alt_outlined),
+              selectedIcon: Icon(Icons.list_alt),
+              label: 'Booking'),
+          NavigationDestination(
+              icon: Icon(Icons.history_outlined),
+              selectedIcon: Icon(Icons.history),
+              label: 'Riwayat'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profil'),
+        ];
+      default: // client
         return const [
           NavigationDestination(
               icon: Icon(Icons.home_outlined),
@@ -92,15 +105,20 @@ class BottomNav extends StatelessWidget {
       switch (index) {
         case 0: context.go('/dashboard'); break;
         case 1: context.go('/bookings'); break;
-        case 2: context.go('/technicians'); break;
+        case 2: context.go('/team'); break;
         case 3: context.go('/profile'); break;
       }
     } else if (role == AppConstants.roleTeknisi) {
       switch (index) {
         case 0: context.go('/job-board'); break;
-        case 1: context.go('/my-jobs'); break;
-        case 2: context.go('/laporan'); break;
-        case 3: context.go('/profile'); break;
+        case 1: context.go('/laporan'); break;
+        case 2: context.go('/profile'); break;
+      }
+    } else if (role == AppConstants.roleSales) {
+      switch (index) {
+        case 0: context.go('/bookings'); break;
+        case 1: context.go('/riwayat'); break;
+        case 2: context.go('/profile'); break;
       }
     } else {
       switch (index) {

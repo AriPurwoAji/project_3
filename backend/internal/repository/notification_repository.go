@@ -105,3 +105,19 @@ func (r *notificationRepository) CountUnread(userID string) (int, error) {
 	err := r.db.QueryRow(context.Background(), query, userID).Scan(&count)
 	return count, err
 }
+
+func (r *notificationRepository) Delete(notifID, userID string) error {
+	_, err := r.db.Exec(context.Background(),
+		`DELETE FROM notifications WHERE id = $1 AND user_id = $2`,
+		notifID, userID,
+	)
+	return err
+}
+
+func (r *notificationRepository) DeleteAll(userID string) error {
+	_, err := r.db.Exec(context.Background(),
+		`DELETE FROM notifications WHERE user_id = $1`,
+		userID,
+	)
+	return err
+}

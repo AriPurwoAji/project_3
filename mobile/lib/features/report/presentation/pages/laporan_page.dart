@@ -128,7 +128,7 @@ class _LaporanPageState extends State<LaporanPage> {
           ),
         ],
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 2),
+      bottomNavigationBar: const BottomNav(currentIndex: 1),
       body: Column(
         children: [
           // ── Search bar ────────────────────────────────────────────────
@@ -296,46 +296,24 @@ class _LaporanPageState extends State<LaporanPage> {
   Widget _reportCard(dynamic r) {
     final booking     = r['booking_info'] as Map<String, dynamic>? ?? {};
     final serviceType = booking['service_type'] ?? '';
+    final urgency     = booking['urgency_level'] ?? 'standard';
     final companyName = booking['company_name'] ?? r['company_name'] ?? '-';
     final equipName   = booking['equipment_name'] ?? '';
+    final siteCity    = booking['site_city'] ?? '';
+    final siteAddress = booking['site_address'] ?? '';
+    final workDesc    = r['work_description'] ?? '-';
     final createdAt   = r['created_at'] ?? '';
-    final query       = _query.toLowerCase();
+    final isEmergency = urgency == 'emergency';
 
-    // Highlight matching text helper
-    Widget highlighted(String text, {TextStyle? base}) {
-      if (query.isEmpty || !text.toLowerCase().contains(query)) {
-        return Text(text,
-            style: base ??
-                const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis);
-      }
-      final lower = text.toLowerCase();
-      final start = lower.indexOf(query);
-      final end   = start + query.length;
-      return RichText(
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        text: TextSpan(
-          style: base ??
-              const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textPrimary),
-          children: [
-            TextSpan(text: text.substring(0, start)),
-            TextSpan(
-              text: text.substring(start, end),
-              style: const TextStyle(
-                  backgroundColor: Color(0xFFFFF176),
-                  fontWeight: FontWeight.w700),
-            ),
-            TextSpan(text: text.substring(end)),
-          ],
-        ),
-      );
-    }
+    final serviceColors = <String, List<Color>>{
+      'repair':      [AppTheme.danger,   AppTheme.dangerLight],
+      'inspeksi':    [AppTheme.primary,  AppTheme.primaryLight],
+      'maintenance': [AppTheme.warning,  AppTheme.warningLight],
+    };
+    final sc = serviceColors[serviceType] ?? [AppTheme.textTertiary, AppTheme.surface];
+    final serviceLabels = {
+      'repair': 'Repair', 'inspeksi': 'Inspeksi', 'maintenance': 'Maintenance'
+    };
 
     return GestureDetector(
       onTap: () async {
@@ -347,14 +325,45 @@ class _LaporanPageState extends State<LaporanPage> {
         decoration: BoxDecoration(
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border, width: 0.5),
+          border: Border.all(
+            color: isEmergency ? AppTheme.danger : AppTheme.border,
+            width: isEmergency ? 1.5 : 0.5,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Baris 1: badges + tanggal
             Row(
               children: [
-                _serviceTypeBadge(serviceType),
+                // Urgency badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isEmergency ? AppTheme.dangerLight : AppTheme.primaryLight,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    isEmergency ? 'EMERGENCY' : 'STANDARD',
+                    style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: isEmergency ? AppTheme.danger : AppTheme.primary),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Service type badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: sc[1],
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    serviceLabels[serviceType] ?? serviceType,
+                    style: TextStyle(fontSize: 9, color: sc[0]),
+                  ),
+                ),
                 const Spacer(),
                 Text(_formatDate(createdAt),
                     style: const TextStyle(
@@ -362,22 +371,42 @@ class _LaporanPageState extends State<LaporanPage> {
               ],
             ),
             const SizedBox(height: 8),
-            highlighted(r['work_description'] ?? '-'),
-            const SizedBox(height: 3),
-            highlighted(
-              companyName,
-              base: const TextStyle(
-                  fontSize: 12, color: AppTheme.textSecondary),
+            // Baris 2: deskripsi — nama PT
+            Text(
+              '$workDesc  —  $companyName',
+              style: const TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w600),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            if (equipName.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              highlighted(
-                equipName,
-                base: const TextStyle(
-                    fontSize: 11, color: AppTheme.textTertiary),
+            const SizedBox(height: 4),
+            // Baris 3: equipment
+            if (equipName.isNotEmpty)
+              Text(equipName,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(height: 4),
+            // Baris 4: lokasi
+            if (siteCity.isNotEmpty || siteAddress.isNotEmpty)
+              Row(
+                children: [
+                  const Icon(Icons.location_on_outlined,
+                      size: 13, color: AppTheme.textTertiary),
+                  const SizedBox(width: 3),
+                  Expanded(
+                    child: Text(
+                      [siteAddress, siteCity]
+                          .where((s) => s.isNotEmpty)
+                          .join(', '),
+                      style: const TextStyle(
+                          fontSize: 11, color: AppTheme.textTertiary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            ],
             const SizedBox(height: 8),
+            // Baris 5: status + PDF
             Row(
               children: [
                 const Icon(Icons.check_circle_outline,
@@ -389,8 +418,7 @@ class _LaporanPageState extends State<LaporanPage> {
                 const Spacer(),
                 if (r['pdf_url'] != null)
                   _pdfButton(
-                      r['pdf_url'] as String,
-                      r['id'] as String? ?? ''),
+                      r['pdf_url'] as String, r['id'] as String? ?? ''),
               ],
             ),
           ],
@@ -437,32 +465,6 @@ class _LaporanPageState extends State<LaporanPage> {
                 ],
         ),
       ),
-    );
-  }
-
-  Widget _serviceTypeBadge(String type) {
-    final colors = <String, List<Color>>{
-      'repair':      [AppTheme.danger, AppTheme.dangerLight],
-      'inspeksi':    [AppTheme.primary, AppTheme.primaryLight],
-      'maintenance': [AppTheme.warning, AppTheme.warningLight],
-    };
-    final c      = colors[type] ?? [AppTheme.textTertiary, AppTheme.surface];
-    final labels = {
-      'repair':      'Repair',
-      'inspeksi':    'Inspeksi',
-      'maintenance': 'Maintenance',
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: c[1],
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Text(labels[type] ?? type,
-          style: TextStyle(
-              fontSize: 10,
-              color: c[0],
-              fontWeight: FontWeight.w500)),
     );
   }
 }

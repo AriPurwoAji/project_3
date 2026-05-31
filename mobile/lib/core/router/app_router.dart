@@ -12,6 +12,7 @@ import '../../features/booking/presentation/pages/create_booking_page.dart';
 import '../../features/booking/presentation/pages/home_client_page.dart';
 import '../../features/booking/presentation/pages/riwayat_page.dart';
 import '../../features/booking/presentation/pages/technician_list_page.dart';
+import '../../features/booking/presentation/pages/team_page.dart';
 import '../../features/report/presentation/pages/create_report_page.dart';
 import '../../features/report/presentation/pages/laporan_page.dart';
 import '../../features/report/presentation/pages/report_detail_page.dart';
@@ -24,11 +25,12 @@ final appRouter = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
     final token = await _storage.read(key: AppConstants.accessTokenKey);
-    final isLoggedIn  = token != null;
-    final isLoginPage = state.matchedLocation == '/login';
+    final isLoggedIn   = token != null;
+    final loc          = state.matchedLocation;
+    final isPublicPage = loc == '/login' || loc == '/register';
 
-    if (!isLoggedIn && !isLoginPage) return '/login';
-    if (isLoggedIn && isLoginPage) {
+    if (!isLoggedIn && !isPublicPage) return '/login';
+    if (isLoggedIn && loc == '/login') {
       final role = await _storage.read(key: AppConstants.userRoleKey);
       return _getHomeRoute(role ?? '');
     }
@@ -43,6 +45,8 @@ final appRouter = GoRouter(
     // ── Manager ──────────────────────────────────────────────────────────
     GoRoute(path: '/dashboard',
         builder: (_, __) => const DashboardPage()),
+    GoRoute(path: '/team',
+        builder: (_, __) => const TeamPage()),
     GoRoute(path: '/technicians',
         builder: (_, __) => const TechnicianListPage()),
 
@@ -93,8 +97,8 @@ String _getHomeRoute(String role) {
   switch (role) {
     case AppConstants.roleManager:  return '/dashboard';
     case AppConstants.roleTeknisi:  return '/job-board';
-    case AppConstants.roleClient:
-    case AppConstants.roleSales:    return '/home';
+    case AppConstants.roleClient:   return '/home';
+    case AppConstants.roleSales:    return '/bookings';
     default:                        return '/login';
   }
 }
