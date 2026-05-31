@@ -50,13 +50,13 @@ func Setup(
 		// Bookings
 		booking := protected.Group("/bookings")
 		{
-			booking.POST("", middleware.RoleMiddleware("client", "sales", "manager"), bookingHandler.CreateBooking)
+			booking.POST("", middleware.RoleMiddleware("client", "manager"), bookingHandler.CreateBooking)
 			booking.GET("", bookingHandler.GetAllBookings)
 			booking.GET("/:id", bookingHandler.GetBookingByID)
 			booking.POST("/:id/claim", middleware.RoleMiddleware("teknisi"), bookingHandler.ClaimBooking)
 			booking.PATCH("/:id/status", middleware.RoleMiddleware("teknisi"), bookingHandler.UpdateStatus)
 			booking.POST("/:id/assign", middleware.RoleMiddleware("manager"), bookingHandler.AssignTechnician)
-			booking.PATCH("/:id/cancel", middleware.RoleMiddleware("client", "sales", "manager"), bookingHandler.CancelBooking)
+			booking.PATCH("/:id/cancel", middleware.RoleMiddleware("client", "manager"), bookingHandler.CancelBooking)
 		}
 
 		// Job board & my jobs

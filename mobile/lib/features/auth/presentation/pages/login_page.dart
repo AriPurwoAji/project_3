@@ -93,8 +93,10 @@ class _LoginPageState extends State<LoginPage> {
         context.go('/job-board');
         break;
       case AppConstants.roleClient:
-      case AppConstants.roleSales:
         context.go('/home');
+        break;
+      case AppConstants.roleSales:
+        context.go('/bookings');
         break;
       default:
         context.go('/login');

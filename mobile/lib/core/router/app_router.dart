@@ -97,8 +97,8 @@ String _getHomeRoute(String role) {
   switch (role) {
     case AppConstants.roleManager:  return '/dashboard';
     case AppConstants.roleTeknisi:  return '/job-board';
-    case AppConstants.roleClient:
-    case AppConstants.roleSales:    return '/home';
+    case AppConstants.roleClient:   return '/home';
+    case AppConstants.roleSales:    return '/bookings';
     default:                        return '/login';
   }
 }

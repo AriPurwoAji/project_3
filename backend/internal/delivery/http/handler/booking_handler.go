@@ -44,13 +44,12 @@ func (h *BookingHandler) GetAllBookings(c *gin.Context) {
 	}
 
 	role := c.GetString("role")
-	if role == "client" || role == "sales" {
-		filters["company_id"] = c.GetString("company_id")
-	}
-	// Client hanya lihat booking milik sendiri
+	// Client hanya lihat booking perusahaannya + milik sendiri
 	if role == "client" {
+		filters["company_id"] = c.GetString("company_id")
 		filters["created_by"] = c.GetString("user_id")
 	}
+	// Sales (HydroServ) lihat semua booking tanpa filter
 
 	bookings, err := h.bookingUsecase.GetAllBookings(filters)
 	if err != nil {

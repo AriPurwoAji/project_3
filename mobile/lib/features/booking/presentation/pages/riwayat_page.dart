@@ -20,6 +20,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
   bool   _loading    = true;
   String _filterType = '';
   String _query      = '';
+  String _role       = '';
 
   List<dynamic> get _filtered {
     if (_query.isEmpty) return _bookings;
@@ -46,11 +47,15 @@ class _RiwayatPageState extends State<RiwayatPage> {
   }
 
   Future<void> _loadData() async {
+    _role = await _storage.read(key: AppConstants.userRoleKey) ?? '';
     final companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
     setState(() => _loading = true);
     try {
       final params = <String, String>{'status': 'done'};
-      if (companyId.isNotEmpty) params['company_id'] = companyId;
+      // Client filter by company; sales lihat semua (monitoring)
+      if (_role == AppConstants.roleClient && companyId.isNotEmpty) {
+        params['company_id'] = companyId;
+      }
       if (_filterType.isNotEmpty) params['service_type'] = _filterType;
 
       final query = '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
@@ -83,7 +88,10 @@ class _RiwayatPageState extends State<RiwayatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Riwayat Layanan')),
-      bottomNavigationBar: const BottomNav(currentIndex: 2),
+      // Sales: index 1 (Booking=0, Riwayat=1, Profil=2)
+      // Client: index 2 (Home=0, Booking=1, Riwayat=2, Profil=3)
+      bottomNavigationBar: BottomNav(
+          currentIndex: _role == AppConstants.roleSales ? 1 : 2),
       body: Column(
         children: [
           // Search bar

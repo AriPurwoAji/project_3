@@ -38,9 +38,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   int get _navIndex {
     switch (_role) {
-      case AppConstants.roleManager: return 3;
-      case AppConstants.roleTeknisi: return 3;
-      default:                       return 3;
+      case AppConstants.roleSales: return 2; // Booking=0, Riwayat=1, Profil=2
+      default:                     return 3; // manager/teknisi/client semua index 3
     }
   }
 

@@ -65,7 +65,22 @@ class BottomNav extends StatelessWidget {
               selectedIcon: Icon(Icons.person),
               label: 'Profil'),
         ];
-      default: // client & sales
+      case AppConstants.roleSales:
+        return const [
+          NavigationDestination(
+              icon: Icon(Icons.list_alt_outlined),
+              selectedIcon: Icon(Icons.list_alt),
+              label: 'Booking'),
+          NavigationDestination(
+              icon: Icon(Icons.history_outlined),
+              selectedIcon: Icon(Icons.history),
+              label: 'Riwayat'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profil'),
+        ];
+      default: // client
         return const [
           NavigationDestination(
               icon: Icon(Icons.home_outlined),
@@ -101,6 +116,12 @@ class BottomNav extends StatelessWidget {
         case 1: context.go('/my-jobs'); break;
         case 2: context.go('/laporan'); break;
         case 3: context.go('/profile'); break;
+      }
+    } else if (role == AppConstants.roleSales) {
+      switch (index) {
+        case 0: context.go('/bookings'); break;
+        case 1: context.go('/riwayat'); break;
+        case 2: context.go('/profile'); break;
       }
     } else {
       switch (index) {

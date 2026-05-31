@@ -162,7 +162,8 @@ class _BookingListPageState extends State<BookingListPage> {
   int get _navIndex {
     switch (_role) {
       case AppConstants.roleTeknisi: return 0;
-      default: return 1; // manager(1), client(1), sales(1)
+      case AppConstants.roleSales:   return 0; // sales: Booking di index 0
+      default:                       return 1; // manager(1), client(1)
     }
   }
 
@@ -178,7 +179,7 @@ class _BookingListPageState extends State<BookingListPage> {
                     fontSize: 16, fontWeight: FontWeight.w600)),
             Text(
               _role == AppConstants.roleSales
-                  ? 'Sales · Semua booking perusahaan'
+                  ? 'Sales · Monitoring semua booking'
                   : _companyName.isNotEmpty
                       ? _companyName
                       : '',
@@ -189,7 +190,13 @@ class _BookingListPageState extends State<BookingListPage> {
             ),
           ],
         ),
-        actions: const [],
+        actions: [
+          if (_role == AppConstants.roleClient)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => context.go('/booking/create'),
+            ),
+        ],
       ),
       bottomNavigationBar: BottomNav(currentIndex: _navIndex),
       body: Column(
@@ -455,15 +462,13 @@ class _BookingListPageState extends State<BookingListPage> {
           ),
         ],
       ),
-      floatingActionButton:
-          (_role == AppConstants.roleClient ||
-                  _role == AppConstants.roleSales)
-              ? FloatingActionButton(
-                  onPressed: () => context.go('/booking/create'),
-                  backgroundColor: AppTheme.primary,
-                  child: const Icon(Icons.add, color: Colors.white),
-                )
-              : null,
+      floatingActionButton: _role == AppConstants.roleClient
+          ? FloatingActionButton(
+              onPressed: () => context.go('/booking/create'),
+              backgroundColor: AppTheme.primary,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
     );
   }
 
