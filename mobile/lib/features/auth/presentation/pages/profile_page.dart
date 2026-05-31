@@ -47,6 +47,10 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    // Pre-load role agar navIndex benar sebelum BottomNav selesai build
+    _storage.read(key: AppConstants.userRoleKey).then((r) {
+      if (mounted && _role.isEmpty) setState(() => _role = r ?? '');
+    });
     _loadData();
   }
 

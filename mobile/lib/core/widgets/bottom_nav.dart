@@ -13,12 +13,14 @@ class BottomNav extends StatelessWidget {
     return FutureBuilder<String?>(
       future: const FlutterSecureStorage().read(key: AppConstants.userRoleKey),
       builder: (context, snapshot) {
-        final role = snapshot.data ?? '';
+        final role         = snapshot.data ?? '';
+        final destinations = _getDestinations(role);
+        final safeIndex    = currentIndex.clamp(0, destinations.length - 1);
         return NavigationBar(
-          selectedIndex: currentIndex,
+          selectedIndex: safeIndex,
           backgroundColor: AppTheme.surface,
           indicatorColor: AppTheme.primaryLight,
-          destinations: _getDestinations(role),
+          destinations: destinations,
           onDestinationSelected: (i) => _onTap(context, i, role),
         );
       },
