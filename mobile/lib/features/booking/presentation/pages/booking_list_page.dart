@@ -239,6 +239,7 @@ class _BookingListPageState extends State<BookingListPage> {
                 _filterChip('On The Way', 'on_the_way'),
                 _filterChip('On Site', 'on_site'),
                 _filterChip('Selesai', 'done'),
+                _filterChip('Batal', 'cancelled'),
               ],
             ),
           ),

@@ -192,8 +192,25 @@ class _RiwayatPageState extends State<RiwayatPage> {
 
   Widget _riwayatCard(dynamic b) {
     final serviceType = b['service_type'] ?? '';
-    final hasPressure = b['pressure_before_bar'] != null ||
-        b['pressure_after_bar'] != null;
+    final urgency     = b['urgency_level'] ?? 'standard';
+    final isEmergency = urgency == 'emergency';
+    final companyName = b['company_name'] ?? '-';
+    final equipName   = b['equipment_name'] ?? '';
+    final techName    = b['technician_name'] ?? '-';
+    final siteCity    = b['site_city'] ?? '';
+    final siteAddress = b['site_address'] ?? '';
+    final desc        = b['description'] ?? '-';
+
+    const serviceColors = <String, List<Color>>{
+      'repair':      [AppTheme.danger,   AppTheme.dangerLight],
+      'inspeksi':    [AppTheme.primary,  AppTheme.primaryLight],
+      'maintenance': [AppTheme.warning,  AppTheme.warningLight],
+    };
+    final sc = serviceColors[serviceType] ??
+        [AppTheme.textTertiary, AppTheme.surface];
+    const serviceLabels = {
+      'repair': 'Repair', 'inspeksi': 'Inspeksi', 'maintenance': 'Maintenance'
+    };
 
     return GestureDetector(
       onTap: () => context.push('/booking/${b['id']}'),
@@ -202,85 +219,102 @@ class _RiwayatPageState extends State<RiwayatPage> {
         decoration: BoxDecoration(
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border, width: 0.5),
+          border: Border.all(
+            color: isEmergency ? AppTheme.danger : AppTheme.border,
+            width: isEmergency ? 1.5 : 0.5,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Baris 1: urgency + service type badge + tanggal
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                      horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppTheme.secondary.withValues(alpha: 0.1),
+                    color: isEmergency
+                        ? AppTheme.dangerLight
+                        : AppTheme.primaryLight,
                     borderRadius: BorderRadius.circular(99),
                   ),
-                  child: const Text('Selesai',
-                      style: TextStyle(
-                          fontSize: 10,
-                          color: AppTheme.secondary,
-                          fontWeight: FontWeight.w500)),
+                  child: Text(
+                    isEmergency ? 'EMERGENCY' : 'STANDARD',
+                    style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: isEmergency
+                            ? AppTheme.danger
+                            : AppTheme.primary),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: sc[1],
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    serviceLabels[serviceType] ?? serviceType,
+                    style: TextStyle(fontSize: 9, color: sc[0]),
+                  ),
                 ),
                 const Spacer(),
-                Text(_formatDate(b['updated_at'] ?? ''),
+                Text(_formatDate(b['completed_at'] ?? b['updated_at'] ?? ''),
                     style: const TextStyle(
                         fontSize: 11, color: AppTheme.textTertiary)),
               ],
             ),
             const SizedBox(height: 8),
+            // Baris 2: deskripsi — nama PT
             Text(
-              '${b['description'] ?? '-'} · ${_serviceTypeLabel(serviceType)}',
+              '$desc  —  $companyName',
               style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w500),
-              maxLines: 1,
+                  fontSize: 14, fontWeight: FontWeight.w600),
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
+            // Baris 3: equipment
+            if (equipName.isNotEmpty)
+              Text(equipName,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(height: 4),
+            // Baris 4: teknisi + lokasi
             Row(
               children: [
                 const Icon(Icons.person_outline,
                     size: 13, color: AppTheme.textTertiary),
                 const SizedBox(width: 4),
-                Text(b['technician_name'] ?? '-',
+                Expanded(
+                  child: Text(techName,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppTheme.textSecondary),
+                      overflow: TextOverflow.ellipsis),
+                ),
+                if (siteCity.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.location_on_outlined,
+                      size: 13, color: AppTheme.textTertiary),
+                  const SizedBox(width: 3),
+                  Text(
+                    [siteAddress, siteCity]
+                        .where((s) => s.isNotEmpty)
+                        .join(', '),
                     style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary)),
+                        fontSize: 11, color: AppTheme.textTertiary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
-            if (hasPressure) ...[
-              const SizedBox(height: 8),
-              _tag(
-                '${b['pressure_before_bar'] ?? '?'} → ${b['pressure_after_bar'] ?? '?'} bar',
-                AppTheme.primary,
-                AppTheme.primaryLight,
-              ),
-            ],
           ],
         ),
       ),
     );
-  }
-
-  Widget _tag(String label, Color color, Color bg) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(99),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 11,
-                color: color,
-                fontWeight: FontWeight.w500)),
-      );
-
-  String _serviceTypeLabel(String s) {
-    switch (s) {
-      case 'repair':      return 'Repair';
-      case 'inspeksi':    return 'Inspeksi';
-      case 'maintenance': return 'Maintenance';
-      default:            return s;
-    }
   }
 }

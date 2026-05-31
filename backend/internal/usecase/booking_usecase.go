@@ -93,9 +93,14 @@ func (u *bookingUsecase) ClaimBooking(bookingID, technicianID string) error {
 	if err := u.bookingRepo.ClaimBooking(bookingID, technicianID); err != nil {
 		return err
 	}
+	// Notify client
 	u.notify(booking.CreatedBy, &bookingID, "job_claimed",
 		"Teknisi ditemukan",
 		"Job Anda sudah diambil dan sedang diproses oleh teknisi.")
+	// Notify teknisi (konfirmasi klaim berhasil)
+	u.notify(technicianID, &bookingID, "job_claimed",
+		"Job berhasil diambil",
+		"Kamu telah mengambil job "+booking.ServiceType+" di "+booking.SiteCity+". Segera proses!")
 	return nil
 }
 

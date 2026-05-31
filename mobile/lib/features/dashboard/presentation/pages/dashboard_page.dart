@@ -50,11 +50,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<void> _logout() async {
-    await ApiClient.clearToken();
-    if (mounted) context.go('/login');
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,10 +71,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 if (mounted) _loadData();
               },
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
           ),
         ],
       ),
