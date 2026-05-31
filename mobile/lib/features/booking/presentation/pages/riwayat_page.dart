@@ -14,15 +14,35 @@ class RiwayatPage extends StatefulWidget {
 }
 
 class _RiwayatPageState extends State<RiwayatPage> {
-  final _storage = const FlutterSecureStorage();
-  List<dynamic> _bookings    = [];
-  bool          _loading     = true;
-  String        _filterType  = ''; // '' = semua
+  final _storage    = const FlutterSecureStorage();
+  final _searchCtrl = TextEditingController();
+  List<dynamic> _bookings   = [];
+  bool   _loading    = true;
+  String _filterType = '';
+  String _query      = '';
+
+  List<dynamic> get _filtered {
+    if (_query.isEmpty) return _bookings;
+    final q = _query.toLowerCase();
+    return _bookings.where((b) =>
+        (b['description']     ?? '').toLowerCase().contains(q) ||
+        (b['equipment_name']  ?? '').toLowerCase().contains(q) ||
+        (b['technician_name'] ?? '').toLowerCase().contains(q) ||
+        (b['site_city']       ?? '').toLowerCase().contains(q) ||
+        (b['site_address']    ?? '').toLowerCase().contains(q)).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -66,10 +86,43 @@ class _RiwayatPageState extends State<RiwayatPage> {
       bottomNavigationBar: const BottomNav(currentIndex: 2),
       body: Column(
         children: [
+          // Search bar
+          Container(
+            color: AppTheme.surface,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: 'Cari deskripsi, equipment, teknisi, kota...',
+                hintStyle: const TextStyle(
+                    fontSize: 13, color: AppTheme.textTertiary),
+                prefixIcon: const Icon(Icons.search,
+                    size: 20, color: AppTheme.textTertiary),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close,
+                            size: 18, color: AppTheme.textTertiary),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _query = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppTheme.background,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
           // Filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               children: [
                 _chip('Semua', ''),
@@ -79,23 +132,29 @@ class _RiwayatPageState extends State<RiwayatPage> {
               ],
             ),
           ),
+          const Divider(height: 1),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: _loadData,
-                    child: _bookings.isEmpty
-                        ? const Center(
-                            child: Text('Belum ada riwayat',
-                                style: TextStyle(
-                                    color: AppTheme.textSecondary)))
+                    child: _filtered.isEmpty
+                        ? Center(
+                            child: Text(
+                              _query.isNotEmpty
+                                  ? 'Tidak ada riwayat yang cocok'
+                                  : 'Belum ada riwayat',
+                              style: const TextStyle(
+                                  color: AppTheme.textSecondary),
+                            ),
+                          )
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                            itemCount: _bookings.length,
+                            itemCount: _filtered.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 10),
                             itemBuilder: (_, i) =>
-                                _riwayatCard(_bookings[i]),
+                                _riwayatCard(_filtered[i]),
                           ),
                   ),
           ),

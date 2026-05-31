@@ -35,11 +35,12 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 func (h *BookingHandler) GetAllBookings(c *gin.Context) {
 	limit := c.DefaultQuery("limit", "20")
 	filters := map[string]string{
-		"status":        c.Query("status"),
-		"company_id":    c.Query("company_id"),
+		"status":       c.Query("status"),
+		"company_id":   c.Query("company_id"),
 		"technician_id": c.Query("technician_id"),
-		"limit":         limit,
-		"offset":        c.DefaultQuery("offset", "0"),
+		"service_type": c.Query("service_type"),
+		"limit":        limit,
+		"offset":       c.DefaultQuery("offset", "0"),
 	}
 
 	role := c.GetString("role")

@@ -102,11 +102,17 @@ func (u *reportUsecase) CreateReport(bookingID, technicianID string, req domain.
 		BookingID: &bookingID,
 		Type:      "job_done",
 		Title:     "Pekerjaan selesai",
-		Body:      "Laporan servis telah dibuat. Silakan cek detail dan unduh PDF di aplikasi.",
+		Body:      fmt.Sprintf("Laporan servis %s telah dibuat. Silakan cek detail dan unduh PDF.", booking.EquipmentName),
 		Payload:   map[string]interface{}{},
 	}); err != nil {
 		log.Printf("[notify] gagal buat notif laporan selesai userID=%s: %v", booking.CreatedBy, err)
 	}
+
+	// Notify all managers that a report was submitted
+	u.notifRepo.BroadcastToRole("manager", &bookingID, "job_done", //nolint
+		"Laporan servis masuk",
+		fmt.Sprintf("Teknisi %s telah menyelesaikan pekerjaan di %s.", booking.TechnicianName, booking.SiteCity))
+
 
 	// Generate PDF (best-effort; does not fail the report creation)
 	if u.pdfGen != nil && u.uploader != nil {
@@ -136,5 +142,14 @@ func (u *reportUsecase) GetReportByBookingID(bookingID string) (*domain.Hydrauli
 }
 
 func (u *reportUsecase) GetMyReports(technicianID string) ([]domain.HydraulicReport, error) {
-	return u.reportRepo.FindByTechnicianID(technicianID)
+	reports, err := u.reportRepo.FindByTechnicianID(technicianID)
+	if err != nil {
+		return nil, err
+	}
+	for i, r := range reports {
+		if booking, err := u.bookingRepo.FindByID(r.BookingID); err == nil {
+			reports[i].BookingInfo = booking
+		}
+	}
+	return reports, nil
 }

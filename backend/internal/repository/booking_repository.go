@@ -74,6 +74,11 @@ func (r *bookingRepository) FindAll(filters map[string]string) ([]domain.Booking
 		args = append(args, createdBy)
 		i++
 	}
+	if serviceType, ok := filters["service_type"]; ok && serviceType != "" {
+		query += ` AND b.service_type = $` + itoa(i)
+		args = append(args, serviceType)
+		i++
+	}
 
 	query += ` ORDER BY b.created_at DESC`
 

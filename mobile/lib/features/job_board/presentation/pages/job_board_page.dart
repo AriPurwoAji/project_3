@@ -18,9 +18,10 @@ class _JobBoardPageState extends State<JobBoardPage>
   final _storage       = const FlutterSecureStorage();
   final _doneScrollCtrl = ScrollController();
 
-  List<dynamic> _openJobs = [];
-  List<dynamic> _doneJobs = [];
+  List<dynamic> _openJobs   = [];
+  List<dynamic> _doneJobs   = [];
   bool   _loading      = true;
+  int    _unreadCount  = 0;
   bool   _loadingMore  = false;
   bool   _hasMoreDone  = true;
   int    _doneOffset   = 0;
@@ -79,6 +80,7 @@ class _JobBoardPageState extends State<JobBoardPage>
       final results = await Future.wait([
         ApiClient.instance.get('/job-board'),
         ApiClient.instance.get('/my-jobs?status=done&limit=$_limit&offset=0'),
+        ApiClient.instance.get('/notifications/unread-count'),
       ]);
       if (mounted) {
         final done = List<dynamic>.from(results[1].data['data'] ?? []);
@@ -87,6 +89,8 @@ class _JobBoardPageState extends State<JobBoardPage>
           _doneJobs    = done;
           _hasMoreDone = done.length == _limit;
           _doneOffset  = done.length;
+          _unreadCount = (results[2].data['data']['unread_count'] as num?)
+                            ?.toInt() ?? 0;
           _loading     = false;
         });
       }
@@ -216,32 +220,59 @@ class _JobBoardPageState extends State<JobBoardPage>
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.secondary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.secondary,
-                                shape: BoxShape.circle,
-                              ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.secondary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(99),
                             ),
-                            const SizedBox(width: 5),
-                            const Text('Available',
-                                style: TextStyle(
-                                    fontSize: 11,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: const BoxDecoration(
                                     color: AppTheme.secondary,
-                                    fontWeight: FontWeight.w500)),
-                          ],
-                        ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                const Text('Available',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.secondary,
+                                        fontWeight: FontWeight.w500)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Badge(
+                            label: Text('$_unreadCount'),
+                            isLabelVisible: _unreadCount > 0,
+                            child: IconButton(
+                              icon: Icon(
+                                _unreadCount > 0
+                                    ? Icons.notifications_active_outlined
+                                    : Icons.notifications_outlined,
+                                color: _unreadCount > 0
+                                    ? AppTheme.primary
+                                    : AppTheme.textSecondary,
+                                size: 22,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () async {
+                                await context.push('/notifications');
+                                if (mounted) _loadData();
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
