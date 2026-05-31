@@ -77,6 +77,8 @@ type AuthUsecase interface {
 	Login(req LoginRequest) (*LoginResponse, error)
 	GetProfile(id string) (*User, error)
 	GetTechnicians() ([]User, error)
+	GetSales() ([]User, error)
+	GetClients() ([]User, error)
 	Register(req RegisterRequest) (*User, error)
 	UpdateProfile(userID string, req UpdateProfileRequest) (*User, error)
 	ChangePassword(userID string, req ChangePasswordRequest) error

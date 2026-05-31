@@ -38,9 +38,9 @@ class BottomNav extends StatelessWidget {
               selectedIcon: Icon(Icons.list_alt),
               label: 'Booking'),
           NavigationDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people),
-              label: 'Teknisi'),
+              icon: Icon(Icons.groups_outlined),
+              selectedIcon: Icon(Icons.groups),
+              label: 'Tim'),
           NavigationDestination(
               icon: Icon(Icons.person_outline),
               selectedIcon: Icon(Icons.person),
@@ -92,7 +92,7 @@ class BottomNav extends StatelessWidget {
       switch (index) {
         case 0: context.go('/dashboard'); break;
         case 1: context.go('/bookings'); break;
-        case 2: context.go('/technicians'); break;
+        case 2: context.go('/team'); break;
         case 3: context.go('/profile'); break;
       }
     } else if (role == AppConstants.roleTeknisi) {

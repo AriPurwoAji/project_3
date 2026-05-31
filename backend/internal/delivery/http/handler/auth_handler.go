@@ -102,6 +102,24 @@ func (h *AuthHandler) CreateUser(c *gin.Context) {
 	response.Success(c, 201, "Akun berhasil dibuat", user)
 }
 
+func (h *AuthHandler) GetSales(c *gin.Context) {
+	users, err := h.authUsecase.GetSales()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "Success", users)
+}
+
+func (h *AuthHandler) GetClients(c *gin.Context) {
+	users, err := h.authUsecase.GetClients()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "Success", users)
+}
+
 func (h *AuthHandler) GetTechnicians(c *gin.Context) {
 	users, err := h.authUsecase.GetTechnicians()
 	if err != nil {

@@ -51,6 +51,14 @@ func (u *authUsecase) GetTechnicians() ([]domain.User, error) {
 	return u.userRepo.FindAllByRole("teknisi")
 }
 
+func (u *authUsecase) GetSales() ([]domain.User, error) {
+	return u.userRepo.FindAllByRole("sales")
+}
+
+func (u *authUsecase) GetClients() ([]domain.User, error) {
+	return u.userRepo.FindAllByRole("client")
+}
+
 func (u *authUsecase) UpdateProfile(userID string, req domain.UpdateProfileRequest) (*domain.User, error) {
 	if err := u.userRepo.UpdateProfile(userID, req.FullName, req.Phone); err != nil {
 		return nil, errors.New("gagal memperbarui profil")

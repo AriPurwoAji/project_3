@@ -99,7 +99,9 @@ func Setup(
 		users := protected.Group("/users")
 		{
 			users.GET("/teknisi", middleware.RoleMiddleware("manager"), authHandler.GetTechnicians)
-			users.POST("", middleware.RoleMiddleware("manager"), authHandler.CreateUser)
+			users.GET("/sales",   middleware.RoleMiddleware("manager"), authHandler.GetSales)
+			users.GET("/client",  middleware.RoleMiddleware("manager"), authHandler.GetClients)
+			users.POST("",        middleware.RoleMiddleware("manager"), authHandler.CreateUser)
 		}
 
 		// Dashboard — manager only
