@@ -53,10 +53,6 @@ class BottomNav extends StatelessWidget {
               selectedIcon: Icon(Icons.work),
               label: 'Job Board'),
           NavigationDestination(
-              icon: Icon(Icons.assignment_outlined),
-              selectedIcon: Icon(Icons.assignment),
-              label: 'My Jobs'),
-          NavigationDestination(
               icon: Icon(Icons.description_outlined),
               selectedIcon: Icon(Icons.description),
               label: 'Laporan'),
@@ -113,9 +109,8 @@ class BottomNav extends StatelessWidget {
     } else if (role == AppConstants.roleTeknisi) {
       switch (index) {
         case 0: context.go('/job-board'); break;
-        case 1: context.go('/my-jobs'); break;
-        case 2: context.go('/laporan'); break;
-        case 3: context.go('/profile'); break;
+        case 1: context.go('/laporan'); break;
+        case 2: context.go('/profile'); break;
       }
     } else if (role == AppConstants.roleSales) {
       switch (index) {

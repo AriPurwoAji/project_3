@@ -15,20 +15,23 @@ class JobBoardPage extends StatefulWidget {
 
 class _JobBoardPageState extends State<JobBoardPage>
     with SingleTickerProviderStateMixin {
-  final _storage       = const FlutterSecureStorage();
-  final _doneScrollCtrl = ScrollController();
+  final _storage    = const FlutterSecureStorage();
+  final _searchCtrl = TextEditingController();
 
   List<dynamic> _openJobs   = [];
-  List<dynamic> _doneJobs   = [];
+  List<dynamic> _activeJobs = []; // in_progress / on_the_way / on_site
   bool   _loading      = true;
   int    _unreadCount  = 0;
+
+  // Paginasi hanya untuk open jobs
   bool   _loadingMore  = false;
-  bool   _hasMoreDone  = true;
-  int    _doneOffset   = 0;
+  bool   _hasMore      = true;
+  int    _openOffset   = 0;
   static const _limit  = 20;
-  String _name         = '';
-  String _query        = '';
-  final _searchCtrl    = TextEditingController();
+  final  _openScrollCtrl = ScrollController();
+
+  String _name  = '';
+  String _query = '';
   late TabController _tabController;
 
   List<dynamic> _applyFilter(List<dynamic> jobs) {
@@ -47,51 +50,52 @@ class _JobBoardPageState extends State<JobBoardPage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadData();
-    _doneScrollCtrl.addListener(_onDoneScroll);
+    _openScrollCtrl.addListener(_onOpenScroll);
     _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _doneScrollCtrl.dispose();
+    _openScrollCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  void _onDoneScroll() {
-    if (_doneScrollCtrl.position.pixels >=
-            _doneScrollCtrl.position.maxScrollExtent - 200 &&
+  void _onOpenScroll() {
+    if (_openScrollCtrl.position.pixels >=
+            _openScrollCtrl.position.maxScrollExtent - 200 &&
         !_loadingMore &&
-        _hasMoreDone) {
-      _loadMoreDone();
+        _hasMore) {
+      _loadMoreOpen();
     }
   }
 
   Future<void> _loadData() async {
     _name = await _storage.read(key: AppConstants.userNameKey) ?? '';
     setState(() {
-      _loading     = true;
-      _doneOffset  = 0;
-      _hasMoreDone = true;
-      _doneJobs    = [];
+      _loading    = true;
+      _openOffset = 0;
+      _hasMore    = true;
+      _openJobs   = [];
     });
     try {
       final results = await Future.wait([
-        ApiClient.instance.get('/job-board'),
-        ApiClient.instance.get('/my-jobs?status=done&limit=$_limit&offset=0'),
+        ApiClient.instance.get('/job-board?limit=$_limit&offset=0'),
+        ApiClient.instance.get('/my-jobs'),
         ApiClient.instance.get('/notifications/unread-count'),
       ]);
       if (mounted) {
-        final done = List<dynamic>.from(results[1].data['data'] ?? []);
+        final open = List<dynamic>.from(results[0].data['data'] ?? []);
+        final all  = List<dynamic>.from(results[1].data['data'] ?? []);
         setState(() {
-          _openJobs    = results[0].data['data'] ?? [];
-          _doneJobs    = done;
-          _hasMoreDone = done.length == _limit;
-          _doneOffset  = done.length;
+          _openJobs   = open;
+          _hasMore    = open.length == _limit;
+          _openOffset = open.length;
+          _activeJobs = all.where((j) => j['status'] != 'done').toList();
           _unreadCount = (results[2].data['data']['unread_count'] as num?)
                             ?.toInt() ?? 0;
-          _loading     = false;
+          _loading    = false;
         });
       }
     } catch (_) {
@@ -99,19 +103,19 @@ class _JobBoardPageState extends State<JobBoardPage>
     }
   }
 
-  Future<void> _loadMoreDone() async {
-    if (_loadingMore || !_hasMoreDone) return;
+  Future<void> _loadMoreOpen() async {
+    if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
       final res  = await ApiClient.instance
-          .get('/my-jobs?status=done&limit=$_limit&offset=$_doneOffset');
+          .get('/job-board?limit=$_limit&offset=$_openOffset');
       final data = List<dynamic>.from(res.data['data'] ?? []);
       if (mounted) {
         setState(() {
-          _doneJobs.addAll(data);
-          _hasMoreDone  = data.length == _limit;
-          _doneOffset  += data.length;
-          _loadingMore  = false;
+          _openJobs.addAll(data);
+          _hasMore     = data.length == _limit;
+          _openOffset += data.length;
+          _loadingMore = false;
         });
       }
     } catch (_) {
@@ -132,6 +136,35 @@ class _JobBoardPageState extends State<JobBoardPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Gagal mengambil job'),
+        backgroundColor: AppTheme.danger,
+      ));
+    }
+  }
+
+  Future<void> _updateStatus(dynamic job) async {
+    final status = job['status'] ?? '';
+    if (status == 'on_site') {
+      await context.push('/report/create',
+          extra: Map<String, dynamic>.from(job));
+      if (mounted) _loadData();
+      return;
+    }
+    final nextStatus = status == 'in_progress' ? 'on_the_way' : 'on_site';
+    try {
+      await ApiClient.instance.patch(
+        '/bookings/${job['id']}/status',
+        data: {'status': nextStatus},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Status diupdate ke $nextStatus'),
+        backgroundColor: AppTheme.secondary,
+      ));
+      _loadData();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Gagal update status'),
         backgroundColor: AppTheme.danger,
       ));
     }
@@ -170,6 +203,33 @@ class _JobBoardPageState extends State<JobBoardPage>
     }
   }
 
+  Color _statusColor(String s) {
+    switch (s) {
+      case 'in_progress':
+      case 'on_the_way':  return AppTheme.warning;
+      case 'on_site':     return AppTheme.primary;
+      default:            return AppTheme.textTertiary;
+    }
+  }
+
+  String _statusLabel(String s) {
+    switch (s) {
+      case 'in_progress': return 'In Progress';
+      case 'on_the_way':  return 'On The Way';
+      case 'on_site':     return 'On Site';
+      default:            return s;
+    }
+  }
+
+  String _nextStatusLabel(String s) {
+    switch (s) {
+      case 'in_progress': return 'Berangkat';
+      case 'on_the_way':  return 'Tiba di Lokasi';
+      case 'on_site':     return 'Submit Laporan';
+      default:            return 'Update';
+    }
+  }
+
   String _timeAgo(String? iso) {
     if (iso == null) return '';
     try {
@@ -203,6 +263,7 @@ class _JobBoardPageState extends State<JobBoardPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Header row: greeting + bell
                   Row(
                     children: [
                       Expanded(
@@ -234,8 +295,7 @@ class _JobBoardPageState extends State<JobBoardPage>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
-                                  width: 7,
-                                  height: 7,
+                                  width: 7, height: 7,
                                   decoration: const BoxDecoration(
                                     color: AppTheme.secondary,
                                     shape: BoxShape.circle,
@@ -277,14 +337,17 @@ class _JobBoardPageState extends State<JobBoardPage>
                     ],
                   ),
                   const SizedBox(height: 14),
+
+                  // Stat boxes
                   Row(
                     children: [
                       _statBox('Job tersedia', '${_openJobs.length}'),
                       const SizedBox(width: 12),
-                      _statBox('Selesai', '${_doneJobs.length}'),
+                      _statBox('Aktif', '${_activeJobs.length}'),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
+
                   // Search bar
                   TextField(
                     controller: _searchCtrl,
@@ -315,14 +378,16 @@ class _JobBoardPageState extends State<JobBoardPage>
                     ),
                   ),
                   const SizedBox(height: 10),
+
+                  // Tabs
                   TabBar(
                     controller: _tabController,
                     labelColor: AppTheme.primary,
                     unselectedLabelColor: AppTheme.textSecondary,
                     indicatorColor: AppTheme.primary,
                     tabs: [
-                      Tab(text: 'Open (${_openJobs.length})'),
-                      Tab(text: 'Selesai (${_doneJobs.length})'),
+                      Tab(text: 'Tersedia (${_openJobs.length})'),
+                      Tab(text: 'Aktif (${_activeJobs.length})'),
                     ],
                   ),
                 ],
@@ -334,10 +399,12 @@ class _JobBoardPageState extends State<JobBoardPage>
                   : TabBarView(
                       controller: _tabController,
                       children: [
-                        _jobList(_applyFilter(_openJobs), isOpen: true),
-                        _jobList(_applyFilter(_doneJobs), isDone: true,
-                            scrollCtrl: _doneScrollCtrl,
+                        _jobList(_applyFilter(_openJobs),
+                            isOpen: true,
+                            scrollCtrl: _openScrollCtrl,
                             loadingMore: _loadingMore),
+                        _jobList(_applyFilter(_activeJobs),
+                            isActive: true),
                       ],
                     ),
             ),
@@ -369,12 +436,14 @@ class _JobBoardPageState extends State<JobBoardPage>
 
   Widget _jobList(
     List<dynamic> jobs, {
-    bool isOpen = false,
-    bool isDone = false,
+    bool isOpen   = false,
+    bool isActive = false,
     ScrollController? scrollCtrl,
     bool loadingMore = false,
   }) {
-    final emptyMsg = isOpen ? 'Tidak ada job tersedia' : 'Belum ada job selesai';
+    final emptyMsg = isOpen
+        ? 'Tidak ada job tersedia'
+        : 'Tidak ada job aktif';
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -384,7 +453,8 @@ class _JobBoardPageState extends State<JobBoardPage>
                 height: 200,
                 child: Center(
                   child: Text(emptyMsg,
-                      style: const TextStyle(color: AppTheme.textSecondary)),
+                      style: const TextStyle(
+                          color: AppTheme.textSecondary)),
                 ),
               ),
             ])
@@ -401,17 +471,19 @@ class _JobBoardPageState extends State<JobBoardPage>
                         child: CircularProgressIndicator(strokeWidth: 2)),
                   );
                 }
-                return _buildJobCard(jobs[i], isOpen: isOpen, isDone: isDone);
+                return _buildJobCard(jobs[i],
+                    isOpen: isOpen, isActive: isActive);
               },
             ),
     );
   }
 
   Widget _buildJobCard(dynamic job,
-      {bool isOpen = false, bool isDone = false}) {
+      {bool isOpen = false, bool isActive = false}) {
     final urgency     = job['urgency_level'] ?? 'standard';
     final isEmergency = urgency == 'emergency';
     final serviceType = job['service_type'] ?? '';
+    final status      = job['status'] ?? '';
 
     return Container(
       decoration: BoxDecoration(
@@ -426,6 +498,7 @@ class _JobBoardPageState extends State<JobBoardPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Badge row
           Row(
             children: [
               Container(
@@ -455,14 +528,30 @@ class _JobBoardPageState extends State<JobBoardPage>
                         color: _serviceTypeColor(serviceType))),
               ),
               const Spacer(),
-              Text(_timeAgo(job['created_at']),
-                  style: const TextStyle(
-                      fontSize: 11, color: AppTheme.textTertiary)),
+              if (isOpen)
+                Text(_timeAgo(job['created_at']),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textTertiary))
+              else if (isActive)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _statusColor(status).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(_statusLabel(status),
+                      style: TextStyle(
+                          fontSize: 9,
+                          color: _statusColor(status),
+                          fontWeight: FontWeight.w500)),
+                ),
             ],
           ),
           const SizedBox(height: 8),
+          // Title
           Text(
-            '${job['description'] ?? '-'} — ${job['company_name'] ?? ''}',
+            '${job['description'] ?? '-'}  —  ${job['company_name'] ?? ''}',
             style: const TextStyle(
                 fontSize: 14, fontWeight: FontWeight.w600),
             maxLines: 2,
@@ -474,8 +563,9 @@ class _JobBoardPageState extends State<JobBoardPage>
             style: const TextStyle(
                 fontSize: 12, color: AppTheme.textSecondary),
           ),
+          const SizedBox(height: 12),
+          // Action buttons
           if (isOpen) ...[
-            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -492,8 +582,7 @@ class _JobBoardPageState extends State<JobBoardPage>
                     ),
                     child: const Text('Detail',
                         style: TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 13)),
+                            color: AppTheme.textSecondary, fontSize: 13)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -514,23 +603,43 @@ class _JobBoardPageState extends State<JobBoardPage>
                 ),
               ],
             ),
-          ] else if (isDone) ...[
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () async {
-                await context.push('/booking/${job['id']}');
-                if (mounted) _loadData();
-              },
-              child: const Row(
-                children: [
-                  Icon(Icons.description_outlined,
-                      size: 13, color: AppTheme.primary),
-                  SizedBox(width: 4),
-                  Text('Lihat laporan',
-                      style: TextStyle(
-                          fontSize: 12, color: AppTheme.primary)),
-                ],
-              ),
+          ] else if (isActive) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      await context.push('/booking/${job['id']}');
+                      if (mounted) _loadData();
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.border),
+                      minimumSize: const Size(0, 38),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Detail',
+                        style: TextStyle(
+                            color: AppTheme.textSecondary, fontSize: 13)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _updateStatus(job),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: status == 'on_site'
+                          ? AppTheme.secondary
+                          : AppTheme.primary,
+                      minimumSize: const Size(0, 38),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text(_nextStatusLabel(status),
+                        style: const TextStyle(fontSize: 13)),
+                  ),
+                ),
+              ],
             ),
           ],
         ],

@@ -128,7 +128,7 @@ class _LaporanPageState extends State<LaporanPage> {
           ),
         ],
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 2),
+      bottomNavigationBar: const BottomNav(currentIndex: 1),
       body: Column(
         children: [
           // ── Search bar ────────────────────────────────────────────────
