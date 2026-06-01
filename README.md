@@ -98,27 +98,15 @@ flutter run
 > - Akun **Teknisi** dan **Sales** dibuat oleh Manager melalui fitur manajemen tim di dalam aplikasi
 > - Akun **Client** bisa dibuat sendiri via form registrasi — wajib verifikasi email sebelum bisa login
 
-**Manager**
-
-| Email | Password |
-|---|---|
-| `manager@hydraulic.com` | `Manager123!` |
-
-**Teknisi & Sales**
-
-| Email | Password | Role |
-|---|---|---|
-| `teknisi@hydraulic.com` | `Teknisi123!` | Teknisi |
-| `sales@hydraulic.com` | `Sales123!` | Sales |
-
-**Client**
-
-| Email | Password | Perusahaan |
-|---|---|---|
-| `client.halliburton@hydraulic.com` | `Client123!` | PT Halliburton |
-| `client.ptkai@hydraulic.com` | `Client123!` | PT KAI |
-| `client.pln@hydraulic.com` | `Client123!` | PT PLN |
-| `aripurwo02@gmail.com` | `Client123!` | PT DAHANA |
+| Email | Password | Role | Keterangan |
+|---|---|---|---|
+| `manager@hydraulic.com` | `Manager123!` | Manager | Akses penuh + dashboard |
+| `teknisi@hydraulic.com` | `Teknisi123!` | Teknisi | Job board + laporan |
+| `sales@hydraulic.com` | `Sales123!` | Sales | Monitoring booking |
+| `client.halliburton@hydraulic.com` | `Client123!` | Client | PT Halliburton |
+| `client.ptkai@hydraulic.com` | `Client123!` | Client | PT KAI |
+| `client.pln@hydraulic.com` | `Client123!` | Client | PT PLN |
+| `aripurwo02@gmail.com` | `Client123!` | Client | PT DAHANA |
 
 ---
 
