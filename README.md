@@ -101,8 +101,10 @@ flutter run
 | `client.halliburton@hydraulic.com` | `Client123!` | Client | PT Halliburton |
 | `client.ptkai@hydraulic.com` | `Client123!` | Client | PT KAI |
 | `client.pln@hydraulic.com` | `Client123!` | Client | PT PLN |
+| `aripurwo02@gmail.com` | `Client123!` | Client | PT DAHAN |
 
-> Akun diinsert manual via Supabase SQL Editor.
+> Akun Manager diinsert manual via Supabase SQL Editor. (Demi keamanan Sistem)
+> Akun Teknisi dan Sales di buat oleh manager
 > **Catatan:** Akun client baru yang dibuat via registrasi mandiri wajib verifikasi email sebelum bisa login.
 
 ---

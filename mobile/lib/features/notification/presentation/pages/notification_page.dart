@@ -13,6 +13,7 @@ class NotificationPage extends StatefulWidget {
 class _NotificationPageState extends State<NotificationPage> {
   List<dynamic> _notifications = [];
   bool _loading = true;
+  bool _hasData = false;
 
   @override
   void initState() {
@@ -21,13 +22,14 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
+    if (!_hasData && mounted) setState(() => _loading = true);
     try {
       final res = await ApiClient.instance.get('/notifications');
       if (mounted) {
         setState(() {
           _notifications = res.data['data'] ?? [];
           _loading = false;
+          _hasData = true;
         });
       }
     } catch (_) {

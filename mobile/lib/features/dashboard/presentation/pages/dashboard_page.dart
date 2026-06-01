@@ -89,7 +89,6 @@ class _DashboardPageState extends State<DashboardPage> {
           _filterFrom = picked;
         }
       }
-      _loading = true;
     });
     _loadData();
   }
@@ -98,7 +97,6 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() {
       _filterFrom = null;
       _filterTo   = null;
-      _loading    = true;
     });
     _loadData();
   }

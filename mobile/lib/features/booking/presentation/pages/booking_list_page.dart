@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -19,8 +20,10 @@ class _BookingListPageState extends State<BookingListPage> {
 
   List<dynamic> _bookings = [];
   bool   _loading     = true;
+  bool   _hasData     = false;
   bool   _loadingMore = false;
   bool   _hasMore     = true;
+  Timer? _debounce;
   int    _offset      = 0;
   static const _limit = 20;
 
@@ -51,12 +54,18 @@ class _BookingListPageState extends State<BookingListPage> {
   void initState() {
     super.initState();
     _loadData();
-    _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
+    _searchCtrl.addListener(() {
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 400), () {
+        if (mounted) setState(() => _query = _searchCtrl.text);
+      });
+    });
     _scrollCtrl.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
@@ -78,7 +87,7 @@ class _BookingListPageState extends State<BookingListPage> {
     _companyName = await _storage.read(key: AppConstants.companyNameKey) ?? '';
 
     setState(() {
-      _loading = true;
+      if (!_hasData) _loading = true;
       _offset  = 0;
       _hasMore = true;
       _bookings = [];
@@ -94,6 +103,7 @@ class _BookingListPageState extends State<BookingListPage> {
           _hasMore  = data.length == _limit;
           _offset   = data.length;
           _loading  = false;
+          _hasData  = true;
         });
       }
     } catch (_) {

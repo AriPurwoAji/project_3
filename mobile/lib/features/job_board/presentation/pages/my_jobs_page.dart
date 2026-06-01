@@ -14,6 +14,7 @@ class MyJobsPage extends StatefulWidget {
 class _MyJobsPageState extends State<MyJobsPage> {
   List<dynamic> _activeJobs = [];
   bool _loading = true;
+  bool _hasData = false;
 
   @override
   void initState() {
@@ -22,15 +23,15 @@ class _MyJobsPageState extends State<MyJobsPage> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
+    if (!_hasData && mounted) setState(() => _loading = true);
     try {
       final res = await ApiClient.instance.get('/my-jobs');
       if (mounted) {
         final all = List<dynamic>.from(res.data['data'] ?? []);
         setState(() {
-          _activeJobs =
-              all.where((j) => j['status'] != 'done').toList();
+          _activeJobs = all.where((j) => j['status'] != 'done').toList();
           _loading = false;
+          _hasData = true;
         });
       }
     } catch (_) {

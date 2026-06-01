@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -18,9 +19,11 @@ class _RiwayatPageState extends State<RiwayatPage> {
   final _searchCtrl = TextEditingController();
   List<dynamic> _bookings   = [];
   bool   _loading    = true;
+  bool   _hasData    = false;
   String _filterType = '';
   String _query      = '';
   String _role       = '';
+  Timer? _debounce;
 
   List<dynamic> get _filtered {
     if (_query.isEmpty) return _bookings;
@@ -37,11 +40,17 @@ class _RiwayatPageState extends State<RiwayatPage> {
   void initState() {
     super.initState();
     _loadData();
-    _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
+    _searchCtrl.addListener(() {
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 400), () {
+        if (mounted) setState(() => _query = _searchCtrl.text);
+      });
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -49,7 +58,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
   Future<void> _loadData() async {
     _role = await _storage.read(key: AppConstants.userRoleKey) ?? '';
     final companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
-    setState(() => _loading = true);
+    if (!_hasData && mounted) setState(() => _loading = true);
     try {
       final params = <String, String>{'status': 'done'};
       // Client filter by company; sales lihat semua (monitoring)
@@ -64,6 +73,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
         setState(() {
           _bookings = res.data['data'] ?? [];
           _loading  = false;
+          _hasData  = true;
         });
       }
     } catch (_) {

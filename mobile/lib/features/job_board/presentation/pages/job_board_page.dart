@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +22,7 @@ class _JobBoardPageState extends State<JobBoardPage>
   List<dynamic> _openJobs   = [];
   List<dynamic> _activeJobs = []; // in_progress / on_the_way / on_site
   bool   _loading      = true;
+  bool   _hasData      = false;
   int    _unreadCount  = 0;
 
   // Paginasi hanya untuk open jobs
@@ -32,6 +34,7 @@ class _JobBoardPageState extends State<JobBoardPage>
 
   String _name  = '';
   String _query = '';
+  Timer? _debounce;
   late TabController _tabController;
 
   List<dynamic> _applyFilter(List<dynamic> jobs) {
@@ -51,11 +54,17 @@ class _JobBoardPageState extends State<JobBoardPage>
     _tabController = TabController(length: 2, vsync: this);
     _loadData();
     _openScrollCtrl.addListener(_onOpenScroll);
-    _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
+    _searchCtrl.addListener(() {
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 400), () {
+        if (mounted) setState(() => _query = _searchCtrl.text);
+      });
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _tabController.dispose();
     _openScrollCtrl.dispose();
     _searchCtrl.dispose();
@@ -74,7 +83,7 @@ class _JobBoardPageState extends State<JobBoardPage>
   Future<void> _loadData() async {
     _name = await _storage.read(key: AppConstants.userNameKey) ?? '';
     setState(() {
-      _loading    = true;
+      if (!_hasData) _loading = true;
       _openOffset = 0;
       _hasMore    = true;
       _openJobs   = [];
@@ -96,6 +105,7 @@ class _JobBoardPageState extends State<JobBoardPage>
           _unreadCount = (results[2].data['data']['unread_count'] as num?)
                             ?.toInt() ?? 0;
           _loading    = false;
+          _hasData    = true;
         });
       }
     } catch (_) {
