@@ -29,9 +29,12 @@ type LoginRequest struct {
 }
 
 type UpdateProfileRequest struct {
-	FullName  string `json:"full_name" binding:"required"`
-	Phone     string `json:"phone"`
-	AvatarURL string `json:"avatar_url"`
+	FullName        string `json:"full_name" binding:"required"`
+	Phone           string `json:"phone"`
+	AvatarURL       string `json:"avatar_url"`
+	CompanyName     string `json:"company_name"`
+	CompanyIndustry string `json:"company_industry"`
+	CompanyCity     string `json:"company_city"`
 }
 
 type ChangePasswordRequest struct {
@@ -73,7 +76,7 @@ type UserRepository interface {
 	FindByID(id string) (*User, error)
 	FindPasswordHashByID(id string) (string, error)
 	UpdateFCMToken(id, token string) error
-	UpdateProfile(userID, fullName, phone, avatarURL string) error
+	UpdateProfile(userID, fullName, phone, avatarURL, companyName, companyIndustry, companyCity string) error
 	ChangePassword(userID, newHash string) error
 	FindAllByRole(role string) ([]User, error)
 	Register(req RegisterRequest) (*User, error)

@@ -99,14 +99,31 @@ func (r *userRepository) FindPasswordHashByID(id string) (string, error) {
 	return hash, err
 }
 
-func (r *userRepository) UpdateProfile(userID, fullName, phone, avatarURL string) error {
-	_, err := r.db.Exec(context.Background(),
+func (r *userRepository) UpdateProfile(userID, fullName, phone, avatarURL, companyName, companyIndustry, companyCity string) error {
+	ctx := context.Background()
+
+	_, err := r.db.Exec(ctx,
 		`UPDATE users SET full_name = $1, phone = NULLIF($2,''),
 		 avatar_url = CASE WHEN $3 = '' THEN avatar_url ELSE $3 END,
 		 updated_at = NOW() WHERE id = $4`,
 		fullName, phone, avatarURL, userID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Update info perusahaan jika ada data yang dikirim
+	if companyName != "" || companyIndustry != "" || companyCity != "" {
+		r.db.Exec(ctx, `
+			UPDATE companies SET
+				name     = CASE WHEN $1 = '' THEN name     ELSE $1 END,
+				industry = CASE WHEN $2 = '' THEN industry ELSE $2 END,
+				city     = CASE WHEN $3 = '' THEN city     ELSE $3 END,
+				updated_at = NOW()
+			WHERE id = (SELECT company_id FROM users WHERE id = $4 AND company_id IS NOT NULL)
+		`, companyName, companyIndustry, companyCity, userID)
+	}
+	return nil
 }
 
 func (r *userRepository) ChangePassword(userID, newHash string) error {

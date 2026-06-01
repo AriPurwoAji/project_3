@@ -71,7 +71,8 @@ func (u *authUsecase) GetClients() ([]domain.User, error) {
 }
 
 func (u *authUsecase) UpdateProfile(userID string, req domain.UpdateProfileRequest) (*domain.User, error) {
-	if err := u.userRepo.UpdateProfile(userID, req.FullName, req.Phone, req.AvatarURL); err != nil {
+	if err := u.userRepo.UpdateProfile(userID, req.FullName, req.Phone, req.AvatarURL,
+		req.CompanyName, req.CompanyIndustry, req.CompanyCity); err != nil {
 		return nil, errors.New("gagal memperbarui profil")
 	}
 	return u.userRepo.FindByID(userID)

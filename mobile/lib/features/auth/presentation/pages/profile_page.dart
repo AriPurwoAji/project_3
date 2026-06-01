@@ -177,10 +177,19 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // ─── EDIT PROFILE ─────────────────────────────────────────────────────────
 
+  static const _industries = [
+    'Minyak & Gas', 'Pembangkit Listrik', 'Manufaktur', 'Transportasi',
+    'Konstruksi', 'Pertambangan', 'Kimia & Petrokimia',
+    'Perkebunan & Agribisnis', 'Energi Terbarukan', 'Lainnya',
+  ];
+
   void _showEditProfileSheet() {
-    final nameCtrl  = TextEditingController(text: _name);
-    final phoneCtrl = TextEditingController(text: _phone);
-    bool saving     = false;
+    final nameCtrl    = TextEditingController(text: _name);
+    final phoneCtrl   = TextEditingController(text: _phone);
+    final companyCtrl = TextEditingController(text: _companyName);
+    final cityCtrl    = TextEditingController(text: _companyCity);
+    String industry   = _companyIndustry;
+    bool saving       = false;
 
     showModalBottomSheet(
       context: context,
@@ -189,7 +198,7 @@ class _ProfilePageState extends State<ProfilePage> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => Padding(
+        builder: (ctx, setSt) => SingleChildScrollView(
           padding: EdgeInsets.only(
               bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: Column(
@@ -209,6 +218,40 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 12),
                     _sheetField('No. HP', phoneCtrl,
                         keyboardType: TextInputType.phone),
+
+                    // ── Info perusahaan (client & sales saja) ──────
+                    if (_isClient) ...[
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      const Text('Info Perusahaan',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary)),
+                      const SizedBox(height: 12),
+                      _sheetField('Nama Perusahaan', companyCtrl),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: industry.isEmpty ? null : industry,
+                        hint: const Text('Pilih industri'),
+                        decoration: InputDecoration(
+                          labelText: 'Industri',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 14),
+                        ),
+                        items: _industries
+                            .map((i) => DropdownMenuItem(
+                                value: i, child: Text(i)))
+                            .toList(),
+                        onChanged: (v) =>
+                            setSt(() => industry = v ?? industry),
+                      ),
+                      const SizedBox(height: 12),
+                      _sheetField('Kota / Kabupaten', cityCtrl),
+                    ],
+
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: saving
@@ -220,8 +263,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                     '/auth/profile',
                                     data: {
                                       'full_name': nameCtrl.text.trim(),
-                                      'phone':
-                                          phoneCtrl.text.trim(),
+                                      'phone':     phoneCtrl.text.trim(),
+                                      if (_isClient) ...{
+                                        'company_name':     companyCtrl.text.trim(),
+                                        'company_industry': industry,
+                                        'company_city':     cityCtrl.text.trim(),
+                                      },
                                     });
                                 await _storage.write(
                                     key: AppConstants.userNameKey,
