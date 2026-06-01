@@ -71,6 +71,9 @@ type UserRepository interface {
 	FindAllByRole(role string) ([]User, error)
 	Register(req RegisterRequest) (*User, error)
 	CreateUser(req CreateUserRequest) (*User, error)
+	// FCM helpers
+	GetFCMToken(userID string) string
+	GetFCMTokensByRole(role string) []string
 }
 
 type AuthUsecase interface {
@@ -83,4 +86,5 @@ type AuthUsecase interface {
 	UpdateProfile(userID string, req UpdateProfileRequest) (*User, error)
 	ChangePassword(userID string, req ChangePasswordRequest) error
 	CreateUser(req CreateUserRequest) (*User, error)
+	UpdateFCMToken(userID, token string) error
 }

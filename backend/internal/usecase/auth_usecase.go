@@ -96,6 +96,10 @@ func (u *authUsecase) Register(req domain.RegisterRequest) (*domain.User, error)
 	return u.userRepo.Register(req)
 }
 
+func (u *authUsecase) UpdateFCMToken(userID, token string) error {
+	return u.userRepo.UpdateFCMToken(userID, token)
+}
+
 func (u *authUsecase) CreateUser(req domain.CreateUserRequest) (*domain.User, error) {
 	if _, _, err := u.userRepo.FindByEmail(req.Email); err == nil {
 		return nil, errors.New("email sudah terdaftar")

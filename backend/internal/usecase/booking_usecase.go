@@ -16,7 +16,7 @@ func NewBookingUsecase(repo domain.BookingRepository, notifRepo domain.Notificat
 	return &bookingUsecase{bookingRepo: repo, notifRepo: notifRepo}
 }
 
-// notify creates a notification best-effort; logs on error
+// notify buat in-app notif (FCM push otomatis dikirim oleh notifRepo.Create)
 func (u *bookingUsecase) notify(userID string, bookingID *string, notifType, title, body string) {
 	if err := u.notifRepo.Create(&domain.Notification{
 		UserID:    userID,
@@ -54,14 +54,26 @@ func (u *bookingUsecase) CreateBooking(userID, companyID string, req domain.Crea
 		return nil, errors.New("gagal membuat booking: " + err.Error())
 	}
 
-	// Notify all managers about new booking
+	// Ambil booking lengkap (dengan company name) untuk isi notifikasi
+	full, err := u.bookingRepo.FindByID(booking.ID)
+	if err != nil {
+		full = booking
+	}
+	companyLabel := full.CompanyName
+	if companyLabel == "" {
+		companyLabel = "klien"
+	}
+
 	urgencyNote := ""
 	if req.UrgencyLevel == "emergency" {
 		urgencyNote = " [EMERGENCY]"
 	}
-	u.notifRepo.BroadcastToRole("manager", &booking.ID, "job_open", //nolint
-		"Booking baru masuk"+urgencyNote,
-		"Ada permintaan servis "+req.ServiceType+" dari "+req.SiteCity+".")
+	notifTitle := "Booking baru masuk" + urgencyNote
+	notifBody  := "Permintaan servis " + req.ServiceType + " dari " + companyLabel + " di " + req.SiteCity + "."
+
+	u.notifRepo.BroadcastToRole("manager", &booking.ID, "job_open", notifTitle, notifBody) //nolint
+	u.notifRepo.BroadcastToRole("teknisi", &booking.ID, "job_open", notifTitle, notifBody) //nolint
+	u.notifRepo.BroadcastToRole("sales",   &booking.ID, "job_open", notifTitle, notifBody) //nolint
 
 	return booking, nil
 }

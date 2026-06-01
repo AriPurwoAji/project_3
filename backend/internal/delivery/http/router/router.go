@@ -94,6 +94,7 @@ func Setup(
 		// Auth — protected
 		protected.PATCH("/auth/profile", authHandler.UpdateProfile)
 		protected.POST("/auth/change-password", authHandler.ChangePassword)
+		protected.PATCH("/auth/fcm-token", authHandler.UpdateFCMToken)
 
 		// Users
 		users := protected.Group("/users")

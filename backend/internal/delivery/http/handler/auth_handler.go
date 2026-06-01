@@ -84,6 +84,22 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	response.Success(c, 200, "Password berhasil diubah", nil)
 }
 
+func (h *AuthHandler) UpdateFCMToken(c *gin.Context) {
+	userID := c.GetString("user_id")
+	var req struct {
+		FCMToken string `json:"fcm_token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "fcm_token wajib diisi")
+		return
+	}
+	if err := h.authUsecase.UpdateFCMToken(userID, req.FCMToken); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "FCM token berhasil diperbarui", nil)
+}
+
 func (h *AuthHandler) CreateUser(c *gin.Context) {
 	managerCompanyID := c.GetString("company_id")
 	var req domain.CreateUserRequest

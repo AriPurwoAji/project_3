@@ -4,7 +4,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/fcm_service.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../main.dart' show navigatorKey;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -72,6 +74,8 @@ class _LoginPageState extends State<LoginPage> {
         value: data['user']['company_name'] ?? '',
       );
       if (!mounted) return;
+      // Setup FCM setelah login berhasil (background, tidak block navigasi)
+      FCMService.setup(navigatorKey).catchError((_) {});
       _navigateByRole(data['user']['role']);
     } on DioException catch (e) {
       setState(() {

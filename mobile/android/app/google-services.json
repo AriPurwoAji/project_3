@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "831646074653",
+    "project_id": "hydroserv-83a25",
+    "storage_bucket": "hydroserv-83a25.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:831646074653:android:11d547468ed68e515c03f4",
+        "android_client_info": {
+          "package_name": "com.aripurwoaji.hydraulic_service"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBT2C6P54bfOMQxTpQovmnZGkEE5TRSKoE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

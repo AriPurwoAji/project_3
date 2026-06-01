@@ -1,6 +1,7 @@
 # Golang
 backend/.env
 backend/tmp/
+backend/firebase-service-account.json
 
 # Flutter
 mobile/.env

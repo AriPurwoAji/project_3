@@ -110,6 +110,33 @@ func (r *userRepository) UpdateFCMToken(id, token string) error {
 	return err
 }
 
+func (r *userRepository) GetFCMToken(userID string) string {
+	var token string
+	r.db.QueryRow(context.Background(),
+		`SELECT COALESCE(fcm_token,'') FROM users WHERE id = $1 AND deleted_at IS NULL`,
+		userID).Scan(&token)
+	return token
+}
+
+func (r *userRepository) GetFCMTokensByRole(role string) []string {
+	rows, err := r.db.Query(context.Background(),
+		`SELECT fcm_token FROM users
+		 WHERE role = $1 AND deleted_at IS NULL AND is_active = TRUE
+		 AND fcm_token IS NOT NULL AND fcm_token != ''`, role)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var tokens []string
+	for rows.Next() {
+		var t string
+		if rows.Scan(&t) == nil && t != "" {
+			tokens = append(tokens, t)
+		}
+	}
+	return tokens
+}
+
 func (r *userRepository) Register(req domain.RegisterRequest) (*domain.User, error) {
 	ctx := context.Background()
 
