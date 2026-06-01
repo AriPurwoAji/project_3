@@ -1,0 +1,20 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="230" fill="#185FA5"/>
+  
+  <!-- Droplet shape -->
+  <path d="M512 180 
+           C512 180 280 460 280 620 
+           C280 756 384 860 512 860 
+           C640 860 744 756 744 620 
+           C744 460 512 180 512 180Z" 
+        fill="white"/>
+  
+  <!-- Letter H inside droplet -->
+  <text x="512" y="760" 
+        text-anchor="middle" 
+        font-family="Inter, Arial, sans-serif" 
+        font-size="280" 
+        font-weight="700" 
+        fill="#185FA5">H</text>
+</svg>
