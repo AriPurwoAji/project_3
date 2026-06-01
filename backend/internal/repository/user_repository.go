@@ -19,7 +19,8 @@ func NewUserRepository(db *pgxpool.Pool) domain.UserRepository {
 func (r *userRepository) FindByEmail(email string) (*domain.User, string, error) {
 	query := `
 		SELECT u.id, u.email, u.password_hash, u.full_name, u.phone, u.role,
-		       u.fcm_token, u.is_active, u.created_at, u.updated_at,
+		       u.fcm_token, u.is_active, u.email_verified_at,
+		       u.created_at, u.updated_at,
 		       COALESCE(u.company_id::text, '') AS company_id,
 		       COALESCE(c.name, '') AS company_name
 		FROM users u
@@ -33,7 +34,7 @@ func (r *userRepository) FindByEmail(email string) (*domain.User, string, error)
 	err := r.db.QueryRow(context.Background(), query, email).Scan(
 		&user.ID, &user.Email, &passwordHash,
 		&user.FullName, &phone, &user.Role,
-		&fcmToken, &user.IsActive,
+		&fcmToken, &user.IsActive, &user.EmailVerifiedAt,
 		&user.CreatedAt, &user.UpdatedAt,
 		&user.CompanyID, &user.CompanyName,
 	)
@@ -105,8 +106,15 @@ func (r *userRepository) ChangePassword(userID, newHash string) error {
 }
 
 func (r *userRepository) UpdateFCMToken(id, token string) error {
-	query := `UPDATE users SET fcm_token = $1, updated_at = NOW() WHERE id = $2`
-	_, err := r.db.Exec(context.Background(), query, token, id)
+	// Lepas token dari user lain yang pakai device yang sama (ganti akun di HP)
+	r.db.Exec(context.Background(),
+		`UPDATE users SET fcm_token = NULL WHERE fcm_token = $1 AND id != $2`,
+		token, id,
+	)
+	_, err := r.db.Exec(context.Background(),
+		`UPDATE users SET fcm_token = $1, updated_at = NOW() WHERE id = $2`,
+		token, id,
+	)
 	return err
 }
 
@@ -249,4 +257,38 @@ func (r *userRepository) FindAllByRole(role string) ([]domain.User, error) {
 		users = []domain.User{}
 	}
 	return users, rows.Err()
+}
+
+func (r *userRepository) SaveVerificationToken(userID, token string) error {
+	_, err := r.db.Exec(context.Background(), `
+		INSERT INTO email_verification_tokens (user_id, token, expires_at)
+		VALUES ($1, $2, NOW() + INTERVAL '24 hours')
+	`, userID, token)
+	return err
+}
+
+func (r *userRepository) VerifyEmailToken(token string) error {
+	var userID string
+	err := r.db.QueryRow(context.Background(), `
+		SELECT user_id FROM email_verification_tokens
+		WHERE token = $1
+		  AND used_at IS NULL
+		  AND expires_at > NOW()
+	`, token).Scan(&userID)
+	if err != nil {
+		return errors.New("token tidak valid atau sudah kadaluarsa")
+	}
+
+	tx, err := r.db.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background()) //nolint
+
+	tx.Exec(context.Background(),
+		`UPDATE email_verification_tokens SET used_at = NOW() WHERE token = $1`, token)
+	tx.Exec(context.Background(),
+		`UPDATE users SET email_verified_at = NOW() WHERE id = $1`, userID)
+
+	return tx.Commit(context.Background())
 }

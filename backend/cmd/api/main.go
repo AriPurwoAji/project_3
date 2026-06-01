@@ -7,6 +7,7 @@ import (
 	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/handler"
 	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/router"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/database"
+	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/email"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/fcm"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/pdf"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/storage"
@@ -31,6 +32,7 @@ func main() {
 	supabaseStorage := storage.NewSupabaseStorage()
 	pdfGenerator    := pdf.NewReportGenerator()
 	fcmSender       := fcm.NewSender()
+	emailSender     := email.NewSender()
 
 	// Repositories
 	userRepo      := repository.NewUserRepository(db)
@@ -41,7 +43,7 @@ func main() {
 	equipmentRepo := repository.NewEquipmentRepository(db)
 
 	// Usecases
-	authUsecase      := usecase.NewAuthUsecase(userRepo)
+	authUsecase      := usecase.NewAuthUsecase(userRepo, emailSender)
 	notifUsecase     := usecase.NewNotificationUsecase(notifRepo)
 	bookingUsecase   := usecase.NewBookingUsecase(bookingRepo, notifRepo)
 	reportUsecase    := usecase.NewReportUsecase(reportRepo, bookingRepo, pdfGenerator, supabaseStorage, notifRepo)

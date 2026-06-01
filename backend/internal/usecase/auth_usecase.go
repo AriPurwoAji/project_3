@@ -1,7 +1,12 @@
 package usecase
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"log"
+	"os"
 
 	"github.com/AriPurwoAji/project_3/backend/internal/domain"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/jwt"
@@ -9,11 +14,12 @@ import (
 )
 
 type authUsecase struct {
-	userRepo domain.UserRepository
+	userRepo    domain.UserRepository
+	emailSender domain.EmailSender
 }
 
-func NewAuthUsecase(userRepo domain.UserRepository) domain.AuthUsecase {
-	return &authUsecase{userRepo: userRepo}
+func NewAuthUsecase(userRepo domain.UserRepository, emailSender domain.EmailSender) domain.AuthUsecase {
+	return &authUsecase{userRepo: userRepo, emailSender: emailSender}
 }
 
 func (u *authUsecase) Login(req domain.LoginRequest) (*domain.LoginResponse, error) {
@@ -24,6 +30,11 @@ func (u *authUsecase) Login(req domain.LoginRequest) (*domain.LoginResponse, err
 
 	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)); err != nil {
 		return nil, errors.New("email atau password salah")
+	}
+
+	// Client harus verifikasi email sebelum bisa login
+	if user.Role == "client" && user.EmailVerifiedAt == nil {
+		return nil, errors.New("email belum diverifikasi. Cek inbox email kamu dan klik link verifikasi")
 	}
 
 	accessToken, err := jwt.GenerateAccessToken(user.ID, user.Role, user.CompanyID)
@@ -82,7 +93,6 @@ func (u *authUsecase) ChangePassword(userID string, req domain.ChangePasswordReq
 }
 
 func (u *authUsecase) Register(req domain.RegisterRequest) (*domain.User, error) {
-	// Cek email sudah dipakai
 	if _, _, err := u.userRepo.FindByEmail(req.Email); err == nil {
 		return nil, errors.New("email sudah terdaftar")
 	}
@@ -93,7 +103,67 @@ func (u *authUsecase) Register(req domain.RegisterRequest) (*domain.User, error)
 	}
 	req.PasswordHash = string(hash)
 
-	return u.userRepo.Register(req)
+	user, err := u.userRepo.Register(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Kirim email verifikasi untuk role client
+	if user.Role == "client" {
+		go u.sendVerificationEmail(user.ID, user.Email, user.FullName)
+	}
+
+	return user, nil
+}
+
+func (u *authUsecase) sendVerificationEmail(userID, email, name string) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		log.Printf("[Email] gagal generate token untuk %s: %v", email, err)
+		return
+	}
+	token := hex.EncodeToString(b)
+
+	if err := u.userRepo.SaveVerificationToken(userID, token); err != nil {
+		log.Printf("[Email] gagal simpan token untuk %s: %v", email, err)
+		return
+	}
+
+	appURL := os.Getenv("APP_URL")
+	if appURL == "" {
+		appURL = fmt.Sprintf("http://localhost:%s", os.Getenv("APP_PORT"))
+	}
+	verifyLink := fmt.Sprintf("%s/api/v1/auth/verify-email?token=%s", appURL, token)
+
+	subject := "Verifikasi Email Akun HydroServ Kamu"
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<body style="font-family:sans-serif;background:#f5f5f5;padding:24px">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:32px">
+    <h2 style="color:#1565C0;margin-top:0">HydroServ</h2>
+    <p>Halo <strong>%s</strong>,</p>
+    <p>Terima kasih sudah mendaftar! Klik tombol di bawah untuk memverifikasi email kamu dan mulai menggunakan akun HydroServ.</p>
+    <a href="%s"
+       style="display:inline-block;background:#1565C0;color:#fff;padding:12px 24px;
+              border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+      Verifikasi Email
+    </a>
+    <p style="color:#888;font-size:12px">Link ini berlaku selama 24 jam.<br>
+    Jika kamu tidak mendaftar di HydroServ, abaikan email ini.</p>
+  </div>
+</body>
+</html>`, name, verifyLink)
+
+	if err := u.emailSender.SendHTML(email, subject, body); err != nil {
+		log.Printf("[Email] gagal kirim verifikasi ke %s: %v", email, err)
+	} else {
+		log.Printf("[Email] verifikasi terkirim ke %s", email)
+	}
+}
+
+func (u *authUsecase) VerifyEmail(token string) error {
+	return u.userRepo.VerifyEmailToken(token)
 }
 
 func (u *authUsecase) UpdateFCMToken(userID, token string) error {

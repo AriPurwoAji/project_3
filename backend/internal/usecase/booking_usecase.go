@@ -39,6 +39,8 @@ func (u *bookingUsecase) CreateBooking(userID, companyID string, req domain.Crea
 		Description:  req.Description,
 		SiteAddress:  req.SiteAddress,
 		SiteCity:     req.SiteCity,
+		Latitude:     req.Latitude,
+		Longitude:    req.Longitude,
 		PhotoURLs:    req.PhotoURLs,
 	}
 

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/location_search_field.dart';
 
 class CreateBookingPage extends StatefulWidget {
   const CreateBookingPage({super.key});
@@ -19,8 +20,6 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   final _formKey = GlobalKey<FormState>();
   final _storage = const FlutterSecureStorage();
   final _descCtrl = TextEditingController();
-  final _addressCtrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
 
   String _serviceType = 'repair';
   String _urgencyLevel = 'standard';
@@ -30,6 +29,12 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   bool _loading = false;
   bool _loadingEquipment = true;
   DateTime? _scheduledAt;
+
+  // Lokasi
+  String   _address   = '';
+  String   _city      = '';
+  double?  _latitude;
+  double?  _longitude;
 
   // Photo upload
   final _picker    = ImagePicker();
@@ -45,8 +50,6 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   @override
   void dispose() {
     _descCtrl.dispose();
-    _addressCtrl.dispose();
-    _cityCtrl.dispose();
     super.dispose();
   }
 
@@ -77,6 +80,15 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
       );
       return;
     }
+    if (_address.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih lokasi site terlebih dahulu'),
+          backgroundColor: AppTheme.danger,
+        ),
+      );
+      return;
+    }
 
     setState(() => _loading = true);
     try {
@@ -86,8 +98,10 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
         'service_type':  _serviceType,
         'urgency_level': _urgencyLevel,
         'description':   _descCtrl.text.trim(),
-        'site_address':  _addressCtrl.text.trim(),
-        'site_city':     _cityCtrl.text.trim(),
+        'site_address':  _address,
+        'site_city':     _city,
+        if (_latitude != null) 'latitude':  _latitude,
+        if (_longitude != null) 'longitude': _longitude,
         'photo_urls':    _photoUrls,
         if (_scheduledAt != null)
           'scheduled_at': _scheduledAt!.toUtc().toIso8601String(),
@@ -286,7 +300,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                             ),
                           )
                         : DropdownButtonFormField<String>(
-                            value: _selectedEquipmentId,
+                            initialValue: _selectedEquipmentId,
                             hint: const Text('Pilih equipment'),
                             decoration: InputDecoration(
                               border: OutlineInputBorder(
@@ -329,37 +343,35 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Site address
+                    // Lokasi site — search + GPS
                     const Text('Lokasi site',
                         style: TextStyle(
                             fontSize: 13, color: AppTheme.textSecondary)),
                     const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _addressCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Alamat lokasi pekerjaan',
-                        suffixIcon: Icon(Icons.location_on_outlined),
-                      ),
-                      validator: (v) => v == null || v.isEmpty
-                          ? 'Lokasi wajib diisi'
-                          : null,
+                    LocationSearchField(
+                      onSelected: (result) {
+                        setState(() {
+                          _address   = result.address;
+                          _city      = result.city;
+                          _latitude  = result.latitude;
+                          _longitude = result.longitude;
+                        });
+                      },
                     ),
-                    const SizedBox(height: 16),
-
-                    // City
-                    const Text('Kota',
-                        style: TextStyle(
-                            fontSize: 13, color: AppTheme.textSecondary)),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _cityCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Nama kota',
+                    if (_city.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_city_outlined,
+                              size: 13, color: AppTheme.textTertiary),
+                          const SizedBox(width: 4),
+                          Text(_city,
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textTertiary)),
+                        ],
                       ),
-                      validator: (v) => v == null || v.isEmpty
-                          ? 'Kota wajib diisi'
-                          : null,
-                    ),
+                    ],
                     const SizedBox(height: 16),
 
                     // Foto kerusakan (opsional)
@@ -713,7 +725,7 @@ class _AddEquipmentSheetState extends State<_AddEquipmentSheet> {
                   // Tipe
                   _label('Tipe Equipment *'),
                   DropdownButtonFormField<String>(
-                    value: _type,
+                    initialValue: _type,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),

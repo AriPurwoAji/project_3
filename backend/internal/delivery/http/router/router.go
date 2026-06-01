@@ -41,6 +41,7 @@ func Setup(
 		auth.POST("/register", authHandler.Register)
 		auth.POST("/login", authHandler.Login)
 		auth.GET("/me", middleware.AuthMiddleware(), authHandler.GetProfile)
+		auth.GET("/verify-email", authHandler.VerifyEmail)
 	}
 
 	// Protected

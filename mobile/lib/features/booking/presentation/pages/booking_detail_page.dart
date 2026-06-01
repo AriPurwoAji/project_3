@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -232,6 +235,11 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                     padding: const EdgeInsets.all(16),
                     children: [
                       _buildHeaderCard(),
+                      if (_booking!['latitude'] != null &&
+                          _booking!['longitude'] != null) ...[
+                        const SizedBox(height: 16),
+                        _buildMapCard(),
+                      ],
                       const SizedBox(height: 16),
                       _buildTrackingSection(),
                       if (_userRole == AppConstants.roleManager &&
@@ -846,6 +854,88 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                 content: Text('Teknisi berhasil di-assign')),
           );
         },
+      ),
+    );
+  }
+
+  // ─── MAP CARD ─────────────────────────────────────────────────────────────
+
+  Widget _buildMapCard() {
+    final lat = (_booking!['latitude'] as num?)?.toDouble();
+    final lng = (_booking!['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) return const SizedBox.shrink();
+
+    final point = LatLng(lat, lng);
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Mini-map
+          SizedBox(
+            height: 180,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: point,
+                initialZoom: 15,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.none,
+                ),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName:
+                      'com.aripurwoaji.hydraulic_service',
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: point,
+                      child: const Icon(
+                        Icons.location_pin,
+                        color: AppTheme.danger,
+                        size: 40,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Tombol navigasi
+          InkWell(
+            onTap: () async {
+              final uri = Uri.parse(
+                'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+              );
+              if (await canLaunchUrl(uri)) launchUrl(uri);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              color: AppTheme.primary,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.navigation_outlined,
+                      size: 16, color: Colors.white),
+                  SizedBox(width: 6),
+                  Text('Navigasi ke lokasi',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

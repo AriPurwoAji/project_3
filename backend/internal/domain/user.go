@@ -5,18 +5,19 @@ import (
 )
 
 type User struct {
-	ID          string     `json:"id"`
-	Email       string     `json:"email"`
-	FullName    string     `json:"full_name"`
-	Phone       string     `json:"phone"`
-	Role        string     `json:"role"`
-	CompanyID   string     `json:"company_id"`
-	CompanyName string     `json:"company_name,omitempty"`
-	FCMToken    string     `json:"fcm_token"`
-	IsActive    bool       `json:"is_active"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+	ID               string     `json:"id"`
+	Email            string     `json:"email"`
+	FullName         string     `json:"full_name"`
+	Phone            string     `json:"phone"`
+	Role             string     `json:"role"`
+	CompanyID        string     `json:"company_id"`
+	CompanyName      string     `json:"company_name,omitempty"`
+	FCMToken         string     `json:"fcm_token"`
+	IsActive         bool       `json:"is_active"`
+	EmailVerifiedAt  *time.Time `json:"email_verified_at,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
 }
 
 type LoginRequest struct {
@@ -74,6 +75,9 @@ type UserRepository interface {
 	// FCM helpers
 	GetFCMToken(userID string) string
 	GetFCMTokensByRole(role string) []string
+	// Email verification
+	SaveVerificationToken(userID, token string) error
+	VerifyEmailToken(token string) error
 }
 
 type AuthUsecase interface {
@@ -87,4 +91,11 @@ type AuthUsecase interface {
 	ChangePassword(userID string, req ChangePasswordRequest) error
 	CreateUser(req CreateUserRequest) (*User, error)
 	UpdateFCMToken(userID, token string) error
+	VerifyEmail(token string) error
+}
+
+// EmailSender abstraksi pengiriman email
+type EmailSender interface {
+	Enabled() bool
+	SendHTML(to, subject, body string) error
 }
