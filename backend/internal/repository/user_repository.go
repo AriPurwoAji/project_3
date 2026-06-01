@@ -21,8 +21,11 @@ func (r *userRepository) FindByEmail(email string) (*domain.User, string, error)
 		SELECT u.id, u.email, u.password_hash, u.full_name, u.phone, u.role,
 		       u.fcm_token, u.is_active, u.email_verified_at,
 		       u.created_at, u.updated_at,
+		       COALESCE(u.avatar_url, '')      AS avatar_url,
 		       COALESCE(u.company_id::text, '') AS company_id,
-		       COALESCE(c.name, '') AS company_name
+		       COALESCE(c.name, '')            AS company_name,
+		       COALESCE(c.industry, '')        AS company_industry,
+		       COALESCE(c.city, '')            AS company_city
 		FROM users u
 		LEFT JOIN companies c ON u.company_id = c.id
 		WHERE u.email = $1 AND u.deleted_at IS NULL AND u.is_active = TRUE
@@ -36,7 +39,9 @@ func (r *userRepository) FindByEmail(email string) (*domain.User, string, error)
 		&user.FullName, &phone, &user.Role,
 		&fcmToken, &user.IsActive, &user.EmailVerifiedAt,
 		&user.CreatedAt, &user.UpdatedAt,
+		&user.AvatarURL,
 		&user.CompanyID, &user.CompanyName,
+		&user.CompanyIndustry, &user.CompanyCity,
 	)
 	if err != nil {
 		return nil, "", errors.New("user not found")
@@ -54,8 +59,11 @@ func (r *userRepository) FindByID(id string) (*domain.User, error) {
 	query := `
 		SELECT u.id, u.email, u.full_name, u.phone, u.role,
 		       u.fcm_token, u.is_active, u.created_at, u.updated_at,
+		       COALESCE(u.avatar_url, '')      AS avatar_url,
 		       COALESCE(u.company_id::text, '') AS company_id,
-		       COALESCE(c.name, '') AS company_name
+		       COALESCE(c.name, '')            AS company_name,
+		       COALESCE(c.industry, '')        AS company_industry,
+		       COALESCE(c.city, '')            AS company_city
 		FROM users u
 		LEFT JOIN companies c ON u.company_id = c.id
 		WHERE u.id = $1 AND u.deleted_at IS NULL
@@ -67,7 +75,9 @@ func (r *userRepository) FindByID(id string) (*domain.User, error) {
 		&user.ID, &user.Email, &user.FullName,
 		&phone, &user.Role, &fcmToken,
 		&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+		&user.AvatarURL,
 		&user.CompanyID, &user.CompanyName,
+		&user.CompanyIndustry, &user.CompanyCity,
 	)
 	if err != nil {
 		return nil, errors.New("user not found")
@@ -89,10 +99,12 @@ func (r *userRepository) FindPasswordHashByID(id string) (string, error) {
 	return hash, err
 }
 
-func (r *userRepository) UpdateProfile(userID, fullName, phone string) error {
+func (r *userRepository) UpdateProfile(userID, fullName, phone, avatarURL string) error {
 	_, err := r.db.Exec(context.Background(),
-		`UPDATE users SET full_name = $1, phone = NULLIF($2,''), updated_at = NOW() WHERE id = $3`,
-		fullName, phone, userID,
+		`UPDATE users SET full_name = $1, phone = NULLIF($2,''),
+		 avatar_url = CASE WHEN $3 = '' THEN avatar_url ELSE $3 END,
+		 updated_at = NOW() WHERE id = $4`,
+		fullName, phone, avatarURL, userID,
 	)
 	return err
 }
@@ -157,8 +169,10 @@ func (r *userRepository) Register(req domain.RegisterRequest) (*domain.User, err
 	// 1. Buat company baru
 	var companyID string
 	err = tx.QueryRow(ctx,
-		`INSERT INTO companies (name) VALUES ($1) RETURNING id`,
-		req.CompanyName,
+		`INSERT INTO companies (name, industry, city, pic_name, pic_phone)
+		 VALUES ($1, NULLIF($2,''), NULLIF($3,''), $4, NULLIF($5,''))
+		 RETURNING id`,
+		req.CompanyName, req.CompanyIndustry, req.CompanyCity, req.FullName, req.Phone,
 	).Scan(&companyID)
 	if err != nil {
 		return nil, err
@@ -178,9 +192,11 @@ func (r *userRepository) Register(req domain.RegisterRequest) (*domain.User, err
 	if err != nil {
 		return nil, err
 	}
-	user.Phone       = req.Phone
-	user.CompanyID   = companyID
-	user.CompanyName = req.CompanyName
+	user.Phone           = req.Phone
+	user.CompanyID       = companyID
+	user.CompanyName     = req.CompanyName
+	user.CompanyIndustry = req.CompanyIndustry
+	user.CompanyCity     = req.CompanyCity
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err

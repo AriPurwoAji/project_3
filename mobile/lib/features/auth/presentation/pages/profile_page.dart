@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -16,12 +18,16 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final _storage = const FlutterSecureStorage();
 
-  String _name        = '';
-  String _email       = '';
-  String _phone       = '';
-  String _role        = '';
-  String _companyName = '';
-  String _companyId   = '';
+  String _name             = '';
+  String _email            = '';
+  String _phone            = '';
+  String _role             = '';
+  String _companyName      = '';
+  String _companyIndustry  = '';
+  String _companyCity      = '';
+  String _companyId        = '';
+  String _avatarUrl        = '';
+  bool   _uploadingAvatar  = false;
 
   // Client/sales
   List<dynamic> _equipment = [];
@@ -62,11 +68,15 @@ class _ProfilePageState extends State<ProfilePage> {
     _companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
     final companyId = _companyId;
 
-    // Fetch email from /auth/me
+    // Fetch data lengkap dari /auth/me
     try {
-      final me = await ApiClient.instance.get('/auth/me');
-      _email = me.data['data']?['email'] ?? '';
-      _phone = me.data['data']?['phone'] ?? '';
+      final me   = await ApiClient.instance.get('/auth/me');
+      final data = me.data['data'] as Map<String, dynamic>? ?? {};
+      _email           = data['email']            ?? '';
+      _phone           = data['phone']            ?? '';
+      _avatarUrl       = data['avatar_url']       ?? '';
+      _companyIndustry = data['company_industry'] ?? '';
+      _companyCity     = data['company_city']     ?? '';
     } catch (_) {}
 
     if (_isClient && companyId.isNotEmpty) {
@@ -105,6 +115,64 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _logout() async {
     await ApiClient.clearToken();
     if (mounted) context.go('/login');
+  }
+
+  // ─── FOTO PROFIL ──────────────────────────────────────────────────────────
+
+  Future<void> _pickAndUploadAvatar() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Pilih dari galeri'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Ambil foto'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    final picker = ImagePicker();
+    final xfile  = await picker.pickImage(
+        source: source, imageQuality: 80, maxWidth: 512);
+    if (xfile == null || !mounted) return;
+
+    setState(() => _uploadingAvatar = true);
+    try {
+      // Upload foto ke Supabase Storage
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(xfile.path, filename: xfile.name),
+      });
+      final uploadRes = await ApiClient.instance.post('/upload', data: formData);
+      final url = uploadRes.data['data']['url'] as String;
+
+      // Simpan URL ke profil
+      await ApiClient.instance.patch('/auth/profile', data: {
+        'full_name': _name,
+        'phone':     _phone,
+        'avatar_url': url,
+      });
+
+      if (mounted) setState(() => _avatarUrl = url);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal mengupload foto')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
   }
 
   // ─── EDIT PROFILE ─────────────────────────────────────────────────────────
@@ -666,19 +734,48 @@ class _ProfilePageState extends State<ProfilePage> {
   // ─── AVATAR ───────────────────────────────────────────────────────────────
 
   Widget _buildAvatarSection() {
-    final initial = _name.isNotEmpty ? _name[0].toUpperCase() : '?';
+    final initial   = _name.isNotEmpty ? _name[0].toUpperCase() : '?';
     final roleBadge = _isTeknisi ? 'Teknisi' : _isClient ? 'Client PIC' : _role;
 
     return Column(
       children: [
-        CircleAvatar(
-          radius: 40,
-          backgroundColor: AppTheme.primaryLight,
-          child: Text(initial,
-              style: const TextStyle(
-                  fontSize: 32,
-                  color: AppTheme.primary,
-                  fontWeight: FontWeight.w600)),
+        // ── Avatar dengan tombol ganti foto ──────────────────────────
+        GestureDetector(
+          onTap: _uploadingAvatar ? null : _pickAndUploadAvatar,
+          child: Stack(
+            children: [
+              CircleAvatar(
+                radius: 44,
+                backgroundColor: AppTheme.primaryLight,
+                backgroundImage: _avatarUrl.isNotEmpty
+                    ? NetworkImage(_avatarUrl)
+                    : null,
+                child: _uploadingAvatar
+                    ? const CircularProgressIndicator(strokeWidth: 2)
+                    : _avatarUrl.isEmpty
+                        ? Text(initial,
+                            style: const TextStyle(
+                                fontSize: 32,
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.w600))
+                        : null,
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.camera_alt,
+                      size: 15, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         Text(_name,
@@ -687,6 +784,12 @@ class _ProfilePageState extends State<ProfilePage> {
         if (_email.isNotEmpty) ...[
           const SizedBox(height: 2),
           Text(_email,
+              style: const TextStyle(
+                  fontSize: 13, color: AppTheme.textSecondary)),
+        ],
+        if (_phone.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(_phone,
               style: const TextStyle(
                   fontSize: 13, color: AppTheme.textSecondary)),
         ],
@@ -825,6 +928,10 @@ class _ProfilePageState extends State<ProfilePage> {
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           _infoRow('Perusahaan', _companyName),
+          if (_companyIndustry.isNotEmpty)
+            _infoRow('Industri', _companyIndustry),
+          if (_companyCity.isNotEmpty)
+            _infoRow('Kota', _companyCity),
         ],
       ),
     );

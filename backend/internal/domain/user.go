@@ -12,6 +12,9 @@ type User struct {
 	Role             string     `json:"role"`
 	CompanyID        string     `json:"company_id"`
 	CompanyName      string     `json:"company_name,omitempty"`
+	CompanyIndustry  string     `json:"company_industry,omitempty"`
+	CompanyCity      string     `json:"company_city,omitempty"`
+	AvatarURL        string     `json:"avatar_url,omitempty"`
 	FCMToken         string     `json:"fcm_token"`
 	IsActive         bool       `json:"is_active"`
 	EmailVerifiedAt  *time.Time `json:"email_verified_at,omitempty"`
@@ -26,8 +29,9 @@ type LoginRequest struct {
 }
 
 type UpdateProfileRequest struct {
-	FullName string `json:"full_name" binding:"required"`
-	Phone    string `json:"phone"`
+	FullName  string `json:"full_name" binding:"required"`
+	Phone     string `json:"phone"`
+	AvatarURL string `json:"avatar_url"`
 }
 
 type ChangePasswordRequest struct {
@@ -36,11 +40,13 @@ type ChangePasswordRequest struct {
 }
 
 type RegisterRequest struct {
-	FullName    string `json:"full_name"    binding:"required"`
-	Email       string `json:"email"        binding:"required,email"`
-	Password    string `json:"password"     binding:"required,min=6"`
-	Phone       string `json:"phone"`
-	CompanyName string `json:"company_name" binding:"required"`
+	FullName        string `json:"full_name"        binding:"required"`
+	Email           string `json:"email"            binding:"required,email"`
+	Password        string `json:"password"         binding:"required,min=6"`
+	Phone           string `json:"phone"`
+	CompanyName     string `json:"company_name"     binding:"required"`
+	CompanyIndustry string `json:"company_industry"`
+	CompanyCity     string `json:"company_city"     binding:"required"`
 	// set by usecase before passing to repository
 	PasswordHash string `json:"-"`
 }
@@ -67,7 +73,7 @@ type UserRepository interface {
 	FindByID(id string) (*User, error)
 	FindPasswordHashByID(id string) (string, error)
 	UpdateFCMToken(id, token string) error
-	UpdateProfile(userID, fullName, phone string) error
+	UpdateProfile(userID, fullName, phone, avatarURL string) error
 	ChangePassword(userID, newHash string) error
 	FindAllByRole(role string) ([]User, error)
 	Register(req RegisterRequest) (*User, error)
