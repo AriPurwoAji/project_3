@@ -271,7 +271,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     });
                                 if (ctx.mounted) {
                                   Navigator.pop(ctx);
-                                  ScaffoldMessenger.of(context)
+                                  ScaffoldMessenger.of(ctx)
                                       .showSnackBar(const SnackBar(
                                     content: Text('Password berhasil diubah'),
                                     backgroundColor: AppTheme.secondary,
@@ -356,7 +356,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 10),
                       // Tipe
                       DropdownButtonFormField<String>(
-                        value: type,
+                        initialValue: type,
                         decoration: InputDecoration(
                           labelText: 'Tipe Equipment',
                           border: OutlineInputBorder(

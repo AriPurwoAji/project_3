@@ -1176,7 +1176,7 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
 
               _lbl('Tipe Item *'),
               DropdownButtonFormField<String>(
-                value: _itemType,
+                initialValue: _itemType,
                 decoration: _dropDeco(),
                 items: const [
                   DropdownMenuItem(value: 'hose',     child: Text('Selang (Hose)')),
@@ -1350,7 +1350,7 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
   Widget _miniDropdown(String label, String value,
       List<String> opts, ValueChanged<String?> onChange) =>
       DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         isExpanded: true,
         decoration: InputDecoration(
           labelText: label,
@@ -1401,14 +1401,14 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
         ],
       );
 
-  Widget _dropdownField2(String label, String value,
+  Widget _dropdownField2(String label, String initialVal,
       Map<String, String> items, ValueChanged<String?> onChanged) =>
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _lbl(label),
           DropdownButtonFormField<String>(
-            value: value,
+            initialValue: initialVal,
             isExpanded: true,
             decoration: _dropDeco(),
             items: items.entries

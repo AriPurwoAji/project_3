@@ -85,7 +85,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Selamat datang,',
+                    const Text('Selamat datang,',
                         style: TextStyle(
                             fontSize: 13,
                             color: AppTheme.textSecondary)),
@@ -161,7 +161,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                             fontWeight: FontWeight.w500)),
                                     Text(
                                         '${t['completed_jobs']} job selesai',
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                             fontSize: 12,
                                             color: AppTheme.textSecondary)),
                                   ],
@@ -198,7 +198,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                         style: const TextStyle(
                                             fontSize: 12)),
                                     Text('$total job',
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                             fontSize: 12,
                                             color: AppTheme.textSecondary)),
                                   ],
@@ -233,7 +233,7 @@ class _DashboardPageState extends State<DashboardPage> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

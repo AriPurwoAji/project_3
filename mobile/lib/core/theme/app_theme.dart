@@ -28,7 +28,6 @@ class AppTheme {
       primary: primary,
       secondary: secondary,
       surface: surface,
-      background: background,
     ),
     textTheme: GoogleFonts.interTextTheme(),
     appBarTheme: const AppBarTheme(

@@ -186,10 +186,10 @@ class _NotificationPageState extends State<NotificationPage> {
           : RefreshIndicator(
               onRefresh: _loadData,
               child: _notifications.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children: [
                           Icon(Icons.notifications_none_outlined,
                               size: 52, color: AppTheme.textTertiary),
                           SizedBox(height: 12),

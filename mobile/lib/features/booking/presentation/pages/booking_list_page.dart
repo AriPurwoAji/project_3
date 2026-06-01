@@ -333,7 +333,7 @@ class _BookingListPageState extends State<BookingListPage> {
                                                   vertical: 3),
                                           decoration: BoxDecoration(
                                             color: statusColor
-                                                .withOpacity(0.1),
+                                                .withValues(alpha: 0.1),
                                             borderRadius:
                                                 BorderRadius.circular(99),
                                           ),

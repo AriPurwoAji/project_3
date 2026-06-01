@@ -163,7 +163,7 @@ class _LoginPageState extends State<LoginPage> {
                     Text(
                       'Sistem layanan teknisi hydraulic',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 14,
                       ),
                     ),
@@ -227,10 +227,12 @@ class _LoginPageState extends State<LoginPage> {
                           suffixIcon: Icon(Icons.mail_outline, size: 18),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty)
+                          if (v == null || v.isEmpty) {
                             return 'Email wajib diisi';
-                          if (!v.contains('@'))
+                          }
+                          if (!v.contains('@')) {
                             return 'Format email tidak valid';
+                          }
                           return null;
                         },
                       ),
@@ -261,10 +263,12 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty)
+                          if (v == null || v.isEmpty) {
                             return 'Password wajib diisi';
-                          if (v.length < 6)
+                          }
+                          if (v.length < 6) {
                             return 'Password minimal 6 karakter';
+                          }
                           return null;
                         },
                       ),
