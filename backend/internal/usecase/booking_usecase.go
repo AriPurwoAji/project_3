@@ -138,6 +138,10 @@ func (u *bookingUsecase) UpdateStatus(bookingID, technicianID, status string) er
 		u.notify(booking.CreatedBy, &bookingID, "status_changed",
 			"Teknisi tiba di lokasi",
 			"Pengerjaan sedang dimulai.")
+	case "done":
+		u.notify(booking.CreatedBy, &bookingID, "job_done",
+			"Pekerjaan selesai ✅",
+			"Job servis "+booking.ServiceType+" di "+booking.SiteCity+" telah diselesaikan oleh teknisi.")
 	}
 	return nil
 }

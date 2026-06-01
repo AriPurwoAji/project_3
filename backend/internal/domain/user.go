@@ -80,8 +80,13 @@ type UserRepository interface {
 	VerifyEmailToken(token string) error
 }
 
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
 type AuthUsecase interface {
 	Login(req LoginRequest) (*LoginResponse, error)
+	RefreshToken(refreshToken string) (string, error)
 	GetProfile(id string) (*User, error)
 	GetTechnicians() ([]User, error)
 	GetSales() ([]User, error)

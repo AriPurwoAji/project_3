@@ -130,10 +130,12 @@ flutter run
 - [x] Edit profil, ganti password, equipment CRUD
 - [x] Batalkan booking (client/manager, status open saja)
 
+- [x] Refresh token otomatis — access token expired di-refresh tanpa logout
+- [x] Notifikasi push + in-app saat job selesai (`done`) ke client
+- [x] Filter dashboard berdasarkan rentang tanggal (dari / sampai)
+
 ### Belum Diimplementasi
-- [ ] Refresh token otomatis (saat access token expired)
-- [ ] Notifikasi status `done` ke client
-- [ ] Filter dashboard berdasarkan rentang tanggal
+> Semua fitur utama sudah diimplementasi.
 
 ---
 

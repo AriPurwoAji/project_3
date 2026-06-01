@@ -4,6 +4,7 @@ import '../constants/app_constants.dart';
 
 class ApiClient {
   static Dio? _dio;
+  static bool _isRefreshing = false;
   static const _storage = FlutterSecureStorage();
 
   static Dio get instance {
@@ -28,9 +29,44 @@ class ApiClient {
         return handler.next(options);
       },
       onError: (error, handler) async {
-        if (error.response?.statusCode == 401) {
-          await _storage.deleteAll();
+        final is401     = error.response?.statusCode == 401;
+        final isRefresh = error.requestOptions.path.contains('/auth/refresh');
+
+        if (is401 && !isRefresh && !_isRefreshing) {
+          _isRefreshing = true;
+          try {
+            final refreshToken =
+                await _storage.read(key: AppConstants.refreshTokenKey);
+            if (refreshToken == null) throw Exception('no refresh token');
+
+            // Panggil endpoint refresh dengan Dio baru agar tidak loop
+            final refreshDio = Dio(BaseOptions(
+              baseUrl: AppConstants.baseUrl,
+              headers: {'Content-Type': 'application/json'},
+            ));
+            final res = await refreshDio.post(
+              '/auth/refresh',
+              data: {'refresh_token': refreshToken},
+            );
+
+            final newToken = res.data['data']['access_token'] as String;
+            await _storage.write(
+                key: AppConstants.accessTokenKey, value: newToken);
+
+            // Ulangi request asli dengan token baru
+            error.requestOptions.headers['Authorization'] =
+                'Bearer $newToken';
+            final retried = await _dio!.fetch(error.requestOptions);
+            return handler.resolve(retried);
+          } catch (_) {
+            // Refresh gagal → logout
+            await _storage.deleteAll();
+            _dio = null;
+          } finally {
+            _isRefreshing = false;
+          }
         }
+
         return handler.next(error);
       },
     ));

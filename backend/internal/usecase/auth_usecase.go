@@ -166,6 +166,18 @@ func (u *authUsecase) VerifyEmail(token string) error {
 	return u.userRepo.VerifyEmailToken(token)
 }
 
+func (u *authUsecase) RefreshToken(refreshToken string) (string, error) {
+	claims, err := jwt.ValidateToken(refreshToken)
+	if err != nil {
+		return "", errors.New("refresh token tidak valid atau sudah kadaluarsa")
+	}
+	accessToken, err := jwt.GenerateAccessToken(claims.UserID, claims.Role, claims.CompanyID)
+	if err != nil {
+		return "", errors.New("gagal generate token baru")
+	}
+	return accessToken, nil
+}
+
 func (u *authUsecase) UpdateFCMToken(userID, token string) error {
 	return u.userRepo.UpdateFCMToken(userID, token)
 }

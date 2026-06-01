@@ -22,6 +22,10 @@ class _DashboardPageState extends State<DashboardPage> {
   List<dynamic> _serviceTrend = [];
   bool _loading = true;
 
+  // Filter tanggal
+  DateTime? _filterFrom;
+  DateTime? _filterTo;
+
   @override
   void initState() {
     super.initState();
@@ -30,11 +34,23 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _loadData() async {
     _name = await _storage.read(key: AppConstants.userNameKey) ?? '';
+    final params = <String, dynamic>{};
+    if (_filterFrom != null) {
+      params['from'] = _filterFrom!.toIso8601String();
+    }
+    if (_filterTo != null) {
+      params['to'] = _filterTo!
+          .add(const Duration(days: 1))
+          .toIso8601String(); // inklusif hari terakhir
+    }
+
     try {
       final results = await Future.wait([
-        ApiClient.instance.get('/dashboard/summary'),
+        ApiClient.instance.get('/dashboard/summary',
+            queryParameters: params),
         ApiClient.instance.get('/dashboard/technician-performance'),
-        ApiClient.instance.get('/dashboard/service-trend'),
+        ApiClient.instance.get('/dashboard/service-trend',
+            queryParameters: params),
         ApiClient.instance.get('/notifications/unread-count'),
       ]);
       setState(() {
@@ -48,6 +64,49 @@ class _DashboardPageState extends State<DashboardPage> {
     } catch (e) {
       setState(() => _loading = false);
     }
+  }
+
+  Future<void> _pickDate({required bool isFrom}) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: isFrom
+          ? (_filterFrom ?? now.subtract(const Duration(days: 30)))
+          : (_filterTo ?? now),
+      firstDate: DateTime(2024),
+      lastDate: now,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (isFrom) {
+        _filterFrom = picked;
+        if (_filterTo != null && _filterTo!.isBefore(picked)) {
+          _filterTo = picked;
+        }
+      } else {
+        _filterTo = picked;
+        if (_filterFrom != null && _filterFrom!.isAfter(picked)) {
+          _filterFrom = picked;
+        }
+      }
+      _loading = true;
+    });
+    _loadData();
+  }
+
+  void _clearFilter() {
+    setState(() {
+      _filterFrom = null;
+      _filterTo   = null;
+      _loading    = true;
+    });
+    _loadData();
+  }
+
+  String _fmtDate(DateTime dt) {
+    const m = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+                'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    return '${dt.day} ${m[dt.month]}';
   }
 
   @override
@@ -93,7 +152,37 @@ class _DashboardPageState extends State<DashboardPage> {
                         style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
+
+                    // ── Filter tanggal ────────────────────────────────────
+                    Row(
+                      children: [
+                        _dateChip(
+                          label: _filterFrom != null
+                              ? 'Dari: ${_fmtDate(_filterFrom!)}'
+                              : 'Dari',
+                          onTap: () => _pickDate(isFrom: true),
+                          active: _filterFrom != null,
+                        ),
+                        const SizedBox(width: 8),
+                        _dateChip(
+                          label: _filterTo != null
+                              ? 'Sampai: ${_fmtDate(_filterTo!)}'
+                              : 'Sampai',
+                          onTap: () => _pickDate(isFrom: false),
+                          active: _filterTo != null,
+                        ),
+                        if (_filterFrom != null || _filterTo != null) ...[
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: _clearFilter,
+                            child: const Icon(Icons.close,
+                                size: 18, color: AppTheme.textTertiary),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
                     if (_summary != null) ...[
                       GridView.count(
@@ -223,6 +312,42 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _dateChip({
+    required String label,
+    required VoidCallback onTap,
+    bool active = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? AppTheme.primaryLight : AppTheme.surface,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: active ? AppTheme.primary : AppTheme.border,
+            width: active ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.calendar_today_outlined,
+                size: 13,
+                color: active ? AppTheme.primary : AppTheme.textTertiary),
+            const SizedBox(width: 5),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: active ? AppTheme.primary : AppTheme.textSecondary,
+                    fontWeight:
+                        active ? FontWeight.w500 : FontWeight.normal)),
+          ],
+        ),
+      ),
     );
   }
 

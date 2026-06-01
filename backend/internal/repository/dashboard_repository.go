@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/AriPurwoAji/project_3/backend/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,7 +17,7 @@ func NewDashboardRepository(db *pgxpool.Pool) domain.DashboardRepository {
 }
 
 func (r *dashboardRepository) GetSummary(filters map[string]string) (*domain.DashboardSummary, error) {
-	query := `
+	base := `
 		SELECT
 			COUNT(*) as total,
 			COUNT(*) FILTER (WHERE status = 'done') as completed,
@@ -31,9 +32,11 @@ func (r *dashboardRepository) GetSummary(filters map[string]string) (*domain.Das
 		FROM bookings
 		WHERE deleted_at IS NULL
 	`
+	query, args := applyDateFilters(base, filters)
+
 	var s domain.DashboardSummary
 	var avgHours float64
-	err := r.db.QueryRow(context.Background(), query).Scan(
+	err := r.db.QueryRow(context.Background(), query, args...).Scan(
 		&s.TotalBookings,
 		&s.CompletedBookings,
 		&s.OpenBookings,
@@ -52,7 +55,7 @@ func (r *dashboardRepository) GetSummary(filters map[string]string) (*domain.Das
 
 func (r *dashboardRepository) GetTechnicianPerformance() ([]domain.TechnicianPerformance, error) {
 	query := `
-		SELECT 
+		SELECT
 			u.id, u.full_name,
 			COUNT(b.id) as total_jobs,
 			COUNT(b.id) FILTER (WHERE b.status = 'done') as completed_jobs
@@ -81,14 +84,15 @@ func (r *dashboardRepository) GetTechnicianPerformance() ([]domain.TechnicianPer
 }
 
 func (r *dashboardRepository) GetServiceTypeTrend(filters map[string]string) ([]domain.ServiceTypeTrend, error) {
-	query := `
+	base := `
 		SELECT service_type, COUNT(*) as total
 		FROM bookings
 		WHERE deleted_at IS NULL
-		GROUP BY service_type
-		ORDER BY total DESC
 	`
-	rows, err := r.db.Query(context.Background(), query)
+	query, args := applyDateFilters(base, filters)
+	query += " GROUP BY service_type ORDER BY total DESC"
+
+	rows, err := r.db.Query(context.Background(), query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,4 +108,22 @@ func (r *dashboardRepository) GetServiceTypeTrend(filters map[string]string) ([]
 		result = []domain.ServiceTypeTrend{}
 	}
 	return result, nil
+}
+
+// applyDateFilters menambah klausa WHERE untuk filter from/to jika ada.
+func applyDateFilters(query string, filters map[string]string) (string, []interface{}) {
+	args := []interface{}{}
+	i := 1
+	if from, ok := filters["from"]; ok && from != "" {
+		query += fmt.Sprintf(" AND created_at >= $%d", i)
+		args = append(args, from)
+		i++
+	}
+	if to, ok := filters["to"]; ok && to != "" {
+		query += fmt.Sprintf(" AND created_at <= $%d", i)
+		args = append(args, to)
+		i++
+	}
+	_ = i
+	return query, args
 }

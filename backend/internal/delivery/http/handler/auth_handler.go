@@ -145,6 +145,21 @@ func (h *AuthHandler) GetTechnicians(c *gin.Context) {
 	response.Success(c, 200, "Success", users)
 }
 
+// RefreshToken menukar refresh token dengan access token baru.
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	var req domain.RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "refresh_token wajib diisi")
+		return
+	}
+	newToken, err := h.authUsecase.RefreshToken(req.RefreshToken)
+	if err != nil {
+		response.Error(c, 401, err.Error())
+		return
+	}
+	response.Success(c, 200, "Token diperbarui", gin.H{"access_token": newToken})
+}
+
 // VerifyEmail menangani klik link verifikasi dari email client.
 // Mengembalikan HTML langsung agar bisa dibuka di browser.
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
