@@ -909,13 +909,14 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
               ],
             ),
           ),
-          // Tombol navigasi
+          // Tombol navigasi — geo: URI agar muncul chooser (Google Maps / Waze / dll)
           InkWell(
             onTap: () async {
-              final uri = Uri.parse(
-                'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
-              );
-              if (await canLaunchUrl(uri)) launchUrl(uri);
+              final geoUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng');
+              if (await canLaunchUrl(geoUri)) {
+                await launchUrl(geoUri,
+                    mode: LaunchMode.externalApplication);
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 11),
