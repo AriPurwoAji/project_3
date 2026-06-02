@@ -215,9 +215,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
     final companyName = b['company_name'] ?? '-';
     final equipName   = b['equipment_name'] ?? '';
     final techName    = b['technician_name'] ?? '-';
-    final siteCity    = b['site_city'] ?? '';
-    final siteAddress = b['site_address'] ?? '';
-    final desc        = b['description'] ?? '-';
+    final siteCity = b['site_city'] ?? '';
+    final desc     = b['description'] ?? '-';
 
     const serviceColors = <String, List<Color>>{
       'repair':      [AppTheme.danger,   AppTheme.dangerLight],
@@ -319,13 +318,14 @@ class _RiwayatPageState extends State<RiwayatPage> {
                   const Icon(Icons.location_on_outlined,
                       size: 13, color: AppTheme.textTertiary),
                   const SizedBox(width: 3),
-                  Text(
-                    [siteAddress, siteCity]
-                        .where((s) => s.isNotEmpty)
-                        .join(', '),
-                    style: const TextStyle(
-                        fontSize: 11, color: AppTheme.textTertiary),
-                    overflow: TextOverflow.ellipsis,
+                  Flexible(
+                    child: Text(
+                      siteCity,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppTheme.textTertiary),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
                 ],
               ],

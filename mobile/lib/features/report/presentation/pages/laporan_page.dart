@@ -299,9 +299,8 @@ class _LaporanPageState extends State<LaporanPage> {
     final urgency     = booking['urgency_level'] ?? 'standard';
     final companyName = booking['company_name'] ?? r['company_name'] ?? '-';
     final equipName   = booking['equipment_name'] ?? '';
-    final siteCity    = booking['site_city'] ?? '';
-    final siteAddress = booking['site_address'] ?? '';
-    final workDesc    = r['work_description'] ?? '-';
+    final siteCity = booking['site_city'] ?? '';
+    final workDesc = r['work_description'] ?? '-';
     final createdAt   = r['created_at'] ?? '';
     final isEmergency = urgency == 'emergency';
 
@@ -387,20 +386,19 @@ class _LaporanPageState extends State<LaporanPage> {
                       fontSize: 12, color: AppTheme.textSecondary)),
             const SizedBox(height: 4),
             // Baris 4: lokasi
-            if (siteCity.isNotEmpty || siteAddress.isNotEmpty)
+            if (siteCity.isNotEmpty)
               Row(
                 children: [
                   const Icon(Icons.location_on_outlined,
                       size: 13, color: AppTheme.textTertiary),
                   const SizedBox(width: 3),
-                  Expanded(
+                  Flexible(
                     child: Text(
-                      [siteAddress, siteCity]
-                          .where((s) => s.isNotEmpty)
-                          .join(', '),
+                      siteCity,
                       style: const TextStyle(
                           fontSize: 11, color: AppTheme.textTertiary),
                       overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],
