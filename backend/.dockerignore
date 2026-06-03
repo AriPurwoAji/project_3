@@ -1,0 +1,5 @@
+.env
+bin/
+tmp/
+firebase-service-account.json
+*.log
