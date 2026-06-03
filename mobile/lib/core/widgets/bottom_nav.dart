@@ -2,28 +2,46 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
+import '../network/api_client.dart';
 import '../theme/app_theme.dart';
 
-class BottomNav extends StatelessWidget {
+class BottomNav extends StatefulWidget {
   final int currentIndex;
   const BottomNav({super.key, required this.currentIndex});
 
   @override
+  State<BottomNav> createState() => _BottomNavState();
+}
+
+class _BottomNavState extends State<BottomNav> {
+  static const _storage = FlutterSecureStorage();
+
+  // Ambil dari cache langsung — tidak perlu await jika sudah login
+  String _role = ApiClient.cachedRole;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_role.isEmpty) {
+      // Cold start: baca storage sekali, tidak ada FutureBuilder rebuild berulang
+      _storage.read(key: AppConstants.userRoleKey).then((r) {
+        if (mounted && r != null && r != _role) {
+          setState(() => _role = r);
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String?>(
-      future: const FlutterSecureStorage().read(key: AppConstants.userRoleKey),
-      builder: (context, snapshot) {
-        final role         = snapshot.data ?? '';
-        final destinations = _getDestinations(role);
-        final safeIndex    = currentIndex.clamp(0, destinations.length - 1);
-        return NavigationBar(
-          selectedIndex: safeIndex,
-          backgroundColor: AppTheme.surface,
-          indicatorColor: AppTheme.primaryLight,
-          destinations: destinations,
-          onDestinationSelected: (i) => _onTap(context, i, role),
-        );
-      },
+    final destinations = _getDestinations(_role);
+    final safeIndex    = widget.currentIndex.clamp(0, destinations.length - 1);
+    return NavigationBar(
+      selectedIndex: safeIndex,
+      backgroundColor: AppTheme.surface,
+      indicatorColor: AppTheme.primaryLight,
+      destinations: destinations,
+      onDestinationSelected: (i) => _onTap(context, i),
     );
   }
 
@@ -100,33 +118,34 @@ class BottomNav extends StatelessWidget {
     }
   }
 
-  void _onTap(BuildContext context, int index, String role) {
-    if (role == AppConstants.roleManager) {
-      switch (index) {
-        case 0: context.go('/dashboard'); break;
-        case 1: context.go('/bookings'); break;
-        case 2: context.go('/team'); break;
-        case 3: context.go('/profile'); break;
-      }
-    } else if (role == AppConstants.roleTeknisi) {
-      switch (index) {
-        case 0: context.go('/job-board'); break;
-        case 1: context.go('/laporan'); break;
-        case 2: context.go('/profile'); break;
-      }
-    } else if (role == AppConstants.roleSales) {
-      switch (index) {
-        case 0: context.go('/bookings'); break;
-        case 1: context.go('/riwayat'); break;
-        case 2: context.go('/profile'); break;
-      }
-    } else {
-      switch (index) {
-        case 0: context.go('/home'); break;
-        case 1: context.go('/bookings'); break;
-        case 2: context.go('/riwayat'); break;
-        case 3: context.go('/profile'); break;
-      }
+  void _onTap(BuildContext context, int index) {
+    switch (_role) {
+      case AppConstants.roleManager:
+        switch (index) {
+          case 0: context.go('/dashboard'); break;
+          case 1: context.go('/bookings');  break;
+          case 2: context.go('/team');      break;
+          case 3: context.go('/profile');   break;
+        }
+      case AppConstants.roleTeknisi:
+        switch (index) {
+          case 0: context.go('/job-board'); break;
+          case 1: context.go('/laporan');   break;
+          case 2: context.go('/profile');   break;
+        }
+      case AppConstants.roleSales:
+        switch (index) {
+          case 0: context.go('/bookings'); break;
+          case 1: context.go('/riwayat');  break;
+          case 2: context.go('/profile');  break;
+        }
+      default: // client
+        switch (index) {
+          case 0: context.go('/home');     break;
+          case 1: context.go('/bookings'); break;
+          case 2: context.go('/riwayat');  break;
+          case 3: context.go('/profile');  break;
+        }
     }
   }
 }

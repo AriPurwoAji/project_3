@@ -45,9 +45,13 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       final data = res.data['data'];
+      final accessToken = data['access_token'] as String;
+      final userRole    = data['user']['role'] as String;
+      ApiClient.cacheToken(accessToken);
+      ApiClient.cacheRole(userRole);
       await _storage.write(
         key: AppConstants.accessTokenKey,
-        value: data['access_token'],
+        value: accessToken,
       );
       await _storage.write(
         key: AppConstants.refreshTokenKey,

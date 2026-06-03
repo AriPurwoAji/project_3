@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/cache/page_cache.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -20,7 +21,8 @@ class _DashboardPageState extends State<DashboardPage> {
   Map<String, dynamic>? _summary;
   List<dynamic> _techPerformance = [];
   List<dynamic> _serviceTrend = [];
-  bool _loading = true;
+  bool    _loading = true;
+  String? _error;
 
   // Filter tanggal
   DateTime? _filterFrom;
@@ -29,40 +31,72 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Hanya pakai cache jika tidak ada filter aktif
+    final cached = PageCache.get<Map<String, dynamic>>('dashboard');
+    if (cached != null && _filterFrom == null && _filterTo == null) {
+      _summary         = cached['summary'] as Map<String, dynamic>?;
+      _techPerformance = cached['tech']    as List<dynamic>;
+      _serviceTrend    = cached['trend']   as List<dynamic>;
+      _unreadCount     = cached['unread']  as int;
+      _name            = cached['name']    as String;
+      _loading         = false;
+      _loadData(silent: true);
+    } else {
+      _loadData();
+    }
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool silent = false}) async {
     _name = await _storage.read(key: AppConstants.userNameKey) ?? '';
     final params = <String, dynamic>{};
-    if (_filterFrom != null) {
-      params['from'] = _filterFrom!.toIso8601String();
-    }
+    if (_filterFrom != null) params['from'] = _filterFrom!.toIso8601String();
     if (_filterTo != null) {
       params['to'] = _filterTo!
           .add(const Duration(days: 1))
-          .toIso8601String(); // inklusif hari terakhir
+          .toIso8601String();
     }
 
+    if (mounted) setState(() { _error = null; if (!silent) _loading = true; });
     try {
       final results = await Future.wait([
-        ApiClient.instance.get('/dashboard/summary',
-            queryParameters: params),
+        ApiClient.instance.get('/dashboard/summary', queryParameters: params),
         ApiClient.instance.get('/dashboard/technician-performance'),
-        ApiClient.instance.get('/dashboard/service-trend',
-            queryParameters: params),
+        ApiClient.instance.get('/dashboard/service-trend', queryParameters: params),
         ApiClient.instance.get('/notifications/unread-count'),
       ]);
-      setState(() {
-        _summary         = results[0].data['data'];
-        _techPerformance = results[1].data['data'] ?? [];
-        _serviceTrend    = results[2].data['data'] ?? [];
-        _unreadCount     = (results[3].data['data']['unread_count'] as num?)
-                              ?.toInt() ?? 0;
-        _loading = false;
-      });
+
+      final summary = results[0].data['data'] as Map<String, dynamic>?;
+      final tech    = List<dynamic>.from(results[1].data['data'] ?? []);
+      final trend   = List<dynamic>.from(results[2].data['data'] ?? []);
+      final unread  = (results[3].data['data']['unread_count'] as num?)?.toInt() ?? 0;
+
+      // Simpan ke cache hanya saat tidak ada filter (data default)
+      if (_filterFrom == null && _filterTo == null) {
+        PageCache.set('dashboard', {
+          'summary': summary,
+          'tech':    tech,
+          'trend':   trend,
+          'unread':  unread,
+          'name':    _name,
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _summary         = summary;
+          _techPerformance = tech;
+          _serviceTrend    = trend;
+          _unreadCount     = unread;
+          _loading         = false;
+        });
+      }
     } catch (e) {
-      setState(() => _loading = false);
+      if (!silent && mounted) {
+        setState(() {
+          _loading = false;
+          _error   = 'Gagal memuat data. Periksa koneksi internet lalu tarik untuk refresh.';
+        });
+      }
     }
   }
 
@@ -134,6 +168,39 @@ class _DashboardPageState extends State<DashboardPage> {
       bottomNavigationBar: const BottomNav(currentIndex: 0),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
+          : _error != null && _summary == null
+          ? RefreshIndicator(
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: 300,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.cloud_off_outlined,
+                            size: 48, color: Color(0xFF9CA3AF)),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Text(_error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: Color(0xFF6B7280), fontSize: 13)),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton.icon(
+                          onPressed: _loadData,
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: const Text('Coba lagi'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            )
           : RefreshIndicator(
               onRefresh: _loadData,
               child: SingleChildScrollView(

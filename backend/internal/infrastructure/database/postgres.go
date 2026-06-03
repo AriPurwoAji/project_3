@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -21,12 +22,21 @@ func Connect() (*pgxpool.Pool, error) {
 		os.Getenv("DB_PASSWORD"),
 	)
 
-	pool, err := pgxpool.New(context.Background(), dsn)
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse db config: %w", err)
+	}
+
+	cfg.MinConns = 2                        // pre-warm 2 koneksi saat startup
+	cfg.MaxConns = 10                       // maks koneksi concurrent
+	cfg.MaxConnIdleTime = 5 * time.Minute   // tutup koneksi idle > 5 menit
+	cfg.HealthCheckPeriod = 1 * time.Minute // ping periodik agar koneksi tetap hidup
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
-	// Test koneksi
 	if err := pool.Ping(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}

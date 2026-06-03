@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../../core/cache/page_cache.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -33,6 +34,7 @@ class _BookingListPageState extends State<BookingListPage> {
   String _companyName = '';
   String _selectedStatus = '';
   String _query          = '';
+  String? _error;
   final _searchCtrl = TextEditingController();
 
   List<dynamic> get _filtered {
@@ -53,7 +55,16 @@ class _BookingListPageState extends State<BookingListPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Tampilkan cache langsung — tidak ada spinner saat balik ke tab ini
+    final cached = PageCache.get<List<dynamic>>('bookings');
+    if (cached != null) {
+      _bookings = cached;
+      _loading  = false;
+      _hasData  = true;
+      _loadData(silent: true);
+    } else {
+      _loadData();
+    }
     _searchCtrl.addListener(() {
       _debounce?.cancel();
       _debounce = Timer(const Duration(milliseconds: 400), () {
@@ -80,23 +91,27 @@ class _BookingListPageState extends State<BookingListPage> {
     }
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool silent = false}) async {
     _role        = await _storage.read(key: AppConstants.userRoleKey)    ?? '';
     _name        = await _storage.read(key: AppConstants.userNameKey)    ?? '';
     _companyId   = await _storage.read(key: AppConstants.companyIdKey)   ?? '';
     _companyName = await _storage.read(key: AppConstants.companyNameKey) ?? '';
 
-    setState(() {
-      if (!_hasData) _loading = true;
-      _offset  = 0;
-      _hasMore = true;
-      _bookings = [];
-    });
+    if (mounted) {
+      setState(() {
+        if (!silent && !_hasData) _loading = true;
+        _offset  = 0;
+        _hasMore = true;
+        if (!silent) _bookings = [];
+        _error = null;
+      });
+    }
 
     try {
       final params = _buildParams(offset: 0);
       final res = await ApiClient.instance.get('/bookings?$params');
       final data = List<dynamic>.from(res.data['data'] ?? []);
+      PageCache.set('bookings', data);
       if (mounted) {
         setState(() {
           _bookings = data;
@@ -107,7 +122,12 @@ class _BookingListPageState extends State<BookingListPage> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!silent && mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Gagal memuat data. Periksa koneksi internet lalu tarik untuk refresh.';
+        });
+      }
     }
   }
 
@@ -266,7 +286,30 @@ class _BookingListPageState extends State<BookingListPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: _loadData,
-                    child: _filtered.isEmpty
+                    child: _error != null && _bookings.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.cloud_off_outlined,
+                                    size: 48, color: AppTheme.textTertiary),
+                                const SizedBox(height: 12),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                                  child: Text(_error!,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                                ),
+                                const SizedBox(height: 12),
+                                TextButton.icon(
+                                  onPressed: _loadData,
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text('Coba lagi'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : _filtered.isEmpty
                         ? Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,

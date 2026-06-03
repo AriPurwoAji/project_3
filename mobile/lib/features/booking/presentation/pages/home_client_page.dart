@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../../core/cache/page_cache.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -27,51 +28,69 @@ class _HomeClientPageState extends State<HomeClientPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    final cached = PageCache.get<Map<String, dynamic>>('home_client');
+    if (cached != null) {
+      _activeBooking = cached['active'] as Map<String, dynamic>?;
+      _recentDone    = cached['recent'] as List<dynamic>;
+      _unreadCount   = cached['unread'] as int;
+      _name          = cached['name']    as String;
+      _companyName   = cached['company'] as String;
+      _loading       = false;
+      // Refresh diam-diam di background
+      _loadData(silent: true);
+    } else {
+      _loadData();
+    }
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool silent = false}) async {
     _name        = await _storage.read(key: AppConstants.userNameKey)    ?? '';
     _companyName = await _storage.read(key: AppConstants.companyNameKey) ?? '';
     final companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
 
-    try {
-      final countRes = await ApiClient.instance
-          .get('/notifications/unread-count');
-      if (mounted) {
-        setState(() {
-          _unreadCount =
-              (countRes.data['data']['unread_count'] as num?)?.toInt() ?? 0;
-        });
-      }
-    } catch (_) {}
+    if (!silent && mounted) setState(() => _loading = true);
 
     try {
-      final query = companyId.isNotEmpty ? '?company_id=$companyId' : '';
-      final res   = await ApiClient.instance.get('/bookings$query');
-      final all   = List<dynamic>.from(res.data['data'] ?? []);
+      final results = await Future.wait([
+        ApiClient.instance.get('/notifications/unread-count'),
+        ApiClient.instance.get(
+            '/bookings${companyId.isNotEmpty ? '?company_id=$companyId' : ''}'),
+      ]);
+
+      final unread = (results[0].data['data']['unread_count'] as num?)?.toInt() ?? 0;
+      final all    = List<dynamic>.from(results[1].data['data'] ?? []);
 
       const activeStatuses = {'in_progress', 'on_the_way', 'on_site'};
       final active = all
           .where((b) => activeStatuses.contains(b['status'] ?? ''))
           .toList();
-
       final activeId = active.isNotEmpty ? active.first['id'] : null;
-      final recent = all.where((b) => b['id'] != activeId).toList();
-      recent.sort((a, b) =>
-          (b['updated_at'] ?? '').compareTo(a['updated_at'] ?? ''));
+      final recent   = all.where((b) => b['id'] != activeId).toList()
+        ..sort((a, b) => (b['updated_at'] ?? '').compareTo(a['updated_at'] ?? ''));
+
+      final activeMap = active.isNotEmpty
+          ? Map<String, dynamic>.from(active.first)
+          : null;
+      final recentList = recent.take(3).toList();
+
+      PageCache.set('home_client', {
+        'active':  activeMap,
+        'recent':  recentList,
+        'unread':  unread,
+        'name':    _name,
+        'company': _companyName,
+      });
 
       if (mounted) {
         setState(() {
-          _activeBooking = active.isNotEmpty
-              ? Map<String, dynamic>.from(active.first)
-              : null;
-          _recentDone = recent.take(3).toList();
-          _loading    = false;
+          _activeBooking = activeMap;
+          _recentDone    = recentList;
+          _unreadCount   = unread;
+          _loading       = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!silent && mounted) setState(() => _loading = false);
     }
   }
 
