@@ -44,15 +44,21 @@ type Sender struct {
 }
 
 func NewSender() *Sender {
-	credPath := os.Getenv("FCM_SERVICE_ACCOUNT_PATH")
-	if credPath == "" {
-		log.Println("[FCM] FCM_SERVICE_ACCOUNT_PATH tidak diset, push notification dinonaktifkan")
-		return &Sender{}
-	}
-
-	data, err := os.ReadFile(credPath)
-	if err != nil {
-		log.Printf("[FCM] gagal baca service account: %v", err)
+	// Prioritas 1: baca dari env var JSON (untuk cloud deployment)
+	var data []byte
+	if jsonContent := os.Getenv("FCM_SERVICE_ACCOUNT_JSON"); jsonContent != "" {
+		data = []byte(jsonContent)
+		log.Println("[FCM] memuat service account dari env var FCM_SERVICE_ACCOUNT_JSON")
+	} else if credPath := os.Getenv("FCM_SERVICE_ACCOUNT_PATH"); credPath != "" {
+		// Prioritas 2: baca dari file (untuk local development)
+		var err error
+		data, err = os.ReadFile(credPath)
+		if err != nil {
+			log.Printf("[FCM] gagal baca service account: %v", err)
+			return &Sender{}
+		}
+	} else {
+		log.Println("[FCM] FCM tidak dikonfigurasi, push notification dinonaktifkan")
 		return &Sender{}
 	}
 
