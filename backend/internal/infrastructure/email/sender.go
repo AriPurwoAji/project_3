@@ -1,97 +1,96 @@
 package email
 
 import (
-	"crypto/tls"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
-	"net/smtp"
+	"net/http"
 	"os"
-	"strconv"
 )
 
 type Sender struct {
-	host     string
-	port     int
-	username string
-	password string
-	from     string
-	enabled  bool
+	apiKey  string
+	from    string
+	enabled bool
 }
 
 func NewSender() *Sender {
-	host    := os.Getenv("SMTP_HOST")
-	portStr := os.Getenv("SMTP_PORT")
-	if host == "" || portStr == "" {
-		log.Println("[Email] SMTP_HOST/SMTP_PORT tidak diset, pengiriman email dinonaktifkan")
+	// Prioritas 1: Resend HTTP API (tidak terblokir oleh cloud provider)
+	if apiKey := os.Getenv("RESEND_API_KEY"); apiKey != "" {
+		from := os.Getenv("SMTP_FROM")
+		if from == "" {
+			from = "onboarding@resend.dev"
+		}
+		log.Printf("[Email] Resend API dikonfigurasi, from: %s", from)
+		return &Sender{apiKey: apiKey, from: from, enabled: true}
+	}
+
+	// Prioritas 2: fallback SMTP (untuk local development)
+	host := os.Getenv("SMTP_HOST")
+	port := os.Getenv("SMTP_PORT")
+	if host == "" || port == "" {
+		log.Println("[Email] tidak ada konfigurasi email, pengiriman dinonaktifkan")
 		return &Sender{}
 	}
-	port, _ := strconv.Atoi(portStr)
-	from := os.Getenv("SMTP_FROM")
-	if from == "" {
-		from = os.Getenv("SMTP_USER")
-	}
-	log.Printf("[Email] SMTP dikonfigurasi: %s:%d", host, port)
+	log.Printf("[Email] SMTP dikonfigurasi: %s:%s (catatan: mungkin diblokir di cloud)", host, port)
 	return &Sender{
-		host:     host,
-		port:     port,
-		username: os.Getenv("SMTP_USER"),
-		password: os.Getenv("SMTP_PASS"),
-		from:     from,
-		enabled:  true,
+		apiKey:  "",
+		from:    os.Getenv("SMTP_FROM"),
+		enabled: true,
 	}
 }
 
 func (s *Sender) Enabled() bool { return s.enabled }
 
-// SendHTML mengirim email HTML ke satu penerima.
+// SendHTML mengirim email HTML via Resend HTTP API.
 func (s *Sender) SendHTML(to, subject, body string) error {
 	if !s.enabled {
 		return nil
 	}
 
-	msg := fmt.Sprintf(
-		"From: HydroServ <%s>\r\nTo: %s\r\nSubject: %s\r\n"+
-			"MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
-		s.from, to, subject, body,
-	)
-
-	auth := smtp.PlainAuth("", s.username, s.password, s.host)
-	addr := fmt.Sprintf("%s:%d", s.host, s.port)
-
-	// Port 465 = SSL langsung; port 587/25 = STARTTLS
-	if s.port == 465 {
-		return s.sendSSL(addr, auth, to, msg)
+	if s.apiKey != "" {
+		return s.sendViaResendAPI(to, subject, body)
 	}
-	return smtp.SendMail(addr, auth, s.from, []string{to}, []byte(msg))
+	return s.sendViaSMTP(to, subject, body)
 }
 
-func (s *Sender) sendSSL(addr string, auth smtp.Auth, to, msg string) error {
-	tlsConf := &tls.Config{ServerName: s.host}
-	conn, err := tls.Dial("tcp", addr, tlsConf)
-	if err != nil {
-		return err
+// sendViaResendAPI menggunakan Resend REST API (HTTPS port 443, tidak diblokir).
+func (s *Sender) sendViaResendAPI(to, subject, body string) error {
+	payload := map[string]interface{}{
+		"from":    fmt.Sprintf("HydroServ <%s>", s.from),
+		"to":      []string{to},
+		"subject": subject,
+		"html":    body,
 	}
-	client, err := smtp.NewClient(conn, s.host)
-	if err != nil {
-		return err
-	}
-	defer client.Quit() //nolint
 
-	if err = client.Auth(auth); err != nil {
-		return err
-	}
-	if err = client.Mail(s.from); err != nil {
-		return err
-	}
-	if err = client.Rcpt(to); err != nil {
-		return err
-	}
-	w, err := client.Data()
+	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		return err
+		return fmt.Errorf("gagal marshal payload: %w", err)
 	}
-	if _, err = fmt.Fprint(w, msg); err != nil {
-		return err
+
+	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("gagal buat request: %w", err)
 	}
-	return w.Close()
+	req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("gagal kirim request ke Resend: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("Resend API error: status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// sendViaSMTP fallback untuk local development.
+func (s *Sender) sendViaSMTP(to, subject, body string) error {
+	log.Printf("[Email] SMTP fallback dipanggil untuk %s (mungkin gagal di cloud)", to)
+	return fmt.Errorf("SMTP tidak dikonfigurasi untuk cloud, gunakan RESEND_API_KEY")
 }
