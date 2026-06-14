@@ -166,3 +166,71 @@ The Go router enforces roles via `middleware.RoleMiddleware(...)` per route grou
 - All routes are prefixed `/api/v1`.
 - From Android emulator, use `10.0.2.2` to reach the host machine's localhost.
 - Health check: `GET /ping` → `{ "message": "pong" }`.
+
+---
+
+## Deployment (Production — Railway)
+
+Backend sudah di-deploy ke Railway, auto-deploy dari branch `develop`.
+
+- **URL**: `https://project3-production-c96b.up.railway.app`
+- **Health check**: `GET /ping`
+- **Email**: Resend HTTP API dengan domain `hydroserv.my.id` (sudah terverifikasi)
+
+Railway environment variables yang diperlukan:
+```
+APP_PORT          # otomatis dari Railway via PORT
+DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD   # Supabase
+JWT_SECRET
+SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_STORAGE_BUCKET
+RESEND_API_KEY    # Resend API key (jangan expose di log/chat)
+SMTP_FROM         # noreply@hydroserv.my.id
+FCM_SERVICE_ACCOUNT_JSON  # Firebase service account JSON (satu baris tanpa newline)
+APP_URL           # https://project3-production-c96b.up.railway.app
+```
+
+Mobile `.env` untuk production:
+```
+API_BASE_URL=https://project3-production-c96b.up.railway.app/api/v1
+```
+
+---
+
+## Branch Workflow
+
+- `develop_trial` → branch kerja, push setiap fitur selesai untuk review
+- `develop` → branch utama, merge dari `develop_trial` setelah review
+- Railway auto-deploy dari `develop`
+- **Jangan push langsung ke `develop`** — kerjakan di `develop_trial` dulu
+
+---
+
+## Status Fitur
+
+### Sudah Selesai
+
+- [x] Auth: login, register semua role, JWT access (24h) + refresh token (30h)
+- [x] Email verifikasi akun via Resend HTTP API (domain `hydroserv.my.id`)
+- [x] Foto profil + info perusahaan lengkap (client)
+- [x] Edit profil client (update info perusahaan)
+- [x] Booking: buat, lihat daftar (client/sales), claim (teknisi), assign (manager)
+- [x] Job board: teknisi lihat & claim open booking
+- [x] Status flow: `open → in_progress → on_the_way → on_site → done / cancelled`
+- [x] HydraulicReport: buat, lihat, upload foto before/after/damage
+- [x] InspectionItem untuk tipe `inspeksi` (hose/cylinder/pump + fitting specs JSONB)
+- [x] Dashboard manager: summary stats, performance, trends
+- [x] In-app notifications
+- [x] PDF generation untuk laporan servis
+- [x] Push notification via FCM (Firebase Cloud Messaging v1 HTTP API)
+- [x] Railway deployment (Docker multi-stage, auto-deploy dari `develop`)
+- [x] PageCache in-memory (TTL 2 menit) — tab-switch tidak spinner ulang
+- [x] Token & role cache in-memory di ApiClient — eliminasi Keystore reads per request
+- [x] GoRouter fade transition (180ms, CurvedAnimation easeOut)
+- [x] Stateful BottomNav — tidak rebuild/flicker saat ganti tab
+- [x] Navigasi ke Google Maps via `geo:` URI (muncul app chooser di Android)
+- [x] pgxpool pre-warm (MinConns=2) — koneksi DB siap saat request pertama
+
+### Akan Dikerjakan
+
+- [ ] Laporan skripsi — format sesuai panduan yang akan di-upload user (panduan belum diterima)
+- [ ] Multi-user per perusahaan — beberapa akun client dalam 1 perusahaan yang sama
