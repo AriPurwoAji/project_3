@@ -437,11 +437,103 @@ class _ReportDetailPageState extends State<ReportDetailPage> {
                 style: const TextStyle(
                     fontSize: 11, color: AppTheme.textSecondary),
               ),
+              _buildItemSpecs(item),
             ],
           ),
         );
       }),
     ]);
+  }
+
+  String _fmtFitting(Map<String, dynamic>? fm) {
+    if (fm == null) return '-';
+    final g = (fm['gender'] as String? ?? '').toUpperCase();
+    final s = (fm['standard'] as String? ?? '').toUpperCase();
+    String a = fm['angle'] as String? ?? '';
+    switch (a) {
+      case 'straight': a = 'STRAIGHT'; break;
+      case '45':       a = '45DEG';    break;
+      case '90':       a = '90DEG';    break;
+      case '90_long':  a = '90LONG';   break;
+      default:         a = a.toUpperCase();
+    }
+    return '$g $s $a'.trim();
+  }
+
+  Widget _specRow(String label, String value) => Padding(
+        padding: const EdgeInsets.only(bottom: 3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 90,
+              child: Text(label,
+                  style: const TextStyle(
+                      fontSize: 10, color: AppTheme.textSecondary)),
+            ),
+            Expanded(
+              child: Text(value,
+                  style: const TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildItemSpecs(Map<String, dynamic> item) {
+    final type  = item['item_type'] as String? ?? '';
+    final specs = (item['specifications'] as Map?)?.cast<String, dynamic>() ?? {};
+    if (specs.isEmpty) return const SizedBox.shrink();
+
+    List<Widget> rows = [];
+
+    if (type == 'hose') {
+      final f1 = _fmtFitting((specs['fitting_end1'] as Map?)?.cast<String, dynamic>());
+      final f2 = _fmtFitting((specs['fitting_end2'] as Map?)?.cast<String, dynamic>());
+      rows = [
+        _specRow('Panjang',    '${specs['length_m'] ?? '-'} m'),
+        _specRow('Diameter',   '${specs['diameter_inch'] ?? '-'}"'),
+        _specRow('Tekanan',    '${specs['pressure_bar'] ?? '-'} bar'),
+        _specRow('Fitting 1',  f1),
+        _specRow('Fitting 2',  f2),
+      ];
+    } else if (type == 'cylinder') {
+      const condMap = <String, String>{
+        'good': 'Baik', 'wear': 'Aus', 'cracked': 'Retak', 'leaking': 'Bocor',
+      };
+      final rod  = condMap[specs['rod_condition']]  ?? specs['rod_condition']  ?? '-';
+      final seal = condMap[specs['seal_condition']] ?? specs['seal_condition'] ?? '-';
+      rows = [
+        _specRow('Bore',          '${specs['bore_mm'] ?? '-'} mm'),
+        _specRow('Stroke',        '${specs['stroke_mm'] ?? '-'} mm'),
+        _specRow('Tekanan',       '${specs['pressure_bar'] ?? '-'} bar'),
+        _specRow('Kondisi Rod',   rod),
+        _specRow('Kondisi Seal',  seal),
+      ];
+    } else if (type == 'pump') {
+      rows = [
+        if ((specs['pump_type'] as String? ?? '').isNotEmpty)
+          _specRow('Tipe Pompa', specs['pump_type'] as String),
+        _specRow('Flow',    '${specs['flow_lpm'] ?? '-'} lpm'),
+        _specRow('Tekanan', '${specs['pressure_bar'] ?? '-'} bar'),
+        if ((specs['noise_level'] as String? ?? '').isNotEmpty)
+          _specRow('Noise Level', specs['noise_level'] as String),
+        if (specs['temperature_c'] != null)
+          _specRow('Suhu', '${specs['temperature_c']} °C'),
+      ];
+    }
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 6),
+        const Divider(height: 1, color: AppTheme.border),
+        const SizedBox(height: 6),
+        ...rows,
+      ],
+    );
   }
 
   Widget _buildTextSection(String title, String content, IconData icon) =>

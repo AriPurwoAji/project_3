@@ -216,55 +216,250 @@ func (g *ReportGenerator) GenerateReport(report *domain.HydraulicReport, booking
 	if booking.ServiceType == "inspeksi" && len(report.InspectionItems) > 0 {
 		sectionHeader("ITEM INSPEKSI")
 
-		// Table header
+		condLabel := map[string]string{
+			"good": "Baik", "wear": "Aus", "cracked": "Retak",
+			"leaking": "Bocor", "critical": "Kritis",
+		}
+		recLabel := map[string]string{
+			"no_action": "Tidak perlu", "monitor": "Pantau",
+			"schedule_replace": "Jadwal ganti", "urgent_replace": "Ganti segera",
+		}
+
+		getSpec := func(specs map[string]interface{}, key string) string {
+			v, ok := specs[key]
+			if !ok {
+				return "-"
+			}
+			switch val := v.(type) {
+			case string:
+				if val == "" {
+					return "-"
+				}
+				return val
+			case float64:
+				if val == float64(int(val)) {
+					return fmt.Sprintf("%d", int(val))
+				}
+				return fmt.Sprintf("%.1f", val)
+			default:
+				return fmt.Sprintf("%v", v)
+			}
+		}
+
+		fmtFitting := func(specs map[string]interface{}, key string) string {
+			raw, ok := specs[key]
+			if !ok {
+				return "-"
+			}
+			fm, ok := raw.(map[string]interface{})
+			if !ok {
+				return "-"
+			}
+			g, _ := fm["gender"].(string)
+			s, _ := fm["standard"].(string)
+			a, _ := fm["angle"].(string)
+			switch a {
+			case "straight":
+				a = "STRAIGHT"
+			case "45":
+				a = "45DEG"
+			case "90":
+				a = "90DEG"
+			case "90_long":
+				a = "90LONG"
+			default:
+				a = strings.ToUpper(a)
+			}
+			return strings.ToUpper(g) + " " + strings.ToUpper(s) + " " + a
+		}
+
+		subHeader := func(title string) {
+			f.Ln(1)
+			f.SetFont("Helvetica", "B", 7)
+			setColor(37, 99, 235)
+			setFill(235, 242, 255)
+			f.CellFormat(pageW, 5, "  "+title, "", 1, "L", true, 0, "")
+			f.Ln(1)
+			setColor(17, 24, 39)
+		}
+
+		var hoseItems, cylItems, pumpItems []domain.InspectionItem
+		for _, item := range report.InspectionItems {
+			switch item.ItemType {
+			case "hose":
+				hoseItems = append(hoseItems, item)
+			case "cylinder":
+				cylItems = append(cylItems, item)
+			case "pump":
+				pumpItems = append(pumpItems, item)
+			}
+		}
+
+		itemNo := 1
+
+		// ── SELANG (HOSE) ──
+		// No(7) Kode(20) Pjg(16) Dia(16) Bar(16) Fitting1(52) Fitting2(53) = 180
+		if len(hoseItems) > 0 {
+			subHeader("Selang (Hose)")
+			setFill(243, 244, 246)
+			setColor(107, 114, 128)
+			setDraw(229, 231, 235)
+			f.SetFont("Helvetica", "B", 6)
+			f.CellFormat(7, 6, "No", "1", 0, "C", true, 0, "")
+			f.CellFormat(20, 6, "Kode", "1", 0, "C", true, 0, "")
+			f.CellFormat(16, 6, "Pjg(m)", "1", 0, "C", true, 0, "")
+			f.CellFormat(16, 6, "Dia", "1", 0, "C", true, 0, "")
+			f.CellFormat(16, 6, "Bar", "1", 0, "C", true, 0, "")
+			f.CellFormat(52, 6, "Fitting 1", "1", 0, "C", true, 0, "")
+			f.CellFormat(53, 6, "Fitting 2", "1", 1, "C", true, 0, "")
+			setColor(17, 24, 39)
+			for _, item := range hoseItems {
+				bg := itemNo%2 == 1
+				if bg {
+					setFill(249, 250, 251)
+				} else {
+					setFill(255, 255, 255)
+				}
+				specs := item.Specifications
+				f.SetFont("Helvetica", "", 6)
+				f.CellFormat(7, 5, fmt.Sprintf("%d", itemNo), "1", 0, "C", bg, 0, "")
+				f.CellFormat(20, 5, sanitize(item.ItemCode), "1", 0, "C", bg, 0, "")
+				f.CellFormat(16, 5, sanitize(getSpec(specs, "length_m")), "1", 0, "C", bg, 0, "")
+				f.CellFormat(16, 5, sanitize(getSpec(specs, "diameter_inch")), "1", 0, "C", bg, 0, "")
+				f.CellFormat(16, 5, sanitize(getSpec(specs, "pressure_bar")), "1", 0, "C", bg, 0, "")
+				f.CellFormat(52, 5, sanitize(fmtFitting(specs, "fitting_end1")), "1", 0, "C", bg, 0, "")
+				f.CellFormat(53, 5, sanitize(fmtFitting(specs, "fitting_end2")), "1", 1, "C", bg, 0, "")
+				itemNo++
+			}
+			f.Ln(2)
+		}
+
+		// ── SILINDER (CYLINDER) ──
+		// No(7) Kode(20) Bore(22) Stroke(22) Bar(18) Rod(45) Seal(46) = 180
+		if len(cylItems) > 0 {
+			subHeader("Silinder (Cylinder)")
+			setFill(243, 244, 246)
+			setColor(107, 114, 128)
+			setDraw(229, 231, 235)
+			f.SetFont("Helvetica", "B", 6)
+			f.CellFormat(7, 6, "No", "1", 0, "C", true, 0, "")
+			f.CellFormat(20, 6, "Kode", "1", 0, "C", true, 0, "")
+			f.CellFormat(22, 6, "Bore(mm)", "1", 0, "C", true, 0, "")
+			f.CellFormat(22, 6, "Stroke(mm)", "1", 0, "C", true, 0, "")
+			f.CellFormat(18, 6, "Bar", "1", 0, "C", true, 0, "")
+			f.CellFormat(45, 6, "Kondisi Rod", "1", 0, "C", true, 0, "")
+			f.CellFormat(46, 6, "Kondisi Seal", "1", 1, "C", true, 0, "")
+			cylCond := map[string]string{
+				"good": "Baik", "wear": "Aus", "cracked": "Retak", "leaking": "Bocor",
+			}
+			setColor(17, 24, 39)
+			for _, item := range cylItems {
+				bg := itemNo%2 == 1
+				if bg {
+					setFill(249, 250, 251)
+				} else {
+					setFill(255, 255, 255)
+				}
+				specs := item.Specifications
+				rodCond, _ := specs["rod_condition"].(string)
+				sealCond, _ := specs["seal_condition"].(string)
+				if lbl := cylCond[rodCond]; lbl != "" {
+					rodCond = lbl
+				}
+				if lbl := cylCond[sealCond]; lbl != "" {
+					sealCond = lbl
+				}
+				f.SetFont("Helvetica", "", 6)
+				f.CellFormat(7, 5, fmt.Sprintf("%d", itemNo), "1", 0, "C", bg, 0, "")
+				f.CellFormat(20, 5, sanitize(item.ItemCode), "1", 0, "C", bg, 0, "")
+				f.CellFormat(22, 5, sanitize(getSpec(specs, "bore_mm")), "1", 0, "C", bg, 0, "")
+				f.CellFormat(22, 5, sanitize(getSpec(specs, "stroke_mm")), "1", 0, "C", bg, 0, "")
+				f.CellFormat(18, 5, sanitize(getSpec(specs, "pressure_bar")), "1", 0, "C", bg, 0, "")
+				f.CellFormat(45, 5, sanitize(rodCond), "1", 0, "C", bg, 0, "")
+				f.CellFormat(46, 5, sanitize(sealCond), "1", 1, "C", bg, 0, "")
+				itemNo++
+			}
+			f.Ln(2)
+		}
+
+		// ── POMPA (PUMP) ──
+		// No(7) Kode(20) Tipe(40) Flow(20) Bar(18) Noise(35) Suhu(40) = 180
+		if len(pumpItems) > 0 {
+			subHeader("Pompa (Pump)")
+			setFill(243, 244, 246)
+			setColor(107, 114, 128)
+			setDraw(229, 231, 235)
+			f.SetFont("Helvetica", "B", 6)
+			f.CellFormat(7, 6, "No", "1", 0, "C", true, 0, "")
+			f.CellFormat(20, 6, "Kode", "1", 0, "C", true, 0, "")
+			f.CellFormat(40, 6, "Tipe Pompa", "1", 0, "C", true, 0, "")
+			f.CellFormat(20, 6, "Flow(lpm)", "1", 0, "C", true, 0, "")
+			f.CellFormat(18, 6, "Bar", "1", 0, "C", true, 0, "")
+			f.CellFormat(35, 6, "Noise Level", "1", 0, "C", true, 0, "")
+			f.CellFormat(40, 6, "Suhu(C)", "1", 1, "C", true, 0, "")
+			setColor(17, 24, 39)
+			for _, item := range pumpItems {
+				bg := itemNo%2 == 1
+				if bg {
+					setFill(249, 250, 251)
+				} else {
+					setFill(255, 255, 255)
+				}
+				specs := item.Specifications
+				f.SetFont("Helvetica", "", 6)
+				f.CellFormat(7, 5, fmt.Sprintf("%d", itemNo), "1", 0, "C", bg, 0, "")
+				f.CellFormat(20, 5, sanitize(item.ItemCode), "1", 0, "C", bg, 0, "")
+				f.CellFormat(40, 5, sanitize(getSpec(specs, "pump_type")), "1", 0, "L", bg, 0, "")
+				f.CellFormat(20, 5, sanitize(getSpec(specs, "flow_lpm")), "1", 0, "C", bg, 0, "")
+				f.CellFormat(18, 5, sanitize(getSpec(specs, "pressure_bar")), "1", 0, "C", bg, 0, "")
+				f.CellFormat(35, 5, sanitize(getSpec(specs, "noise_level")), "1", 0, "C", bg, 0, "")
+				f.CellFormat(40, 5, sanitize(getSpec(specs, "temperature_c")), "1", 1, "C", bg, 0, "")
+				itemNo++
+			}
+			f.Ln(2)
+		}
+
+		// ── RINGKASAN KONDISI & REKOMENDASI ──
+		// No(8) Tipe(22) Kode(25) Lokasi(80) Kondisi(20) Rek(25) = 180
+		subHeader("Kondisi & Rekomendasi")
 		setFill(243, 244, 246)
 		setColor(107, 114, 128)
 		setDraw(229, 231, 235)
-		f.SetFont("Helvetica", "B", 7)
+		f.SetFont("Helvetica", "B", 6)
 		f.CellFormat(8, 6, "No", "1", 0, "C", true, 0, "")
 		f.CellFormat(22, 6, "Tipe", "1", 0, "C", true, 0, "")
 		f.CellFormat(25, 6, "Kode", "1", 0, "C", true, 0, "")
-		f.CellFormat(55, 6, "Lokasi", "1", 0, "C", true, 0, "")
-		f.CellFormat(30, 6, "Kondisi", "1", 0, "C", true, 0, "")
-		f.CellFormat(40, 6, "Rekomendasi", "1", 1, "C", true, 0, "")
-
-		condLabel := map[string]string{
-			"good":     "Baik",
-			"wear":     "Aus",
-			"cracked":  "Retak",
-			"leaking":  "Bocor",
-			"critical": "Kritis",
-		}
-		recLabel := map[string]string{
-			"no_action":        "Tidak perlu",
-			"monitor":          "Pantau",
-			"schedule_replace": "Jadwal ganti",
-			"urgent_replace":   "Ganti segera",
-		}
-
+		f.CellFormat(80, 6, "Lokasi", "1", 0, "C", true, 0, "")
+		f.CellFormat(20, 6, "Kondisi", "1", 0, "C", true, 0, "")
+		f.CellFormat(25, 6, "Rekomendasi", "1", 1, "C", true, 0, "")
+		typeLabel := map[string]string{"hose": "Selang", "cylinder": "Silinder", "pump": "Pompa"}
 		setColor(17, 24, 39)
 		for i, item := range report.InspectionItems {
-			bg := i%2 == 1
+			bg := i%2 == 0
 			if bg {
 				setFill(249, 250, 251)
 			} else {
 				setFill(255, 255, 255)
 			}
-			f.SetFont("Helvetica", "", 7)
-			f.CellFormat(8, 5, fmt.Sprintf("%d", i+1), "1", 0, "C", bg, 0, "")
-			f.CellFormat(22, 5, sanitize(item.ItemType), "1", 0, "C", bg, 0, "")
-			f.CellFormat(25, 5, sanitize(item.ItemCode), "1", 0, "C", bg, 0, "")
-			f.CellFormat(55, 5, sanitize(item.LocationDesc), "1", 0, "L", bg, 0, "")
 			cond := condLabel[item.Condition]
 			if cond == "" {
 				cond = item.Condition
 			}
-			f.CellFormat(30, 5, sanitize(cond), "1", 0, "C", bg, 0, "")
 			rec := recLabel[item.Recommendation]
 			if rec == "" {
 				rec = item.Recommendation
 			}
-			f.CellFormat(40, 5, sanitize(rec), "1", 1, "L", bg, 0, "")
+			tl := typeLabel[item.ItemType]
+			if tl == "" {
+				tl = item.ItemType
+			}
+			f.SetFont("Helvetica", "", 6)
+			f.CellFormat(8, 5, fmt.Sprintf("%d", i+1), "1", 0, "C", bg, 0, "")
+			f.CellFormat(22, 5, sanitize(tl), "1", 0, "L", bg, 0, "")
+			f.CellFormat(25, 5, sanitize(item.ItemCode), "1", 0, "L", bg, 0, "")
+			f.CellFormat(80, 5, sanitize(item.LocationDesc), "1", 0, "L", bg, 0, "")
+			f.CellFormat(20, 5, sanitize(cond), "1", 0, "C", bg, 0, "")
+			f.CellFormat(25, 5, sanitize(rec), "1", 1, "L", bg, 0, "")
 		}
 		setColor(17, 24, 39)
 	}
