@@ -4,7 +4,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/fcm_service.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../main.dart' show navigatorKey;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -43,9 +45,13 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       final data = res.data['data'];
+      final accessToken = data['access_token'] as String;
+      final userRole    = data['user']['role'] as String;
+      ApiClient.cacheToken(accessToken);
+      ApiClient.cacheRole(userRole);
       await _storage.write(
         key: AppConstants.accessTokenKey,
-        value: data['access_token'],
+        value: accessToken,
       );
       await _storage.write(
         key: AppConstants.refreshTokenKey,
@@ -72,6 +78,8 @@ class _LoginPageState extends State<LoginPage> {
         value: data['user']['company_name'] ?? '',
       );
       if (!mounted) return;
+      // Setup FCM setelah login berhasil (background, tidak block navigasi)
+      FCMService.setup(navigatorKey).catchError((_) {});
       _navigateByRole(data['user']['role']);
     } on DioException catch (e) {
       setState(() {
@@ -159,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
                     Text(
                       'Sistem layanan teknisi hydraulic',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 14,
                       ),
                     ),
@@ -223,10 +231,12 @@ class _LoginPageState extends State<LoginPage> {
                           suffixIcon: Icon(Icons.mail_outline, size: 18),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty)
+                          if (v == null || v.isEmpty) {
                             return 'Email wajib diisi';
-                          if (!v.contains('@'))
+                          }
+                          if (!v.contains('@')) {
                             return 'Format email tidak valid';
+                          }
                           return null;
                         },
                       ),
@@ -257,10 +267,12 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty)
+                          if (v == null || v.isEmpty) {
                             return 'Password wajib diisi';
-                          if (v.length < 6)
+                          }
+                          if (v.length < 6) {
                             return 'Password minimal 6 karakter';
+                          }
                           return null;
                         },
                       ),

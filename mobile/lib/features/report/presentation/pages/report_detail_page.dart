@@ -209,7 +209,7 @@ class _ReportDetailPageState extends State<ReportDetailPage> {
   Widget _buildInfoCard() {
     final b         = _booking ?? {};
     final r         = _report  ?? {};
-    final stLabels  = const {
+    const stLabels  = {
       'repair':      'Repair / Perbaikan',
       'inspeksi':    'Inspeksi',
       'maintenance': 'Pemeliharaan',
@@ -342,7 +342,7 @@ class _ReportDetailPageState extends State<ReportDetailPage> {
 
   Widget _buildInspectionCard() {
     final items   = (_report!['inspection_items'] as List?) ?? [];
-    final condLabel = const <String, String>{
+    const condLabel = <String, String>{
       'good':     'Baik',
       'wear':     'Aus',
       'cracked':  'Retak',
@@ -356,7 +356,7 @@ class _ReportDetailPageState extends State<ReportDetailPage> {
       'leaking':  AppTheme.danger,
       'critical': AppTheme.danger,
     };
-    final recLabel = const <String, String>{
+    const recLabel = <String, String>{
       'no_action':        'Tidak perlu',
       'monitor':          'Pantau',
       'schedule_replace': 'Jadwal ganti',

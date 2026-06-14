@@ -21,15 +21,17 @@ func NewBookingRepository(db *pgxpool.Pool) domain.BookingRepository {
 func (r *bookingRepository) Create(b *domain.Booking) error {
 	photoJSON, _ := json.Marshal(b.PhotoURLs)
 	query := `
-		INSERT INTO bookings 
+		INSERT INTO bookings
 			(company_id, created_by, equipment_id, service_type, urgency_level,
-			 status, description, site_address, site_city, photo_urls, scheduled_at)
-		VALUES ($1,$2,$3,$4,$5,'open',$6,$7,$8,$9,$10)
+			 status, description, site_address, site_city, photo_urls, scheduled_at,
+			 latitude, longitude)
+		VALUES ($1,$2,$3,$4,$5,'open',$6,$7,$8,$9,$10,$11,$12)
 		RETURNING id, created_at, updated_at
 	`
 	return r.db.QueryRow(context.Background(), query,
 		b.CompanyID, b.CreatedBy, b.EquipmentID, b.ServiceType, b.UrgencyLevel,
 		b.Description, b.SiteAddress, b.SiteCity, photoJSON, b.ScheduledAt,
+		b.Latitude, b.Longitude,
 	).Scan(&b.ID, &b.CreatedAt, &b.UpdatedAt)
 }
 
@@ -40,6 +42,7 @@ func (r *bookingRepository) FindAll(filters map[string]string) ([]domain.Booking
 			   b.site_address, b.site_city, b.photo_urls,
 			   b.scheduled_at, b.claimed_at, b.started_at, b.completed_at,
 			   b.created_at, b.updated_at,
+			   b.latitude, b.longitude,
 			   c.name as company_name,
 			   COALESCE(u.full_name, '') as technician_name,
 			   COALESCE(e.name, '') as equipment_name,
@@ -110,6 +113,7 @@ func (r *bookingRepository) FindByID(id string) (*domain.Booking, error) {
 			   b.site_address, b.site_city, b.photo_urls,
 			   b.scheduled_at, b.claimed_at, b.started_at, b.completed_at,
 			   b.created_at, b.updated_at,
+			   b.latitude, b.longitude,
 			   c.name as company_name,
 			   COALESCE(u.full_name, '') as technician_name,
 			   COALESCE(e.name, '') as equipment_name,
@@ -243,6 +247,7 @@ func scanBookings(rows interface{ Next() bool; Scan(...interface{}) error; Err()
 			&b.SiteAddress, &b.SiteCity, &photoJSON,
 			&scheduledAt, &claimedAt, &startedAt, &completedAt,
 			&b.CreatedAt, &b.UpdatedAt,
+			&b.Latitude, &b.Longitude,
 			&b.CompanyName, &b.TechnicianName, &b.EquipmentName, &b.CreatedByName,
 		)
 		if err != nil {

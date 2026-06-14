@@ -5,18 +5,22 @@ import (
 )
 
 type User struct {
-	ID          string     `json:"id"`
-	Email       string     `json:"email"`
-	FullName    string     `json:"full_name"`
-	Phone       string     `json:"phone"`
-	Role        string     `json:"role"`
-	CompanyID   string     `json:"company_id"`
-	CompanyName string     `json:"company_name,omitempty"`
-	FCMToken    string     `json:"fcm_token"`
-	IsActive    bool       `json:"is_active"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+	ID               string     `json:"id"`
+	Email            string     `json:"email"`
+	FullName         string     `json:"full_name"`
+	Phone            string     `json:"phone"`
+	Role             string     `json:"role"`
+	CompanyID        string     `json:"company_id"`
+	CompanyName      string     `json:"company_name,omitempty"`
+	CompanyIndustry  string     `json:"company_industry,omitempty"`
+	CompanyCity      string     `json:"company_city,omitempty"`
+	AvatarURL        string     `json:"avatar_url,omitempty"`
+	FCMToken         string     `json:"fcm_token"`
+	IsActive         bool       `json:"is_active"`
+	EmailVerifiedAt  *time.Time `json:"email_verified_at,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
 }
 
 type LoginRequest struct {
@@ -25,8 +29,12 @@ type LoginRequest struct {
 }
 
 type UpdateProfileRequest struct {
-	FullName string `json:"full_name" binding:"required"`
-	Phone    string `json:"phone"`
+	FullName        string `json:"full_name" binding:"required"`
+	Phone           string `json:"phone"`
+	AvatarURL       string `json:"avatar_url"`
+	CompanyName     string `json:"company_name"`
+	CompanyIndustry string `json:"company_industry"`
+	CompanyCity     string `json:"company_city"`
 }
 
 type ChangePasswordRequest struct {
@@ -35,11 +43,13 @@ type ChangePasswordRequest struct {
 }
 
 type RegisterRequest struct {
-	FullName    string `json:"full_name"    binding:"required"`
-	Email       string `json:"email"        binding:"required,email"`
-	Password    string `json:"password"     binding:"required,min=6"`
-	Phone       string `json:"phone"`
-	CompanyName string `json:"company_name" binding:"required"`
+	FullName        string `json:"full_name"        binding:"required"`
+	Email           string `json:"email"            binding:"required,email"`
+	Password        string `json:"password"         binding:"required,min=6"`
+	Phone           string `json:"phone"`
+	CompanyName     string `json:"company_name"     binding:"required"`
+	CompanyIndustry string `json:"company_industry"`
+	CompanyCity     string `json:"company_city"     binding:"required"`
 	// set by usecase before passing to repository
 	PasswordHash string `json:"-"`
 }
@@ -66,15 +76,26 @@ type UserRepository interface {
 	FindByID(id string) (*User, error)
 	FindPasswordHashByID(id string) (string, error)
 	UpdateFCMToken(id, token string) error
-	UpdateProfile(userID, fullName, phone string) error
+	UpdateProfile(userID, fullName, phone, avatarURL, companyName, companyIndustry, companyCity string) error
 	ChangePassword(userID, newHash string) error
 	FindAllByRole(role string) ([]User, error)
 	Register(req RegisterRequest) (*User, error)
 	CreateUser(req CreateUserRequest) (*User, error)
+	// FCM helpers
+	GetFCMToken(userID string) string
+	GetFCMTokensByRole(role string) []string
+	// Email verification
+	SaveVerificationToken(userID, token string) error
+	VerifyEmailToken(token string) error
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
 type AuthUsecase interface {
 	Login(req LoginRequest) (*LoginResponse, error)
+	RefreshToken(refreshToken string) (string, error)
 	GetProfile(id string) (*User, error)
 	GetTechnicians() ([]User, error)
 	GetSales() ([]User, error)
@@ -83,4 +104,12 @@ type AuthUsecase interface {
 	UpdateProfile(userID string, req UpdateProfileRequest) (*User, error)
 	ChangePassword(userID string, req ChangePasswordRequest) error
 	CreateUser(req CreateUserRequest) (*User, error)
+	UpdateFCMToken(userID, token string) error
+	VerifyEmail(token string) error
+}
+
+// EmailSender abstraksi pengiriman email
+type EmailSender interface {
+	Enabled() bool
+	SendHTML(to, subject, body string) error
 }

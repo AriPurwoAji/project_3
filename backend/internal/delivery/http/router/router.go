@@ -40,7 +40,9 @@ func Setup(
 	{
 		auth.POST("/register", authHandler.Register)
 		auth.POST("/login", authHandler.Login)
+		auth.POST("/refresh", authHandler.RefreshToken)
 		auth.GET("/me", middleware.AuthMiddleware(), authHandler.GetProfile)
+		auth.GET("/verify-email", authHandler.VerifyEmail)
 	}
 
 	// Protected
@@ -94,6 +96,7 @@ func Setup(
 		// Auth — protected
 		protected.PATCH("/auth/profile", authHandler.UpdateProfile)
 		protected.POST("/auth/change-password", authHandler.ChangePassword)
+		protected.PATCH("/auth/fcm-token", authHandler.UpdateFCMToken)
 
 		// Users
 		users := protected.Group("/users")

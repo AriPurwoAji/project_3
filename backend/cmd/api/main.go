@@ -7,6 +7,8 @@ import (
 	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/handler"
 	"github.com/AriPurwoAji/project_3/backend/internal/delivery/http/router"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/database"
+	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/email"
+	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/fcm"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/pdf"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/storage"
 	"github.com/AriPurwoAji/project_3/backend/internal/repository"
@@ -26,23 +28,25 @@ func main() {
 	}
 	defer database.Close(db)
 
+	// Infrastructure
+	supabaseStorage := storage.NewSupabaseStorage()
+	pdfGenerator    := pdf.NewReportGenerator()
+	fcmSender       := fcm.NewSender()
+	emailSender     := email.NewSender()
+
 	// Repositories
 	userRepo      := repository.NewUserRepository(db)
 	bookingRepo   := repository.NewBookingRepository(db)
 	reportRepo    := repository.NewReportRepository(db)
-	notifRepo     := repository.NewNotificationRepository(db)
+	notifRepo     := repository.NewNotificationRepository(db, fcmSender)
 	dashboardRepo := repository.NewDashboardRepository(db)
 	equipmentRepo := repository.NewEquipmentRepository(db)
 
-	// Infrastructure
-	supabaseStorage := storage.NewSupabaseStorage()
-	pdfGenerator    := pdf.NewReportGenerator()
-
 	// Usecases
-	authUsecase      := usecase.NewAuthUsecase(userRepo)
+	authUsecase      := usecase.NewAuthUsecase(userRepo, emailSender)
+	notifUsecase     := usecase.NewNotificationUsecase(notifRepo)
 	bookingUsecase   := usecase.NewBookingUsecase(bookingRepo, notifRepo)
 	reportUsecase    := usecase.NewReportUsecase(reportRepo, bookingRepo, pdfGenerator, supabaseStorage, notifRepo)
-	notifUsecase     := usecase.NewNotificationUsecase(notifRepo)
 	dashboardUsecase := usecase.NewDashboardUsecase(dashboardRepo)
 	equipmentUsecase := usecase.NewEquipmentUsecase(equipmentRepo)
 

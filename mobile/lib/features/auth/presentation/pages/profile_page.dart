@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -16,12 +18,16 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final _storage = const FlutterSecureStorage();
 
-  String _name        = '';
-  String _email       = '';
-  String _phone       = '';
-  String _role        = '';
-  String _companyName = '';
-  String _companyId   = '';
+  String _name             = '';
+  String _email            = '';
+  String _phone            = '';
+  String _role             = '';
+  String _companyName      = '';
+  String _companyIndustry  = '';
+  String _companyCity      = '';
+  String _companyId        = '';
+  String _avatarUrl        = '';
+  bool   _uploadingAvatar  = false;
 
   // Client/sales
   List<dynamic> _equipment = [];
@@ -62,11 +68,15 @@ class _ProfilePageState extends State<ProfilePage> {
     _companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
     final companyId = _companyId;
 
-    // Fetch email from /auth/me
+    // Fetch data lengkap dari /auth/me
     try {
-      final me = await ApiClient.instance.get('/auth/me');
-      _email = me.data['data']?['email'] ?? '';
-      _phone = me.data['data']?['phone'] ?? '';
+      final me   = await ApiClient.instance.get('/auth/me');
+      final data = me.data['data'] as Map<String, dynamic>? ?? {};
+      _email           = data['email']            ?? '';
+      _phone           = data['phone']            ?? '';
+      _avatarUrl       = data['avatar_url']       ?? '';
+      _companyIndustry = data['company_industry'] ?? '';
+      _companyCity     = data['company_city']     ?? '';
     } catch (_) {}
 
     if (_isClient && companyId.isNotEmpty) {
@@ -107,12 +117,79 @@ class _ProfilePageState extends State<ProfilePage> {
     if (mounted) context.go('/login');
   }
 
+  // ─── FOTO PROFIL ──────────────────────────────────────────────────────────
+
+  Future<void> _pickAndUploadAvatar() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Pilih dari galeri'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Ambil foto'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    final picker = ImagePicker();
+    final xfile  = await picker.pickImage(
+        source: source, imageQuality: 80, maxWidth: 512);
+    if (xfile == null || !mounted) return;
+
+    setState(() => _uploadingAvatar = true);
+    try {
+      // Upload foto ke Supabase Storage
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(xfile.path, filename: xfile.name),
+      });
+      final uploadRes = await ApiClient.instance.post('/upload', data: formData);
+      final url = uploadRes.data['data']['url'] as String;
+
+      // Simpan URL ke profil
+      await ApiClient.instance.patch('/auth/profile', data: {
+        'full_name': _name,
+        'phone':     _phone,
+        'avatar_url': url,
+      });
+
+      if (mounted) setState(() => _avatarUrl = url);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal mengupload foto')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
+  }
+
   // ─── EDIT PROFILE ─────────────────────────────────────────────────────────
 
+  static const _industries = [
+    'Minyak & Gas', 'Pembangkit Listrik', 'Manufaktur', 'Transportasi',
+    'Konstruksi', 'Pertambangan', 'Kimia & Petrokimia',
+    'Perkebunan & Agribisnis', 'Energi Terbarukan', 'Lainnya',
+  ];
+
   void _showEditProfileSheet() {
-    final nameCtrl  = TextEditingController(text: _name);
-    final phoneCtrl = TextEditingController(text: _phone);
-    bool saving     = false;
+    final nameCtrl    = TextEditingController(text: _name);
+    final phoneCtrl   = TextEditingController(text: _phone);
+    final companyCtrl = TextEditingController(text: _companyName);
+    final cityCtrl    = TextEditingController(text: _companyCity);
+    String industry   = _companyIndustry;
+    bool saving       = false;
 
     showModalBottomSheet(
       context: context,
@@ -121,7 +198,7 @@ class _ProfilePageState extends State<ProfilePage> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => Padding(
+        builder: (ctx, setSt) => SingleChildScrollView(
           padding: EdgeInsets.only(
               bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: Column(
@@ -141,6 +218,40 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 12),
                     _sheetField('No. HP', phoneCtrl,
                         keyboardType: TextInputType.phone),
+
+                    // ── Info perusahaan (client & sales saja) ──────
+                    if (_isClient) ...[
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      const Text('Info Perusahaan',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary)),
+                      const SizedBox(height: 12),
+                      _sheetField('Nama Perusahaan', companyCtrl),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: industry.isEmpty ? null : industry,
+                        hint: const Text('Pilih industri'),
+                        decoration: InputDecoration(
+                          labelText: 'Industri',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 14),
+                        ),
+                        items: _industries
+                            .map((i) => DropdownMenuItem(
+                                value: i, child: Text(i)))
+                            .toList(),
+                        onChanged: (v) =>
+                            setSt(() => industry = v ?? industry),
+                      ),
+                      const SizedBox(height: 12),
+                      _sheetField('Kota / Kabupaten', cityCtrl),
+                    ],
+
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: saving
@@ -152,8 +263,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                     '/auth/profile',
                                     data: {
                                       'full_name': nameCtrl.text.trim(),
-                                      'phone':
-                                          phoneCtrl.text.trim(),
+                                      'phone':     phoneCtrl.text.trim(),
+                                      if (_isClient) ...{
+                                        'company_name':     companyCtrl.text.trim(),
+                                        'company_industry': industry,
+                                        'company_city':     cityCtrl.text.trim(),
+                                      },
                                     });
                                 await _storage.write(
                                     key: AppConstants.userNameKey,
@@ -271,7 +386,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     });
                                 if (ctx.mounted) {
                                   Navigator.pop(ctx);
-                                  ScaffoldMessenger.of(context)
+                                  ScaffoldMessenger.of(ctx)
                                       .showSnackBar(const SnackBar(
                                     content: Text('Password berhasil diubah'),
                                     backgroundColor: AppTheme.secondary,
@@ -356,7 +471,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 10),
                       // Tipe
                       DropdownButtonFormField<String>(
-                        value: type,
+                        initialValue: type,
                         decoration: InputDecoration(
                           labelText: 'Tipe Equipment',
                           border: OutlineInputBorder(
@@ -666,19 +781,48 @@ class _ProfilePageState extends State<ProfilePage> {
   // ─── AVATAR ───────────────────────────────────────────────────────────────
 
   Widget _buildAvatarSection() {
-    final initial = _name.isNotEmpty ? _name[0].toUpperCase() : '?';
+    final initial   = _name.isNotEmpty ? _name[0].toUpperCase() : '?';
     final roleBadge = _isTeknisi ? 'Teknisi' : _isClient ? 'Client PIC' : _role;
 
     return Column(
       children: [
-        CircleAvatar(
-          radius: 40,
-          backgroundColor: AppTheme.primaryLight,
-          child: Text(initial,
-              style: const TextStyle(
-                  fontSize: 32,
-                  color: AppTheme.primary,
-                  fontWeight: FontWeight.w600)),
+        // ── Avatar dengan tombol ganti foto ──────────────────────────
+        GestureDetector(
+          onTap: _uploadingAvatar ? null : _pickAndUploadAvatar,
+          child: Stack(
+            children: [
+              CircleAvatar(
+                radius: 44,
+                backgroundColor: AppTheme.primaryLight,
+                backgroundImage: _avatarUrl.isNotEmpty
+                    ? NetworkImage(_avatarUrl)
+                    : null,
+                child: _uploadingAvatar
+                    ? const CircularProgressIndicator(strokeWidth: 2)
+                    : _avatarUrl.isEmpty
+                        ? Text(initial,
+                            style: const TextStyle(
+                                fontSize: 32,
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.w600))
+                        : null,
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.camera_alt,
+                      size: 15, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         Text(_name,
@@ -687,6 +831,12 @@ class _ProfilePageState extends State<ProfilePage> {
         if (_email.isNotEmpty) ...[
           const SizedBox(height: 2),
           Text(_email,
+              style: const TextStyle(
+                  fontSize: 13, color: AppTheme.textSecondary)),
+        ],
+        if (_phone.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(_phone,
               style: const TextStyle(
                   fontSize: 13, color: AppTheme.textSecondary)),
         ],
@@ -825,6 +975,10 @@ class _ProfilePageState extends State<ProfilePage> {
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           _infoRow('Perusahaan', _companyName),
+          if (_companyIndustry.isNotEmpty)
+            _infoRow('Industri', _companyIndustry),
+          if (_companyCity.isNotEmpty)
+            _infoRow('Kota', _companyCity),
         ],
       ),
     );

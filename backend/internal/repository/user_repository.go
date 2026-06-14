@@ -19,9 +19,13 @@ func NewUserRepository(db *pgxpool.Pool) domain.UserRepository {
 func (r *userRepository) FindByEmail(email string) (*domain.User, string, error) {
 	query := `
 		SELECT u.id, u.email, u.password_hash, u.full_name, u.phone, u.role,
-		       u.fcm_token, u.is_active, u.created_at, u.updated_at,
+		       u.fcm_token, u.is_active, u.email_verified_at,
+		       u.created_at, u.updated_at,
+		       COALESCE(u.avatar_url, '')      AS avatar_url,
 		       COALESCE(u.company_id::text, '') AS company_id,
-		       COALESCE(c.name, '') AS company_name
+		       COALESCE(c.name, '')            AS company_name,
+		       COALESCE(c.industry, '')        AS company_industry,
+		       COALESCE(c.city, '')            AS company_city
 		FROM users u
 		LEFT JOIN companies c ON u.company_id = c.id
 		WHERE u.email = $1 AND u.deleted_at IS NULL AND u.is_active = TRUE
@@ -33,9 +37,11 @@ func (r *userRepository) FindByEmail(email string) (*domain.User, string, error)
 	err := r.db.QueryRow(context.Background(), query, email).Scan(
 		&user.ID, &user.Email, &passwordHash,
 		&user.FullName, &phone, &user.Role,
-		&fcmToken, &user.IsActive,
+		&fcmToken, &user.IsActive, &user.EmailVerifiedAt,
 		&user.CreatedAt, &user.UpdatedAt,
+		&user.AvatarURL,
 		&user.CompanyID, &user.CompanyName,
+		&user.CompanyIndustry, &user.CompanyCity,
 	)
 	if err != nil {
 		return nil, "", errors.New("user not found")
@@ -53,8 +59,11 @@ func (r *userRepository) FindByID(id string) (*domain.User, error) {
 	query := `
 		SELECT u.id, u.email, u.full_name, u.phone, u.role,
 		       u.fcm_token, u.is_active, u.created_at, u.updated_at,
+		       COALESCE(u.avatar_url, '')      AS avatar_url,
 		       COALESCE(u.company_id::text, '') AS company_id,
-		       COALESCE(c.name, '') AS company_name
+		       COALESCE(c.name, '')            AS company_name,
+		       COALESCE(c.industry, '')        AS company_industry,
+		       COALESCE(c.city, '')            AS company_city
 		FROM users u
 		LEFT JOIN companies c ON u.company_id = c.id
 		WHERE u.id = $1 AND u.deleted_at IS NULL
@@ -66,7 +75,9 @@ func (r *userRepository) FindByID(id string) (*domain.User, error) {
 		&user.ID, &user.Email, &user.FullName,
 		&phone, &user.Role, &fcmToken,
 		&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+		&user.AvatarURL,
 		&user.CompanyID, &user.CompanyName,
+		&user.CompanyIndustry, &user.CompanyCity,
 	)
 	if err != nil {
 		return nil, errors.New("user not found")
@@ -88,12 +99,31 @@ func (r *userRepository) FindPasswordHashByID(id string) (string, error) {
 	return hash, err
 }
 
-func (r *userRepository) UpdateProfile(userID, fullName, phone string) error {
-	_, err := r.db.Exec(context.Background(),
-		`UPDATE users SET full_name = $1, phone = NULLIF($2,''), updated_at = NOW() WHERE id = $3`,
-		fullName, phone, userID,
+func (r *userRepository) UpdateProfile(userID, fullName, phone, avatarURL, companyName, companyIndustry, companyCity string) error {
+	ctx := context.Background()
+
+	_, err := r.db.Exec(ctx,
+		`UPDATE users SET full_name = $1, phone = NULLIF($2,''),
+		 avatar_url = CASE WHEN $3 = '' THEN avatar_url ELSE $3 END,
+		 updated_at = NOW() WHERE id = $4`,
+		fullName, phone, avatarURL, userID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Update info perusahaan jika ada data yang dikirim
+	if companyName != "" || companyIndustry != "" || companyCity != "" {
+		r.db.Exec(ctx, `
+			UPDATE companies SET
+				name     = CASE WHEN $1 = '' THEN name     ELSE $1 END,
+				industry = CASE WHEN $2 = '' THEN industry ELSE $2 END,
+				city     = CASE WHEN $3 = '' THEN city     ELSE $3 END,
+				updated_at = NOW()
+			WHERE id = (SELECT company_id FROM users WHERE id = $4 AND company_id IS NOT NULL)
+		`, companyName, companyIndustry, companyCity, userID)
+	}
+	return nil
 }
 
 func (r *userRepository) ChangePassword(userID, newHash string) error {
@@ -105,9 +135,43 @@ func (r *userRepository) ChangePassword(userID, newHash string) error {
 }
 
 func (r *userRepository) UpdateFCMToken(id, token string) error {
-	query := `UPDATE users SET fcm_token = $1, updated_at = NOW() WHERE id = $2`
-	_, err := r.db.Exec(context.Background(), query, token, id)
+	// Lepas token dari user lain yang pakai device yang sama (ganti akun di HP)
+	r.db.Exec(context.Background(),
+		`UPDATE users SET fcm_token = NULL WHERE fcm_token = $1 AND id != $2`,
+		token, id,
+	)
+	_, err := r.db.Exec(context.Background(),
+		`UPDATE users SET fcm_token = $1, updated_at = NOW() WHERE id = $2`,
+		token, id,
+	)
 	return err
+}
+
+func (r *userRepository) GetFCMToken(userID string) string {
+	var token string
+	r.db.QueryRow(context.Background(),
+		`SELECT COALESCE(fcm_token,'') FROM users WHERE id = $1 AND deleted_at IS NULL`,
+		userID).Scan(&token)
+	return token
+}
+
+func (r *userRepository) GetFCMTokensByRole(role string) []string {
+	rows, err := r.db.Query(context.Background(),
+		`SELECT fcm_token FROM users
+		 WHERE role = $1 AND deleted_at IS NULL AND is_active = TRUE
+		 AND fcm_token IS NOT NULL AND fcm_token != ''`, role)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var tokens []string
+	for rows.Next() {
+		var t string
+		if rows.Scan(&t) == nil && t != "" {
+			tokens = append(tokens, t)
+		}
+	}
+	return tokens
 }
 
 func (r *userRepository) Register(req domain.RegisterRequest) (*domain.User, error) {
@@ -122,8 +186,10 @@ func (r *userRepository) Register(req domain.RegisterRequest) (*domain.User, err
 	// 1. Buat company baru
 	var companyID string
 	err = tx.QueryRow(ctx,
-		`INSERT INTO companies (name) VALUES ($1) RETURNING id`,
-		req.CompanyName,
+		`INSERT INTO companies (name, industry, city, pic_name, pic_phone)
+		 VALUES ($1, NULLIF($2,''), NULLIF($3,''), $4, NULLIF($5,''))
+		 RETURNING id`,
+		req.CompanyName, req.CompanyIndustry, req.CompanyCity, req.FullName, req.Phone,
 	).Scan(&companyID)
 	if err != nil {
 		return nil, err
@@ -143,9 +209,11 @@ func (r *userRepository) Register(req domain.RegisterRequest) (*domain.User, err
 	if err != nil {
 		return nil, err
 	}
-	user.Phone       = req.Phone
-	user.CompanyID   = companyID
-	user.CompanyName = req.CompanyName
+	user.Phone           = req.Phone
+	user.CompanyID       = companyID
+	user.CompanyName     = req.CompanyName
+	user.CompanyIndustry = req.CompanyIndustry
+	user.CompanyCity     = req.CompanyCity
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
@@ -222,4 +290,38 @@ func (r *userRepository) FindAllByRole(role string) ([]domain.User, error) {
 		users = []domain.User{}
 	}
 	return users, rows.Err()
+}
+
+func (r *userRepository) SaveVerificationToken(userID, token string) error {
+	_, err := r.db.Exec(context.Background(), `
+		INSERT INTO email_verification_tokens (user_id, token, expires_at)
+		VALUES ($1, $2, NOW() + INTERVAL '24 hours')
+	`, userID, token)
+	return err
+}
+
+func (r *userRepository) VerifyEmailToken(token string) error {
+	var userID string
+	err := r.db.QueryRow(context.Background(), `
+		SELECT user_id FROM email_verification_tokens
+		WHERE token = $1
+		  AND used_at IS NULL
+		  AND expires_at > NOW()
+	`, token).Scan(&userID)
+	if err != nil {
+		return errors.New("token tidak valid atau sudah kadaluarsa")
+	}
+
+	tx, err := r.db.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background()) //nolint
+
+	tx.Exec(context.Background(),
+		`UPDATE email_verification_tokens SET used_at = NOW() WHERE token = $1`, token)
+	tx.Exec(context.Background(),
+		`UPDATE users SET email_verified_at = NOW() WHERE id = $1`, userID)
+
+	return tx.Commit(context.Background())
 }

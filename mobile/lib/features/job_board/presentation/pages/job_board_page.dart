@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/cache/page_cache.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -20,8 +22,10 @@ class _JobBoardPageState extends State<JobBoardPage>
 
   List<dynamic> _openJobs   = [];
   List<dynamic> _activeJobs = []; // in_progress / on_the_way / on_site
-  bool   _loading      = true;
-  int    _unreadCount  = 0;
+  bool    _loading      = true;
+  bool    _hasData      = false;
+  int     _unreadCount  = 0;
+  String? _error;
 
   // Paginasi hanya untuk open jobs
   bool   _loadingMore  = false;
@@ -32,6 +36,7 @@ class _JobBoardPageState extends State<JobBoardPage>
 
   String _name  = '';
   String _query = '';
+  Timer? _debounce;
   late TabController _tabController;
 
   List<dynamic> _applyFilter(List<dynamic> jobs) {
@@ -49,13 +54,30 @@ class _JobBoardPageState extends State<JobBoardPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadData();
+    final cached = PageCache.get<Map<String, dynamic>>('job_board');
+    if (cached != null) {
+      _openJobs   = cached['open']   as List<dynamic>;
+      _activeJobs = cached['active'] as List<dynamic>;
+      _unreadCount = cached['unread'] as int;
+      _name       = cached['name']   as String;
+      _loading    = false;
+      _hasData    = true;
+      _loadData(silent: true);
+    } else {
+      _loadData();
+    }
     _openScrollCtrl.addListener(_onOpenScroll);
-    _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
+    _searchCtrl.addListener(() {
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 400), () {
+        if (mounted) setState(() => _query = _searchCtrl.text);
+      });
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _tabController.dispose();
     _openScrollCtrl.dispose();
     _searchCtrl.dispose();
@@ -71,14 +93,17 @@ class _JobBoardPageState extends State<JobBoardPage>
     }
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool silent = false}) async {
     _name = await _storage.read(key: AppConstants.userNameKey) ?? '';
-    setState(() {
-      _loading    = true;
-      _openOffset = 0;
-      _hasMore    = true;
-      _openJobs   = [];
-    });
+    if (mounted) {
+      setState(() {
+        if (!silent && !_hasData) _loading = true;
+        _openOffset = 0;
+        _hasMore    = true;
+        if (!silent) _openJobs = [];
+        _error      = null;
+      });
+    }
     try {
       final results = await Future.wait([
         ApiClient.instance.get('/job-board?limit=$_limit&offset=0'),
@@ -86,20 +111,35 @@ class _JobBoardPageState extends State<JobBoardPage>
         ApiClient.instance.get('/notifications/unread-count'),
       ]);
       if (mounted) {
-        final open = List<dynamic>.from(results[0].data['data'] ?? []);
-        final all  = List<dynamic>.from(results[1].data['data'] ?? []);
+        final open   = List<dynamic>.from(results[0].data['data'] ?? []);
+        final all    = List<dynamic>.from(results[1].data['data'] ?? []);
+        final active = all.where((j) => j['status'] != 'done').toList();
+        final unread = (results[2].data['data']['unread_count'] as num?)?.toInt() ?? 0;
+
+        PageCache.set('job_board', {
+          'open':   open,
+          'active': active,
+          'unread': unread,
+          'name':   _name,
+        });
+
         setState(() {
-          _openJobs   = open;
-          _hasMore    = open.length == _limit;
-          _openOffset = open.length;
-          _activeJobs = all.where((j) => j['status'] != 'done').toList();
-          _unreadCount = (results[2].data['data']['unread_count'] as num?)
-                            ?.toInt() ?? 0;
-          _loading    = false;
+          _openJobs    = open;
+          _hasMore     = open.length == _limit;
+          _openOffset  = open.length;
+          _activeJobs  = active;
+          _unreadCount = unread;
+          _loading     = false;
+          _hasData     = true;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!silent && mounted) {
+        setState(() {
+          _loading = false;
+          _error   = 'Gagal memuat data. Periksa koneksi internet lalu tarik untuk refresh.';
+        });
+      }
     }
   }
 
@@ -396,6 +436,39 @@ class _JobBoardPageState extends State<JobBoardPage>
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
+                  : _error != null && _openJobs.isEmpty && _activeJobs.isEmpty
+                  ? RefreshIndicator(
+                      onRefresh: _loadData,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: 300,
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.cloud_off_outlined,
+                                    size: 48, color: AppTheme.textTertiary),
+                                const SizedBox(height: 12),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                                  child: Text(_error!,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                          color: AppTheme.textSecondary, fontSize: 13)),
+                                ),
+                                const SizedBox(height: 12),
+                                TextButton.icon(
+                                  onPressed: _loadData,
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text('Coba lagi'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
                   : TabBarView(
                       controller: _tabController,
                       children: [

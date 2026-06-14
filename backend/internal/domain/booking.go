@@ -16,6 +16,8 @@ type Booking struct {
 	Description  string     `json:"description"`
 	SiteAddress  string     `json:"site_address"`
 	SiteCity     string     `json:"site_city"`
+	Latitude     *float64   `json:"latitude,omitempty"`
+	Longitude    *float64   `json:"longitude,omitempty"`
 	PhotoURLs    []string   `json:"photo_urls"`
 	ScheduledAt  *time.Time `json:"scheduled_at,omitempty"`
 	ClaimedAt    *time.Time `json:"claimed_at,omitempty"`
@@ -39,6 +41,8 @@ type CreateBookingRequest struct {
 	Description  string   `json:"description" binding:"required"`
 	SiteAddress  string   `json:"site_address" binding:"required"`
 	SiteCity     string   `json:"site_city" binding:"required"`
+	Latitude     *float64 `json:"latitude"`
+	Longitude    *float64 `json:"longitude"`
 	PhotoURLs    []string `json:"photo_urls"`
 	ScheduledAt  *string  `json:"scheduled_at"`
 }

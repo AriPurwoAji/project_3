@@ -13,6 +13,7 @@ class NotificationPage extends StatefulWidget {
 class _NotificationPageState extends State<NotificationPage> {
   List<dynamic> _notifications = [];
   bool _loading = true;
+  bool _hasData = false;
 
   @override
   void initState() {
@@ -21,13 +22,14 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
+    if (!_hasData && mounted) setState(() => _loading = true);
     try {
       final res = await ApiClient.instance.get('/notifications');
       if (mounted) {
         setState(() {
           _notifications = res.data['data'] ?? [];
           _loading = false;
+          _hasData = true;
         });
       }
     } catch (_) {
@@ -186,10 +188,10 @@ class _NotificationPageState extends State<NotificationPage> {
           : RefreshIndicator(
               onRefresh: _loadData,
               child: _notifications.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children: [
                           Icon(Icons.notifications_none_outlined,
                               size: 52, color: AppTheme.textTertiary),
                           SizedBox(height: 12),

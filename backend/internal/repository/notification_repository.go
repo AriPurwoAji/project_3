@@ -3,17 +3,54 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"log"
 
 	"github.com/AriPurwoAji/project_3/backend/internal/domain"
+	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/fcm"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type notificationRepository struct {
-	db *pgxpool.Pool
+	db  *pgxpool.Pool
+	fcm *fcm.Sender
 }
 
-func NewNotificationRepository(db *pgxpool.Pool) domain.NotificationRepository {
-	return &notificationRepository{db: db}
+func NewNotificationRepository(db *pgxpool.Pool, fcmSender *fcm.Sender) domain.NotificationRepository {
+	return &notificationRepository{db: db, fcm: fcmSender}
+}
+
+// lookupFCMToken mengambil fcm_token user dari tabel users
+func (r *notificationRepository) lookupFCMToken(userID string) string {
+	var token *string
+	r.db.QueryRow(context.Background(),
+		`SELECT fcm_token FROM users WHERE id = $1 AND fcm_token IS NOT NULL`,
+		userID,
+	).Scan(&token)
+	if token == nil {
+		return ""
+	}
+	return *token
+}
+
+// sendPush mengirim FCM push — best-effort, tidak gagalkan proses utama
+func (r *notificationRepository) sendPush(token, title, body string, bookingID *string) {
+	if !r.fcm.Enabled() || token == "" {
+		return
+	}
+	data := map[string]string{}
+	if bookingID != nil {
+		data["booking_id"] = *bookingID
+	}
+	if err := r.fcm.Send(token, title, body, data); err != nil {
+		log.Printf("[FCM] gagal kirim push ke %s: %v", token[:min(8, len(token))], err)
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (r *notificationRepository) Create(n *domain.Notification) error {
@@ -23,9 +60,14 @@ func (r *notificationRepository) Create(n *domain.Notification) error {
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at
 	`
-	return r.db.QueryRow(context.Background(), query,
+	err := r.db.QueryRow(context.Background(), query,
 		n.UserID, n.BookingID, n.Type, n.Title, n.Body, payloadJSON,
 	).Scan(&n.ID, &n.CreatedAt)
+	if err == nil {
+		// Kirim FCM push best-effort
+		go r.sendPush(r.lookupFCMToken(n.UserID), n.Title, n.Body, n.BookingID)
+	}
+	return err
 }
 
 func (r *notificationRepository) BroadcastToRole(role string, bookingID *string, notifType, title, body string) error {
@@ -38,6 +80,25 @@ func (r *notificationRepository) BroadcastToRole(role string, bookingID *string,
 	_, err := r.db.Exec(context.Background(), query,
 		bookingID, notifType, title, body, role,
 	)
+	if err == nil {
+		// Kirim FCM push ke semua token yang terdaftar untuk role ini
+		go func() {
+			rows, e := r.db.Query(context.Background(),
+				`SELECT fcm_token FROM users WHERE role = $1 AND fcm_token IS NOT NULL AND deleted_at IS NULL AND is_active = TRUE`,
+				role,
+			)
+			if e != nil {
+				return
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var token string
+				if rows.Scan(&token) == nil && token != "" {
+					r.sendPush(token, title, body, bookingID)
+				}
+			}
+		}()
+	}
 	return err
 }
 

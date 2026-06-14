@@ -18,11 +18,26 @@ class _RegisterPageState extends State<RegisterPage> {
   final _confirmCtrl   = TextEditingController();
   final _phoneCtrl     = TextEditingController();
   final _companyCtrl   = TextEditingController();
+  final _cityCtrl      = TextEditingController();
 
+  String  _industry    = '';
   bool    _loading     = false;
   bool    _obscurePass = true;
   bool    _obscureConf = true;
   String? _error;
+
+  static const _industries = [
+    'Minyak & Gas',
+    'Pembangkit Listrik',
+    'Manufaktur',
+    'Transportasi',
+    'Konstruksi',
+    'Pertambangan',
+    'Kimia & Petrokimia',
+    'Perkebunan & Agribisnis',
+    'Energi Terbarukan',
+    'Lainnya',
+  ];
 
   @override
   void dispose() {
@@ -32,6 +47,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _confirmCtrl.dispose();
     _phoneCtrl.dispose();
     _companyCtrl.dispose();
+    _cityCtrl.dispose();
     super.dispose();
   }
 
@@ -40,17 +56,21 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() { _loading = true; _error = null; });
     try {
       await ApiClient.instance.post('/auth/register', data: {
-        'full_name':    _nameCtrl.text.trim(),
-        'email':        _emailCtrl.text.trim(),
-        'password':     _passCtrl.text,
-        'phone':        _phoneCtrl.text.trim(),
-        'company_name': _companyCtrl.text.trim(),
+        'full_name':         _nameCtrl.text.trim(),
+        'email':             _emailCtrl.text.trim(),
+        'password':          _passCtrl.text,
+        'phone':             _phoneCtrl.text.trim(),
+        'company_name':      _companyCtrl.text.trim(),
+        'company_industry':  _industry,
+        'company_city':      _cityCtrl.text.trim(),
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Registrasi berhasil! Silakan login.'),
+          content: Text(
+              'Registrasi berhasil! Cek email kamu untuk verifikasi akun.'),
           backgroundColor: AppTheme.secondary,
+          duration: Duration(seconds: 4),
         ),
       );
       context.go('/login');
@@ -85,8 +105,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back,
-                          color: Colors.white70),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white70),
                       onPressed: () => context.go('/login'),
                       padding: EdgeInsets.zero,
                     ),
@@ -98,9 +117,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             color: Colors.white)),
                     const SizedBox(height: 4),
                     const Text('Buat akun client untuk mulai booking',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.white70)),
+                        style: TextStyle(fontSize: 13, color: Colors.white70)),
                   ],
                 ),
               ),
@@ -120,7 +137,8 @@ class _RegisterPageState extends State<RegisterPage> {
                             color: AppTheme.dangerLight,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                                color: AppTheme.danger.withValues(alpha: 0.3)),
+                                color:
+                                    AppTheme.danger.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
@@ -138,6 +156,10 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                         const SizedBox(height: 16),
                       ],
+
+                      // ── Seksi: Data Pribadi ─────────────────────────
+                      _sectionLabel('Data Pribadi'),
+                      const SizedBox(height: 10),
 
                       _label('Nama Lengkap *'),
                       _field(
@@ -160,9 +182,20 @@ class _RegisterPageState extends State<RegisterPage> {
                           if (v == null || v.trim().isEmpty) {
                             return 'Email wajib diisi';
                           }
-                          if (!v.contains('@')) return 'Format email tidak valid';
+                          if (!v.contains('@')) {
+                            return 'Format email tidak valid';
+                          }
                           return null;
                         },
+                      ),
+                      const SizedBox(height: 14),
+
+                      _label('No. HP (opsional)'),
+                      _field(
+                        ctrl: _phoneCtrl,
+                        hint: '08xxxxxxxxxx',
+                        icon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
                       ),
                       const SizedBox(height: 14),
 
@@ -190,16 +223,11 @@ class _RegisterPageState extends State<RegisterPage> {
                             ? 'Password tidak cocok'
                             : null,
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 24),
 
-                      _label('No. HP (opsional)'),
-                      _field(
-                        ctrl: _phoneCtrl,
-                        hint: '08xxxxxxxxxx',
-                        icon: Icons.phone_outlined,
-                        keyboardType: TextInputType.phone,
-                      ),
-                      const SizedBox(height: 14),
+                      // ── Seksi: Data Perusahaan ──────────────────────
+                      _sectionLabel('Data Perusahaan'),
+                      const SizedBox(height: 10),
 
                       _label('Nama Perusahaan *'),
                       _field(
@@ -208,6 +236,51 @@ class _RegisterPageState extends State<RegisterPage> {
                         icon: Icons.business_outlined,
                         validator: (v) => (v == null || v.trim().isEmpty)
                             ? 'Nama perusahaan wajib diisi'
+                            : null,
+                      ),
+                      const SizedBox(height: 14),
+
+                      _label('Industri'),
+                      DropdownButtonFormField<String>(
+                        initialValue: _industry.isEmpty ? null : _industry,
+                        hint: const Text('Pilih industri'),
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.category_outlined,
+                              size: 18, color: AppTheme.textTertiary),
+                          filled: true,
+                          fillColor: AppTheme.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: AppTheme.border),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: AppTheme.border),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 14),
+                        ),
+                        items: _industries
+                            .map((i) => DropdownMenuItem(
+                                  value: i,
+                                  child: Text(i,
+                                      style: const TextStyle(fontSize: 14)),
+                                ))
+                            .toList(),
+                        onChanged: (v) =>
+                            setState(() => _industry = v ?? ''),
+                      ),
+                      const SizedBox(height: 14),
+
+                      _label('Kota / Kabupaten *'),
+                      _field(
+                        ctrl: _cityCtrl,
+                        hint: 'Contoh: Surabaya',
+                        icon: Icons.location_city_outlined,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Kota wajib diisi'
                             : null,
                       ),
                       const SizedBox(height: 28),
@@ -263,6 +336,19 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  Widget _sectionLabel(String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryLight,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(text,
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primary)),
+      );
+
   Widget _label(String text) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(text,
@@ -317,7 +403,9 @@ class _RegisterPageState extends State<RegisterPage> {
               size: 18, color: AppTheme.textTertiary),
           suffixIcon: IconButton(
             icon: Icon(
-              obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              obscure
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
               size: 18,
               color: AppTheme.textTertiary,
             ),

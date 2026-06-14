@@ -84,6 +84,22 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	response.Success(c, 200, "Password berhasil diubah", nil)
 }
 
+func (h *AuthHandler) UpdateFCMToken(c *gin.Context) {
+	userID := c.GetString("user_id")
+	var req struct {
+		FCMToken string `json:"fcm_token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "fcm_token wajib diisi")
+		return
+	}
+	if err := h.authUsecase.UpdateFCMToken(userID, req.FCMToken); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "FCM token berhasil diperbarui", nil)
+}
+
 func (h *AuthHandler) CreateUser(c *gin.Context) {
 	managerCompanyID := c.GetString("company_id")
 	var req domain.CreateUserRequest
@@ -127,4 +143,51 @@ func (h *AuthHandler) GetTechnicians(c *gin.Context) {
 		return
 	}
 	response.Success(c, 200, "Success", users)
+}
+
+// RefreshToken menukar refresh token dengan access token baru.
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	var req domain.RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "refresh_token wajib diisi")
+		return
+	}
+	newToken, err := h.authUsecase.RefreshToken(req.RefreshToken)
+	if err != nil {
+		response.Error(c, 401, err.Error())
+		return
+	}
+	response.Success(c, 200, "Token diperbarui", gin.H{"access_token": newToken})
+}
+
+// VerifyEmail menangani klik link verifikasi dari email client.
+// Mengembalikan HTML langsung agar bisa dibuka di browser.
+func (h *AuthHandler) VerifyEmail(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		c.Data(400, "text/html; charset=utf-8", verifyPage("Token tidak valid", false))
+		return
+	}
+
+	if err := h.authUsecase.VerifyEmail(token); err != nil {
+		c.Data(400, "text/html; charset=utf-8", verifyPage(err.Error(), false))
+		return
+	}
+
+	c.Data(200, "text/html; charset=utf-8", verifyPage("Email berhasil diverifikasi! Silakan login di aplikasi HydroServ.", true))
+}
+
+func verifyPage(message string, success bool) []byte {
+	icon  := "✅"
+	color := "#2e7d32"
+	if !success {
+		icon  = "❌"
+		color = "#c62828"
+	}
+	return []byte(`<!DOCTYPE html><html><body style="font-family:sans-serif;background:#f5f5f5;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">
+<div style="background:#fff;border-radius:12px;padding:40px;max-width:400px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.08)">
+  <div style="font-size:48px">` + icon + `</div>
+  <h2 style="color:#1565C0">HydroServ</h2>
+  <p style="color:` + color + `;font-size:15px">` + message + `</p>
+</div></body></html>`)
 }

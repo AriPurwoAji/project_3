@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -21,6 +22,19 @@ import '../constants/app_constants.dart';
 
 const _storage = FlutterSecureStorage();
 
+/// Bungkus widget dengan fade transition 180ms.
+CustomTransitionPage<void> _fade(GoRouterState state, Widget child) =>
+    CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: const Duration(milliseconds: 180),
+      reverseTransitionDuration: const Duration(milliseconds: 120),
+      transitionsBuilder: (_, animation, __, child) => FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: child,
+      ),
+    );
+
 final appRouter = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
@@ -38,58 +52,56 @@ final appRouter = GoRouter(
   },
   routes: [
     GoRoute(path: '/login',
-        builder: (_, __) => const LoginPage()),
+        pageBuilder: (c, s) => _fade(s, const LoginPage())),
     GoRoute(path: '/register',
-        builder: (_, __) => const RegisterPage()),
+        pageBuilder: (c, s) => _fade(s, const RegisterPage())),
 
     // ── Manager ──────────────────────────────────────────────────────────
     GoRoute(path: '/dashboard',
-        builder: (_, __) => const DashboardPage()),
+        pageBuilder: (c, s) => _fade(s, const DashboardPage())),
     GoRoute(path: '/team',
-        builder: (_, __) => const TeamPage()),
+        pageBuilder: (c, s) => _fade(s, const TeamPage())),
     GoRoute(path: '/technicians',
-        builder: (_, __) => const TechnicianListPage()),
+        pageBuilder: (c, s) => _fade(s, const TechnicianListPage())),
 
     // ── Teknisi ──────────────────────────────────────────────────────────
     GoRoute(path: '/job-board',
-        builder: (_, __) => const JobBoardPage()),
+        pageBuilder: (c, s) => _fade(s, const JobBoardPage())),
     GoRoute(path: '/my-jobs',
-        builder: (_, __) => const MyJobsPage()),
+        pageBuilder: (c, s) => _fade(s, const MyJobsPage())),
     GoRoute(path: '/laporan',
-        builder: (_, __) => const LaporanPage()),
+        pageBuilder: (c, s) => _fade(s, const LaporanPage())),
 
     // ── Client / Sales ───────────────────────────────────────────────────
     GoRoute(path: '/home',
-        builder: (_, __) => const HomeClientPage()),
+        pageBuilder: (c, s) => _fade(s, const HomeClientPage())),
     GoRoute(path: '/riwayat',
-        builder: (_, __) => const RiwayatPage()),
+        pageBuilder: (c, s) => _fade(s, const RiwayatPage())),
 
     // ── Shared ───────────────────────────────────────────────────────────
     GoRoute(path: '/bookings',
-        builder: (_, __) => const BookingListPage()),
+        pageBuilder: (c, s) => _fade(s, const BookingListPage())),
     GoRoute(path: '/booking/create',
-        builder: (_, __) => const CreateBookingPage()),
+        pageBuilder: (c, s) => _fade(s, const CreateBookingPage())),
     GoRoute(
       path: '/booking/:id',
-      builder: (_, state) =>
-          BookingDetailPage(bookingId: state.pathParameters['id']!),
+      pageBuilder: (c, s) => _fade(s,
+          BookingDetailPage(bookingId: s.pathParameters['id']!)),
     ),
     GoRoute(
       path: '/report/create',
-      builder: (_, state) {
-        final booking = state.extra as Map<String, dynamic>;
-        return CreateReportPage(booking: booking);
-      },
+      pageBuilder: (c, s) => _fade(s,
+          CreateReportPage(booking: s.extra as Map<String, dynamic>)),
     ),
     GoRoute(path: '/notifications',
-        builder: (_, __) => const NotificationPage()),
+        pageBuilder: (c, s) => _fade(s, const NotificationPage())),
     GoRoute(
       path: '/report/:bookingId',
-      builder: (_, state) =>
-          ReportDetailPage(bookingId: state.pathParameters['bookingId']!),
+      pageBuilder: (c, s) => _fade(s,
+          ReportDetailPage(bookingId: s.pathParameters['bookingId']!)),
     ),
     GoRoute(path: '/profile',
-        builder: (_, __) => const ProfilePage()),
+        pageBuilder: (c, s) => _fade(s, const ProfilePage())),
   ],
 );
 
