@@ -216,33 +216,268 @@ func (g *ReportGenerator) GenerateReport(report *domain.HydraulicReport, booking
 	if booking.ServiceType == "inspeksi" && len(report.InspectionItems) > 0 {
 		sectionHeader("ITEM INSPEKSI")
 
-		// Table header
-		setFill(243, 244, 246)
-		setColor(107, 114, 128)
-		setDraw(229, 231, 235)
-		f.SetFont("Helvetica", "B", 7)
-		f.CellFormat(8, 6, "No", "1", 0, "C", true, 0, "")
-		f.CellFormat(22, 6, "Tipe", "1", 0, "C", true, 0, "")
-		f.CellFormat(25, 6, "Kode", "1", 0, "C", true, 0, "")
-		f.CellFormat(55, 6, "Lokasi", "1", 0, "C", true, 0, "")
-		f.CellFormat(30, 6, "Kondisi", "1", 0, "C", true, 0, "")
-		f.CellFormat(40, 6, "Rekomendasi", "1", 1, "C", true, 0, "")
+		// ── helpers ──────────────────────────────────────────────────────────
+
+		type col struct {
+			label string
+			w     float64
+		}
+
+		// Extract a string/number value from Specifications JSONB map
+		getSpec := func(specs map[string]interface{}, key string) string {
+			v, ok := specs[key]
+			if !ok {
+				return "-"
+			}
+			switch vt := v.(type) {
+			case string:
+				if vt == "" {
+					return "-"
+				}
+				return vt
+			case float64:
+				if vt == 0 {
+					return "-"
+				}
+				if vt == float64(int64(vt)) {
+					return fmt.Sprintf("%d", int64(vt))
+				}
+				return fmt.Sprintf("%.1f", vt)
+			default:
+				s := fmt.Sprintf("%v", v)
+				if s == "0" {
+					return "-"
+				}
+				return s
+			}
+		}
+
+		// Format a fitting end: "FEMALE ORFS STRAIGHT", "MALE FLANGE-62 90DEG"
+		fmtFitting := func(specs map[string]interface{}, endKey string) string {
+			raw, ok := specs[endKey]
+			if !ok {
+				return "-"
+			}
+			m, ok := raw.(map[string]interface{})
+			if !ok {
+				return "-"
+			}
+			gender := strings.ToUpper(fmt.Sprintf("%v", m["gender"]))
+			stdRaw := fmt.Sprintf("%v", m["standard"])
+			var std string
+			switch stdRaw {
+			case "SAE_F61":
+				std = "FLANGE-61"
+			case "SAE_F62":
+				std = "FLANGE-62"
+			default:
+				std = strings.ToUpper(stdRaw)
+			}
+			angleRaw := fmt.Sprintf("%v", m["angle"])
+			var angle string
+			switch angleRaw {
+			case "straight":
+				angle = "STRAIGHT"
+			case "45":
+				angle = "45DEG"
+			case "90":
+				angle = "90DEG"
+			case "90_long":
+				angle = "90LONG"
+			default:
+				angle = strings.ToUpper(angleRaw)
+			}
+			return gender + " " + std + " " + angle
+		}
+
+		// Light gray sub-section divider between type tables
+		subHeader := func(title string) {
+			f.Ln(3)
+			setFill(229, 231, 235)
+			setColor(55, 65, 81)
+			setDraw(209, 213, 219)
+			f.SetFont("Helvetica", "B", 8)
+			f.CellFormat(pageW, 6, "  "+title, "1", 1, "L", true, 0, "")
+			setColor(17, 24, 39)
+			f.Ln(1)
+		}
+
+		// Print a table header row
+		tableHeader := func(cols []col) {
+			setFill(243, 244, 246)
+			setColor(107, 114, 128)
+			setDraw(229, 231, 235)
+			f.SetFont("Helvetica", "B", 7)
+			for i, c := range cols {
+				ln := 0
+				if i == len(cols)-1 {
+					ln = 1
+				}
+				f.CellFormat(c.w, 6, c.label, "1", ln, "C", true, 0, "")
+			}
+			setColor(17, 24, 39)
+		}
+
+		// ── shared label maps ─────────────────────────────────────────────
 
 		condLabel := map[string]string{
-			"good":     "Baik",
-			"wear":     "Aus",
-			"cracked":  "Retak",
-			"leaking":  "Bocor",
-			"critical": "Kritis",
+			"good": "Baik", "wear": "Aus", "cracked": "Retak",
+			"leaking": "Bocor", "critical": "Kritis",
 		}
 		recLabel := map[string]string{
-			"no_action":        "Tidak perlu",
-			"monitor":          "Pantau",
-			"schedule_replace": "Jadwal ganti",
-			"urgent_replace":   "Ganti segera",
+			"no_action": "Tidak perlu", "monitor": "Pantau",
+			"schedule_replace": "Jdwl ganti", "urgent_replace": "Ganti segera",
 		}
 
-		setColor(17, 24, 39)
+		// ── group items by type ───────────────────────────────────────────
+
+		var hoses, cylinders, pumps []domain.InspectionItem
+		for _, it := range report.InspectionItems {
+			switch it.ItemType {
+			case "hose":
+				hoses = append(hoses, it)
+			case "cylinder":
+				cylinders = append(cylinders, it)
+			case "pump":
+				pumps = append(pumps, it)
+			}
+		}
+
+		// ── HOSE table ────────────────────────────────────────────────────
+		// No(7) | Hose(45) | Bar(12) | Fitting 1(58) | Fitting 2(58) = 180
+
+		if len(hoses) > 0 {
+			subHeader("HOSE")
+			tableHeader([]col{
+				{"No", 7}, {"Hose", 45}, {"Bar", 12},
+				{"Fitting 1", 58}, {"Fitting 2", 58},
+			})
+			for i, item := range hoses {
+				bg := i%2 == 1
+				if bg {
+					setFill(249, 250, 251)
+				} else {
+					setFill(255, 255, 255)
+				}
+				dia      := getSpec(item.Specifications, "diameter_inch")
+				pjg      := getSpec(item.Specifications, "length_m")
+				hoseCell := sanitize(item.ItemCode)
+				if dia != "-" {
+					hoseCell += " " + dia + `"`
+				}
+				if pjg != "-" {
+					hoseCell += " " + pjg + "m"
+				}
+				bar  := getSpec(item.Specifications, "pressure_bar")
+				fit1 := fmtFitting(item.Specifications, "fitting_end1")
+				fit2 := fmtFitting(item.Specifications, "fitting_end2")
+
+				f.SetFont("Helvetica", "", 7)
+				f.CellFormat(7, 5, fmt.Sprintf("%d", i+1), "1", 0, "C", bg, 0, "")
+				f.CellFormat(45, 5, sanitize(hoseCell), "1", 0, "L", bg, 0, "")
+				f.CellFormat(12, 5, bar, "1", 0, "C", bg, 0, "")
+				f.CellFormat(58, 5, sanitize(fit1), "1", 0, "L", bg, 0, "")
+				f.CellFormat(58, 5, sanitize(fit2), "1", 1, "L", bg, 0, "")
+			}
+		}
+
+		// ── CYLINDER table ────────────────────────────────────────────────
+		// No(7) | Kode(25) | Bore(20) | Stroke(20) | Bar(15) | Rod(46) | Seal(47) = 180
+
+		if len(cylinders) > 0 {
+			subHeader("CYLINDER")
+			tableHeader([]col{
+				{"No", 7}, {"Kode", 25}, {"Bore", 20}, {"Stroke", 20},
+				{"Bar", 15}, {"Kondisi Rod", 46}, {"Kondisi Seal", 47},
+			})
+			for i, item := range cylinders {
+				bg := i%2 == 1
+				if bg {
+					setFill(249, 250, 251)
+				} else {
+					setFill(255, 255, 255)
+				}
+				bore   := getSpec(item.Specifications, "bore_mm")
+				if bore != "-" {
+					bore += " mm"
+				}
+				stroke := getSpec(item.Specifications, "stroke_mm")
+				if stroke != "-" {
+					stroke += " mm"
+				}
+				bar      := getSpec(item.Specifications, "pressure_bar")
+				rodRaw   := getSpec(item.Specifications, "rod_condition")
+				sealRaw  := getSpec(item.Specifications, "seal_condition")
+				rodCond  := condLabel[rodRaw]
+				if rodCond == "" {
+					rodCond = rodRaw
+				}
+				sealCond := condLabel[sealRaw]
+				if sealCond == "" {
+					sealCond = sealRaw
+				}
+
+				f.SetFont("Helvetica", "", 7)
+				f.CellFormat(7, 5, fmt.Sprintf("%d", i+1), "1", 0, "C", bg, 0, "")
+				f.CellFormat(25, 5, sanitize(item.ItemCode), "1", 0, "L", bg, 0, "")
+				f.CellFormat(20, 5, bore, "1", 0, "C", bg, 0, "")
+				f.CellFormat(20, 5, stroke, "1", 0, "C", bg, 0, "")
+				f.CellFormat(15, 5, bar, "1", 0, "C", bg, 0, "")
+				f.CellFormat(46, 5, sanitize(rodCond), "1", 0, "C", bg, 0, "")
+				f.CellFormat(47, 5, sanitize(sealCond), "1", 1, "C", bg, 0, "")
+			}
+		}
+
+		// ── PUMP table ────────────────────────────────────────────────────
+		// No(7) | Kode(25) | Tipe(40) | Flow(20) | Bar(15) | Noise(35) | Suhu(38) = 180
+
+		if len(pumps) > 0 {
+			subHeader("PUMP")
+			tableHeader([]col{
+				{"No", 7}, {"Kode", 25}, {"Tipe Pompa", 40}, {"Flow", 20},
+				{"Bar", 15}, {"Noise", 35}, {"Suhu", 38},
+			})
+			for i, item := range pumps {
+				bg := i%2 == 1
+				if bg {
+					setFill(249, 250, 251)
+				} else {
+					setFill(255, 255, 255)
+				}
+				pumpType := getSpec(item.Specifications, "pump_type")
+				flow     := getSpec(item.Specifications, "flow_lpm")
+				if flow != "-" {
+					flow += " lpm"
+				}
+				bar   := getSpec(item.Specifications, "pressure_bar")
+				noise := getSpec(item.Specifications, "noise_level")
+				temp  := getSpec(item.Specifications, "temperature_c")
+				if temp != "-" {
+					temp += " C"
+				}
+
+				f.SetFont("Helvetica", "", 7)
+				f.CellFormat(7, 5, fmt.Sprintf("%d", i+1), "1", 0, "C", bg, 0, "")
+				f.CellFormat(25, 5, sanitize(item.ItemCode), "1", 0, "L", bg, 0, "")
+				f.CellFormat(40, 5, sanitize(pumpType), "1", 0, "L", bg, 0, "")
+				f.CellFormat(20, 5, flow, "1", 0, "C", bg, 0, "")
+				f.CellFormat(15, 5, bar, "1", 0, "C", bg, 0, "")
+				f.CellFormat(35, 5, sanitize(noise), "1", 0, "C", bg, 0, "")
+				f.CellFormat(38, 5, temp, "1", 1, "C", bg, 0, "")
+			}
+		}
+
+		// ── RINGKASAN KONDISI ─────────────────────────────────────────────
+		// No(8) | Tipe(22) | Kode(25) | Lokasi(75) | Kondisi(25) | Rek(25) = 180
+
+		subHeader("RINGKASAN KONDISI")
+		tableHeader([]col{
+			{"No", 8}, {"Tipe", 22}, {"Kode", 25}, {"Lokasi", 75},
+			{"Kondisi", 25}, {"Rekomendasi", 25},
+		})
+		typeLabel := map[string]string{
+			"hose": "Hose", "cylinder": "Cylinder", "pump": "Pump",
+		}
 		for i, item := range report.InspectionItems {
 			bg := i%2 == 1
 			if bg {
@@ -250,21 +485,25 @@ func (g *ReportGenerator) GenerateReport(report *domain.HydraulicReport, booking
 			} else {
 				setFill(255, 255, 255)
 			}
-			f.SetFont("Helvetica", "", 7)
-			f.CellFormat(8, 5, fmt.Sprintf("%d", i+1), "1", 0, "C", bg, 0, "")
-			f.CellFormat(22, 5, sanitize(item.ItemType), "1", 0, "C", bg, 0, "")
-			f.CellFormat(25, 5, sanitize(item.ItemCode), "1", 0, "C", bg, 0, "")
-			f.CellFormat(55, 5, sanitize(item.LocationDesc), "1", 0, "L", bg, 0, "")
+			tl := typeLabel[item.ItemType]
+			if tl == "" {
+				tl = item.ItemType
+			}
 			cond := condLabel[item.Condition]
 			if cond == "" {
 				cond = item.Condition
 			}
-			f.CellFormat(30, 5, sanitize(cond), "1", 0, "C", bg, 0, "")
 			rec := recLabel[item.Recommendation]
 			if rec == "" {
 				rec = item.Recommendation
 			}
-			f.CellFormat(40, 5, sanitize(rec), "1", 1, "L", bg, 0, "")
+			f.SetFont("Helvetica", "", 7)
+			f.CellFormat(8, 5, fmt.Sprintf("%d", i+1), "1", 0, "C", bg, 0, "")
+			f.CellFormat(22, 5, sanitize(tl), "1", 0, "C", bg, 0, "")
+			f.CellFormat(25, 5, sanitize(item.ItemCode), "1", 0, "L", bg, 0, "")
+			f.CellFormat(75, 5, sanitize(item.LocationDesc), "1", 0, "L", bg, 0, "")
+			f.CellFormat(25, 5, sanitize(cond), "1", 0, "C", bg, 0, "")
+			f.CellFormat(25, 5, sanitize(rec), "1", 1, "L", bg, 0, "")
 		}
 		setColor(17, 24, 39)
 	}
