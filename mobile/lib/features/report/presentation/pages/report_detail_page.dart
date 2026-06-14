@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -499,30 +500,26 @@ class _ReportDetailPageState extends State<ReportDetailPage> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            url,
+                          child: CachedNetworkImage(
+                            imageUrl: url,
                             width: 110,
                             height: 110,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorWidget: (_, __, ___) => Container(
                               width: 110,
                               height: 110,
                               color: AppTheme.background,
                               child: const Icon(Icons.broken_image_outlined,
                                   color: AppTheme.textTertiary),
                             ),
-                            loadingBuilder: (_, child, progress) =>
-                                progress == null
-                                    ? child
-                                    : Container(
-                                        width: 110,
-                                        height: 110,
-                                        color: AppTheme.background,
-                                        child: const Center(
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2),
-                                        ),
-                                      ),
+                            placeholder: (_, __) => Container(
+                              width: 110,
+                              height: 110,
+                              color: AppTheme.background,
+                              child: const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
                           ),
                         ),
                         // ikon zoom di pojok kanan bawah
