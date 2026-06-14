@@ -765,8 +765,7 @@ class _CreateReportPageState extends State<CreateReportPage> {
               const SizedBox(height: 8),
               TextFormField(
                 initialValue: item['notes'] as String,
-                onChanged: (v) =>
-                    setState(() => _maintenanceChecklist[i]['notes'] = v),
+                onChanged: (v) => _maintenanceChecklist[i]['notes'] = v,
                 decoration: const InputDecoration(
                   hintText: 'Catatan (opsional)',
                   isDense: true,

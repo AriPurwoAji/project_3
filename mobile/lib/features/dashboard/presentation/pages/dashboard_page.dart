@@ -334,41 +334,45 @@ class _DashboardPageState extends State<DashboardPage> {
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500)),
                         const SizedBox(height: 10),
-                        ..._serviceTrend.map((s) {
-                          final total = s['total'] as int;
-                          final maxTotal = (_serviceTrend
+                        Builder(builder: (_) {
+                          final maxTotal = _serviceTrend
                               .map((x) => x['total'] as int)
-                              .reduce((a, b) => a > b ? a : b));
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                              .reduce((a, b) => a > b ? a : b);
+                          return Column(
+                            children: _serviceTrend.map((s) {
+                              final total = s['total'] as int;
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(s['service_type'],
-                                        style: const TextStyle(
-                                            fontSize: 12)),
-                                    Text('$total job',
-                                        style: const TextStyle(
-                                            fontSize: 12,
-                                            color: AppTheme.textSecondary)),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(s['service_type'],
+                                            style: const TextStyle(
+                                                fontSize: 12)),
+                                        Text('$total job',
+                                            style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppTheme.textSecondary)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    LinearProgressIndicator(
+                                      value: maxTotal > 0
+                                          ? total / maxTotal
+                                          : 0,
+                                      backgroundColor: AppTheme.border,
+                                      color: AppTheme.primary,
+                                      minHeight: 6,
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                LinearProgressIndicator(
-                                  value: maxTotal > 0
-                                      ? total / maxTotal
-                                      : 0,
-                                  backgroundColor: AppTheme.border,
-                                  color: AppTheme.primary,
-                                  minHeight: 6,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ],
-                            ),
+                              );
+                            }).toList(),
                           );
                         }),
                       ],

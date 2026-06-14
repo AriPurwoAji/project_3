@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/network/api_client.dart';
@@ -28,6 +29,10 @@ class _TeamPageState extends State<TeamPage>
   final _searchSales   = TextEditingController();
   final _searchClient  = TextEditingController();
 
+  Timer? _debounceTeknisi;
+  Timer? _debounceSales;
+  Timer? _debounceClient;
+
   List<dynamic> _filter(List<dynamic> list, String q) {
     if (q.isEmpty) return list;
     final lower = q.toLowerCase();
@@ -43,16 +48,28 @@ class _TeamPageState extends State<TeamPage>
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
     _loadData();
-    _searchTeknisi.addListener(() =>
-        setState(() => _queryTeknisi = _searchTeknisi.text));
-    _searchSales.addListener(() =>
-        setState(() => _querySales = _searchSales.text));
-    _searchClient.addListener(() =>
-        setState(() => _queryClient = _searchClient.text));
+    _searchTeknisi.addListener(() {
+      _debounceTeknisi?.cancel();
+      _debounceTeknisi = Timer(const Duration(milliseconds: 400),
+          () { if (mounted) setState(() => _queryTeknisi = _searchTeknisi.text); });
+    });
+    _searchSales.addListener(() {
+      _debounceSales?.cancel();
+      _debounceSales = Timer(const Duration(milliseconds: 400),
+          () { if (mounted) setState(() => _querySales = _searchSales.text); });
+    });
+    _searchClient.addListener(() {
+      _debounceClient?.cancel();
+      _debounceClient = Timer(const Duration(milliseconds: 400),
+          () { if (mounted) setState(() => _queryClient = _searchClient.text); });
+    });
   }
 
   @override
   void dispose() {
+    _debounceTeknisi?.cancel();
+    _debounceSales?.cancel();
+    _debounceClient?.cancel();
     _tabCtrl.dispose();
     _searchTeknisi.dispose();
     _searchSales.dispose();

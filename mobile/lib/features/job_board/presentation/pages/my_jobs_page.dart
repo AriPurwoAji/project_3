@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/cache/page_cache.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/bottom_nav.dart';
@@ -16,26 +17,38 @@ class _MyJobsPageState extends State<MyJobsPage> {
   bool _loading = true;
   bool _hasData = false;
 
+  static const _cacheKey = 'my_jobs';
+
   @override
   void initState() {
     super.initState();
-    _loadData();
+    final cached = PageCache.get<List<dynamic>>(_cacheKey);
+    if (cached != null) {
+      _activeJobs = cached;
+      _loading    = false;
+      _hasData    = true;
+      _loadData(silent: true);
+    } else {
+      _loadData();
+    }
   }
 
-  Future<void> _loadData() async {
-    if (!_hasData && mounted) setState(() => _loading = true);
+  Future<void> _loadData({bool silent = false}) async {
+    if (!silent && !_hasData && mounted) setState(() => _loading = true);
     try {
       final res = await ApiClient.instance.get('/my-jobs');
       if (mounted) {
         final all = List<dynamic>.from(res.data['data'] ?? []);
+        final active = all.where((j) => j['status'] != 'done').toList();
+        PageCache.set(_cacheKey, active);
         setState(() {
-          _activeJobs = all.where((j) => j['status'] != 'done').toList();
-          _loading = false;
-          _hasData = true;
+          _activeJobs = active;
+          _loading    = false;
+          _hasData    = true;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!silent && mounted) setState(() => _loading = false);
     }
   }
 

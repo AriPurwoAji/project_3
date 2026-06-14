@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/network/api_client.dart';
@@ -16,6 +17,7 @@ class _TechnicianListPageState extends State<TechnicianListPage> {
   bool   _loading = true;
   String _query   = '';
   final _searchCtrl = TextEditingController();
+  Timer? _debounce;
 
   List<dynamic> get _filtered {
     if (_query.isEmpty) return _technicians;
@@ -30,11 +32,16 @@ class _TechnicianListPageState extends State<TechnicianListPage> {
   void initState() {
     super.initState();
     _loadData();
-    _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text));
+    _searchCtrl.addListener(() {
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 400),
+          () { if (mounted) setState(() => _query = _searchCtrl.text); });
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
