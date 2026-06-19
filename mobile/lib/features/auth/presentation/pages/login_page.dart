@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../../core/cache/page_cache.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -80,7 +81,13 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       // Setup FCM setelah login berhasil (background, tidak block navigasi)
       FCMService.setup(navigatorKey).catchError((_) {});
-      _navigateByRole(data['user']['role']);
+      _prefetchAfterLogin(
+        userRole,
+        data['user']['full_name'] as String? ?? '',
+        data['user']['company_name'] as String? ?? '',
+        data['user']['company_id'] as String? ?? '',
+      );
+      _navigateByRole(userRole);
     } on DioException catch (e) {
       setState(() {
         _loading = false;
@@ -110,6 +117,76 @@ class _LoginPageState extends State<LoginPage> {
         break;
       default:
         context.go('/login');
+    }
+  }
+
+  // Fire-and-forget: isi PageCache sebelum user sempat navigasi ke tab lain.
+  void _prefetchAfterLogin(
+      String role, String userName, String companyName, String companyId) {
+    switch (role) {
+      case AppConstants.roleTeknisi:
+        Future.wait([
+          ApiClient.instance.get('/job-board?limit=20&offset=0'),
+          ApiClient.instance.get('/my-jobs'),
+          ApiClient.instance.get('/reports/my-reports'),
+          ApiClient.instance.get('/notifications/unread-count'),
+        ]).then((r) {
+          final open    = List<dynamic>.from(r[0].data['data'] ?? []);
+          final allJobs = List<dynamic>.from(r[1].data['data'] ?? []);
+          final active  = allJobs.where((j) => j['status'] != 'done').toList();
+          final unread  = (r[3].data['data']['unread_count'] as num?)?.toInt() ?? 0;
+          PageCache.set('job_board', {
+            'open':   open,
+            'active': active,
+            'unread': unread,
+            'name':   userName,
+          });
+          PageCache.set('laporan', List<dynamic>.from(r[2].data['data'] ?? []));
+          PageCache.set('my_jobs', active);
+        }).ignore();
+
+      case AppConstants.roleClient:
+      case AppConstants.roleSales:
+        Future.wait([
+          ApiClient.instance.get('/notifications/unread-count'),
+          ApiClient.instance.get(
+              '/bookings${companyId.isNotEmpty ? '?company_id=$companyId' : ''}'),
+        ]).then((r) {
+          final unread = (r[0].data['data']['unread_count'] as num?)?.toInt() ?? 0;
+          final all    = List<dynamic>.from(r[1].data['data'] ?? []);
+          const activeStatuses = {'in_progress', 'on_the_way', 'on_site'};
+          final active = all
+              .where((b) => activeStatuses.contains(b['status'] ?? ''))
+              .toList();
+          final activeId = active.isNotEmpty ? active.first['id'] : null;
+          final recent   = all.where((b) => b['id'] != activeId).toList()
+            ..sort((a, b) => (b['updated_at'] ?? '').compareTo(a['updated_at'] ?? ''));
+          PageCache.set('home_client', {
+            'active':  active.isNotEmpty ? Map<String, dynamic>.from(active.first) : null,
+            'recent':  recent.take(3).toList(),
+            'unread':  unread,
+            'name':    userName,
+            'company': companyName,
+          });
+          PageCache.set('bookings', all.take(20).toList());
+        }).ignore();
+
+      case AppConstants.roleManager:
+        Future.wait([
+          ApiClient.instance.get('/dashboard/summary'),
+          ApiClient.instance.get('/dashboard/technician-performance'),
+          ApiClient.instance.get('/dashboard/service-trend'),
+          ApiClient.instance.get('/notifications/unread-count'),
+        ]).then((r) {
+          final unread = (r[3].data['data']['unread_count'] as num?)?.toInt() ?? 0;
+          PageCache.set('dashboard', {
+            'summary': r[0].data['data'] as Map<String, dynamic>?,
+            'tech':    List<dynamic>.from(r[1].data['data'] ?? []),
+            'trend':   List<dynamic>.from(r[2].data['data'] ?? []),
+            'unread':  unread,
+            'name':    userName,
+          });
+        }).ignore();
     }
   }
 
