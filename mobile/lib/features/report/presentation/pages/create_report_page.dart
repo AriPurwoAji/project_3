@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../../core/cache/page_cache.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -117,6 +118,8 @@ class _CreateReportPageState extends State<CreateReportPage> {
         content: Text('Laporan berhasil dikirim! Booking selesai.'),
         backgroundColor: AppTheme.secondary,
       ));
+      PageCache.remove('my_jobs');
+      PageCache.remove('laporan');
       context.go('/job-board');
     } catch (e) {
       String msg = 'Gagal mengirim laporan';
@@ -1134,7 +1137,7 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -1200,7 +1203,7 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
                     'good': 'Baik', 'wear': 'Aus', 'cracked': 'Retak',
                     'leaking': 'Bocor', 'critical': 'Kritis'
                   },
-                  (v) => setState(() => _condition = v!),
+                  (v) { _condition = v!; },
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _dropdownField2(
@@ -1210,7 +1213,7 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
                     'schedule_replace': 'Jadwal ganti',
                     'urgent_replace': 'Ganti segera'
                   },
-                  (v) => setState(() => _recommendation = v!),
+                  (v) { _recommendation = v!; },
                 )),
               ]),
               const SizedBox(height: 12),
@@ -1260,14 +1263,14 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
           ]),
           const SizedBox(height: 10),
           _fittingRow('Fitting End 1', _fit1Std, _fit1Angle, _fit1Gender,
-              (v) => setState(() => _fit1Std = v!),
-              (v) => setState(() => _fit1Angle = v!),
-              (v) => setState(() => _fit1Gender = v!)),
+              (v) { _fit1Std    = v!; },
+              (v) { _fit1Angle  = v!; },
+              (v) { _fit1Gender = v!; }),
           const SizedBox(height: 10),
           _fittingRow('Fitting End 2', _fit2Std, _fit2Angle, _fit2Gender,
-              (v) => setState(() => _fit2Std = v!),
-              (v) => setState(() => _fit2Angle = v!),
-              (v) => setState(() => _fit2Gender = v!)),
+              (v) { _fit2Std    = v!; },
+              (v) { _fit2Angle  = v!; },
+              (v) { _fit2Gender = v!; }),
           const SizedBox(height: 12),
         ],
       );
@@ -1287,11 +1290,11 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
           Row(children: [
             Expanded(child: _dropdownField2('Kondisi Rod', _cylRodCond,
                 const {'good':'Baik','wear':'Aus','cracked':'Retak','leaking':'Bocor'},
-                (v) => setState(() => _cylRodCond = v!))),
+                (v) { _cylRodCond = v!; })),
             const SizedBox(width: 10),
             Expanded(child: _dropdownField2('Kondisi Seal', _cylSealCond,
                 const {'good':'Baik','wear':'Aus','cracked':'Retak','leaking':'Bocor'},
-                (v) => setState(() => _cylSealCond = v!))),
+                (v) { _cylSealCond = v!; })),
           ]),
           const SizedBox(height: 12),
         ],

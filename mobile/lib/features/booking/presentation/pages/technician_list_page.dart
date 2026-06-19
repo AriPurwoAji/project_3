@@ -301,7 +301,7 @@ class _AddUserSheetState extends State<_AddUserSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
