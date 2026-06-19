@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -74,14 +75,12 @@ class _PhotoViewerPageState extends State<_PhotoViewerPage> {
               minScale: 0.5,
               maxScale: 4.0,
               child: Center(
-                child: Image.network(
-                  widget.photos[i],
+                child: CachedNetworkImage(
+                  imageUrl: widget.photos[i],
                   fit: BoxFit.contain,
-                  loadingBuilder: (_, child, progress) => progress == null
-                      ? child
-                      : const Center(
-                          child: CircularProgressIndicator(color: Colors.white)),
-                  errorBuilder: (_, __, ___) => const Center(
+                  placeholder: (_, __) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white)),
+                  errorWidget: (_, __, ___) => const Center(
                     child: Icon(Icons.broken_image_outlined,
                         color: Colors.white54, size: 64),
                   ),

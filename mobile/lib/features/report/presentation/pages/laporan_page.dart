@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/cache/page_cache.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/bottom_nav.dart';
@@ -18,9 +19,12 @@ class LaporanPage extends StatefulWidget {
 class _LaporanPageState extends State<LaporanPage> {
   List<dynamic> _reports    = [];
   bool          _loading    = true;
-  String        _filterType = ''; // '' = semua
+  bool          _hasData    = false;
+  String        _filterType = '';
   String        _query      = '';
   final _searchCtrl = TextEditingController();
+
+  static const _cacheKey = 'laporan';
 
   // ─── Filtered list (client-side) ─────────────────────────────────────────
 
@@ -46,7 +50,15 @@ class _LaporanPageState extends State<LaporanPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    final cached = PageCache.get<List<dynamic>>(_cacheKey);
+    if (cached != null) {
+      _reports = cached;
+      _loading = false;
+      _hasData = true;
+      _loadData(silent: true);
+    } else {
+      _loadData();
+    }
     _searchCtrl.addListener(() {
       setState(() => _query = _searchCtrl.text);
     });
@@ -58,18 +70,21 @@ class _LaporanPageState extends State<LaporanPage> {
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
+  Future<void> _loadData({bool silent = false}) async {
+    if (!silent && !_hasData && mounted) setState(() => _loading = true);
     try {
       final res = await ApiClient.instance.get('/reports/my-reports');
+      final data = List<dynamic>.from(res.data['data'] ?? []);
+      PageCache.set(_cacheKey, data);
       if (mounted) {
         setState(() {
-          _reports = res.data['data'] ?? [];
+          _reports = data;
           _loading = false;
+          _hasData = true;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!silent && mounted) setState(() => _loading = false);
     }
   }
 

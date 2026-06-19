@@ -35,16 +35,26 @@ void main() async {
   runApp(const MyApp());
 }
 
+class _BouncingScrollBehavior extends ScrollBehavior {
+  const _BouncingScrollBehavior();
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: AppConstants.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      routerConfig: appRouter,
+    return ScrollConfiguration(
+      behavior: const _BouncingScrollBehavior(),
+      child: MaterialApp.router(
+        title: AppConstants.appName,
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        routerConfig: appRouter,
+      ),
     );
   }
 }

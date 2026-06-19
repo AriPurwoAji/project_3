@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../../core/cache/page_cache.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -114,6 +115,8 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
           backgroundColor: AppTheme.secondary,
         ),
       );
+      PageCache.remove('bookings');
+      PageCache.remove('job_board');
       context.go('/bookings');
     } catch (e) {
       String errorMsg = 'Gagal membuat booking';
@@ -664,7 +667,7 @@ class _AddEquipmentSheetState extends State<_AddEquipmentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
 
     return Container(
       decoration: const BoxDecoration(

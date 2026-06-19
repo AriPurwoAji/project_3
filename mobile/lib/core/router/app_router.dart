@@ -22,7 +22,7 @@ import '../constants/app_constants.dart';
 
 const _storage = FlutterSecureStorage();
 
-/// Bungkus widget dengan fade transition 180ms.
+/// Fade transition 180ms — untuk push route (detail, create, notifikasi).
 CustomTransitionPage<void> _fade(GoRouterState state, Widget child) =>
     CustomTransitionPage<void>(
       key: state.pageKey,
@@ -34,6 +34,10 @@ CustomTransitionPage<void> _fade(GoRouterState state, Widget child) =>
         child: child,
       ),
     );
+
+/// Tanpa animasi — untuk tab route via BottomNav agar switching terasa instant.
+NoTransitionPage<void> _tab(GoRouterState state, Widget child) =>
+    NoTransitionPage<void>(key: state.pageKey, child: child);
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -58,29 +62,29 @@ final appRouter = GoRouter(
 
     // ── Manager ──────────────────────────────────────────────────────────
     GoRoute(path: '/dashboard',
-        pageBuilder: (c, s) => _fade(s, const DashboardPage())),
+        pageBuilder: (c, s) => _tab(s, const DashboardPage())),
     GoRoute(path: '/team',
-        pageBuilder: (c, s) => _fade(s, const TeamPage())),
+        pageBuilder: (c, s) => _tab(s, const TeamPage())),
     GoRoute(path: '/technicians',
         pageBuilder: (c, s) => _fade(s, const TechnicianListPage())),
 
     // ── Teknisi ──────────────────────────────────────────────────────────
     GoRoute(path: '/job-board',
-        pageBuilder: (c, s) => _fade(s, const JobBoardPage())),
+        pageBuilder: (c, s) => _tab(s, const JobBoardPage())),
     GoRoute(path: '/my-jobs',
         pageBuilder: (c, s) => _fade(s, const MyJobsPage())),
     GoRoute(path: '/laporan',
-        pageBuilder: (c, s) => _fade(s, const LaporanPage())),
+        pageBuilder: (c, s) => _tab(s, const LaporanPage())),
 
     // ── Client / Sales ───────────────────────────────────────────────────
     GoRoute(path: '/home',
-        pageBuilder: (c, s) => _fade(s, const HomeClientPage())),
+        pageBuilder: (c, s) => _tab(s, const HomeClientPage())),
     GoRoute(path: '/riwayat',
-        pageBuilder: (c, s) => _fade(s, const RiwayatPage())),
+        pageBuilder: (c, s) => _tab(s, const RiwayatPage())),
 
     // ── Shared ───────────────────────────────────────────────────────────
     GoRoute(path: '/bookings',
-        pageBuilder: (c, s) => _fade(s, const BookingListPage())),
+        pageBuilder: (c, s) => _tab(s, const BookingListPage())),
     GoRoute(path: '/booking/create',
         pageBuilder: (c, s) => _fade(s, const CreateBookingPage())),
     GoRoute(
@@ -94,14 +98,14 @@ final appRouter = GoRouter(
           CreateReportPage(booking: s.extra as Map<String, dynamic>)),
     ),
     GoRoute(path: '/notifications',
-        pageBuilder: (c, s) => _fade(s, const NotificationPage())),
+        pageBuilder: (c, s) => _tab(s, const NotificationPage())),
     GoRoute(
       path: '/report/:bookingId',
       pageBuilder: (c, s) => _fade(s,
           ReportDetailPage(bookingId: s.pathParameters['bookingId']!)),
     ),
     GoRoute(path: '/profile',
-        pageBuilder: (c, s) => _fade(s, const ProfilePage())),
+        pageBuilder: (c, s) => _tab(s, const ProfilePage())),
   ],
 );
 
