@@ -43,13 +43,17 @@ type ChangePasswordRequest struct {
 }
 
 type RegisterRequest struct {
-	FullName        string `json:"full_name"        binding:"required"`
-	Email           string `json:"email"            binding:"required,email"`
-	Password        string `json:"password"         binding:"required,min=6"`
-	Phone           string `json:"phone"`
-	CompanyName     string `json:"company_name"     binding:"required"`
-	CompanyIndustry string `json:"company_industry"`
-	CompanyCity     string `json:"company_city"     binding:"required"`
+	FullName           string `json:"full_name"           binding:"required"`
+	Email              string `json:"email"               binding:"required,email"`
+	Password           string `json:"password"            binding:"required,min=6"`
+	Phone              string `json:"phone"`
+	CompanyName        string `json:"company_name"        binding:"required"`
+	CompanyIndustry    string `json:"company_industry"`
+	CompanyProvince    string `json:"company_province"`
+	CompanyCity        string `json:"company_city"        binding:"required"`
+	CompanyKecamatan   string `json:"company_kecamatan"`
+	CompanyKelurahan   string `json:"company_kelurahan"`
+	CompanyAddress     string `json:"company_address"`
 	// set by usecase before passing to repository
 	PasswordHash string `json:"-"`
 }

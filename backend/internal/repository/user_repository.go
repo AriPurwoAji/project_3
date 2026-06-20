@@ -186,10 +186,11 @@ func (r *userRepository) Register(req domain.RegisterRequest) (*domain.User, err
 	// 1. Buat company baru
 	var companyID string
 	err = tx.QueryRow(ctx,
-		`INSERT INTO companies (name, industry, city, pic_name, pic_phone)
-		 VALUES ($1, NULLIF($2,''), NULLIF($3,''), $4, NULLIF($5,''))
+		`INSERT INTO companies (name, industry, province, city, kecamatan, kelurahan, address, pic_name, pic_phone)
+		 VALUES ($1, NULLIF($2,''), NULLIF($3,''), NULLIF($4,''), NULLIF($5,''), NULLIF($6,''), NULLIF($7,''), $8, NULLIF($9,''))
 		 RETURNING id`,
-		req.CompanyName, req.CompanyIndustry, req.CompanyCity, req.FullName, req.Phone,
+		req.CompanyName, req.CompanyIndustry, req.CompanyProvince, req.CompanyCity,
+		req.CompanyKecamatan, req.CompanyKelurahan, req.CompanyAddress, req.FullName, req.Phone,
 	).Scan(&companyID)
 	if err != nil {
 		return nil, err
