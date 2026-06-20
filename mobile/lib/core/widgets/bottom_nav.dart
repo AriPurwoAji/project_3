@@ -81,22 +81,7 @@ class _BottomNavState extends State<BottomNav> {
               selectedIcon: Icon(Icons.person),
               label: 'Profil'),
         ];
-      case AppConstants.roleSales:
-        return const [
-          NavigationDestination(
-              icon: Icon(Icons.list_alt_outlined),
-              selectedIcon: Icon(Icons.list_alt),
-              label: 'Booking'),
-          NavigationDestination(
-              icon: Icon(Icons.history_outlined),
-              selectedIcon: Icon(Icons.history),
-              label: 'Riwayat'),
-          NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Profil'),
-        ];
-      default: // client
+      default: // client (sales juga pakai layout client)
         return const [
           NavigationDestination(
               icon: Icon(Icons.home_outlined),
@@ -133,13 +118,7 @@ class _BottomNavState extends State<BottomNav> {
           case 1: context.go('/laporan');   break;
           case 2: context.go('/profile');   break;
         }
-      case AppConstants.roleSales:
-        switch (index) {
-          case 0: context.go('/bookings'); break;
-          case 1: context.go('/riwayat');  break;
-          case 2: context.go('/profile');  break;
-        }
-      default: // client
+      default: // client (sales juga pakai layout client)
         switch (index) {
           case 0: context.go('/home');     break;
           case 1: context.go('/bookings'); break;

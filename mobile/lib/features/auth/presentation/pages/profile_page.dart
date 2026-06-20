@@ -44,9 +44,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   int get _navIndex {
     switch (_role) {
-      case AppConstants.roleSales:   return 2; // Booking=0, Riwayat=1, Profil=2
       case AppConstants.roleTeknisi: return 2; // JobBoard=0, Laporan=1, Profil=2
-      default:                       return 3; // manager/client index 3
+      default:                       return 3; // manager/client: Home=0, Booking=1, Riwayat=2, Profil=3
     }
   }
 
@@ -429,19 +428,10 @@ class _ProfilePageState extends State<ProfilePage> {
   // ─── EQUIPMENT CRUD ───────────────────────────────────────────────────────
 
   void _showAddEquipmentSheet() {
-    final nameCtrl     = TextEditingController();
-    final brandCtrl    = TextEditingController();
-    final modelCtrl    = TextEditingController();
-    final serialCtrl   = TextEditingController();
-    final pressureCtrl = TextEditingController();
-    final locCtrl      = TextEditingController();
-    String type        = 'pump';
-    bool saving        = false;
-
-    const typeLabels = {
-      'pump': 'Pompa', 'hose': 'Selang',
-      'accumulator': 'Akumulator', 'cylinder': 'Silinder',
-    };
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final locCtrl  = TextEditingController();
+    bool saving    = false;
 
     showModalBottomSheet(
       context: context,
@@ -469,66 +459,26 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       _sheetField('Nama Equipment *', nameCtrl),
                       const SizedBox(height: 10),
-                      // Tipe
-                      DropdownButtonFormField<String>(
-                        initialValue: type,
-                        decoration: InputDecoration(
-                          labelText: 'Tipe Equipment',
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 14),
-                        ),
-                        items: typeLabels.entries
-                            .map((e) => DropdownMenuItem(
-                                  value: e.key,
-                                  child: Text(e.value),
-                                ))
-                            .toList(),
-                        onChanged: (v) => setSt(() => type = v!),
-                      ),
+                      _sheetField('Deskripsi *', descCtrl),
                       const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(child: _sheetField('Brand', brandCtrl)),
-                          const SizedBox(width: 10),
-                          Expanded(child: _sheetField('Model', modelCtrl)),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                              child: _sheetField('Serial Number', serialCtrl)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                              child: _sheetField('Tekanan (bar)', pressureCtrl,
-                                  keyboardType: TextInputType.number)),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      _sheetField('Lokasi Detail', locCtrl),
+                      _sheetField('Lokasi / Patokan *', locCtrl),
                       const SizedBox(height: 20),
                       ElevatedButton(
                         onPressed: saving
                             ? null
                             : () async {
-                                if (nameCtrl.text.trim().isEmpty) return;
+                                if (nameCtrl.text.trim().isEmpty ||
+                                    descCtrl.text.trim().isEmpty ||
+                                    locCtrl.text.trim().isEmpty) { return; }
                                 setSt(() => saving = true);
                                 try {
                                   await ApiClient.instance.post(
                                       '/equipment',
                                       data: {
-                                        'company_id':   _companyId,
-                                        'name':         nameCtrl.text.trim(),
-                                        'type':         type,
-                                        'brand':        brandCtrl.text.trim(),
-                                        'model':        modelCtrl.text.trim(),
-                                        'serial_number': serialCtrl.text.trim(),
-                                        'rated_pressure_bar':
-                                            int.tryParse(pressureCtrl.text) ?? 0,
-                                        'location_detail':
-                                            locCtrl.text.trim(),
+                                        'company_id':     _companyId,
+                                        'name':           nameCtrl.text.trim(),
+                                        'description':    descCtrl.text.trim(),
+                                        'location_detail': locCtrl.text.trim(),
                                       });
                                   if (ctx.mounted) Navigator.pop(ctx);
                                   _loadData();
@@ -563,12 +513,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showEditEquipmentSheet(dynamic e) {
-    final nameCtrl  = TextEditingController(text: e['name'] ?? '');
-    final brandCtrl = TextEditingController(text: e['brand'] ?? '');
-    final modelCtrl = TextEditingController(text: e['model'] ?? '');
-    final locCtrl   = TextEditingController(
-        text: e['location_detail'] ?? '');
-    bool saving     = false;
+    final nameCtrl = TextEditingController(text: e['name'] ?? '');
+    final descCtrl = TextEditingController(text: e['description'] ?? '');
+    final locCtrl  = TextEditingController(text: e['location_detail'] ?? '');
+    bool saving    = false;
 
     showModalBottomSheet(
       context: context,
@@ -592,16 +540,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       const Text('Edit Equipment',
                           style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600)),
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 16),
                       _sheetField('Nama Equipment', nameCtrl),
                       const SizedBox(height: 10),
-                      _sheetField('Brand', brandCtrl),
+                      _sheetField('Deskripsi', descCtrl),
                       const SizedBox(height: 10),
-                      _sheetField('Model', modelCtrl),
-                      const SizedBox(height: 10),
-                      _sheetField('Lokasi', locCtrl),
+                      _sheetField('Lokasi / Patokan', locCtrl),
                       const SizedBox(height: 20),
                       ElevatedButton(
                         onPressed: saving
@@ -612,13 +557,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                   await ApiClient.instance.patch(
                                       '/equipment/${e['id']}',
                                       data: {
-                                        'name':  nameCtrl.text.trim(),
-                                        'brand': brandCtrl.text.trim(),
-                                        'model': modelCtrl.text.trim(),
-                                        'location_detail':
-                                            locCtrl.text.trim(),
-                                        'type':
-                                            e['type'] ?? 'hydraulic',
+                                        'name':            nameCtrl.text.trim(),
+                                        'description':     descCtrl.text.trim(),
+                                        'location_detail': locCtrl.text.trim(),
                                       });
                                   if (ctx.mounted) Navigator.pop(ctx);
                                   _loadData();
@@ -629,18 +570,15 @@ class _ProfilePageState extends State<ProfilePage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primary,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10)),
                         ),
                         child: saving
                             ? const SizedBox(
-                                height: 18,
-                                width: 18,
+                                height: 18, width: 18,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white))
+                                    strokeWidth: 2, color: Colors.white))
                             : const Text('Simpan'),
                       ),
                     ],
@@ -1030,9 +968,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _equipmentRow(dynamic e) {
-    final name   = e['name'] ?? '-';
-    final brand  = e['brand'] ?? '';
-    final serial = e['serial_number'] ?? '';
+    final name = e['name'] ?? '-';
+    final desc = e['description'] ?? '';
+    final loc  = e['location_detail'] ?? '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1045,15 +983,25 @@ class _ProfilePageState extends State<ProfilePage> {
                 Text(name,
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w500)),
-                if (brand.isNotEmpty || serial.isNotEmpty)
-                  Text(
-                    [
-                      if (brand.isNotEmpty) brand,
-                      if (serial.isNotEmpty) serial,
-                    ].join(' · '),
-                    style: const TextStyle(
-                        fontSize: 11, color: AppTheme.textSecondary),
-                  ),
+                if (desc.isNotEmpty)
+                  Text(desc,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppTheme.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                if (loc.isNotEmpty)
+                  Row(children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 11, color: AppTheme.textTertiary),
+                    const SizedBox(width: 2),
+                    Expanded(
+                      child: Text(loc,
+                          style: const TextStyle(
+                              fontSize: 11, color: AppTheme.textTertiary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ]),
               ],
             ),
           ),

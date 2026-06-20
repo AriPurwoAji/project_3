@@ -104,7 +104,7 @@ backend/
   pkg/
     response/               # Unified JSON envelope: { success, message, data }
     validator/              # Custom validation helpers
-  migrations/               # Ordered SQL files (001–013)
+  migrations/               # Ordered SQL files (001–014)
 ```
 
 The `domain/` package defines interfaces that both `usecase/` and `repository/` depend on — never the reverse.
@@ -239,6 +239,9 @@ API_BASE_URL=https://project3-production-c96b.up.railway.app/api/v1
 - [x] **[REVISI]** Cascade dropdown lokasi registrasi: Provinsi (static 38) → Kota/Kab → Kecamatan → Desa (emsifa API) + Alamat Detail
 - [x] **[REVISI]** Dialog syarat wajib baca saat pilih Emergency di form booking (Jabodetabek, < 4 jam)
 - [x] **[REVISI]** Field Catatan/Rekomendasi di form laporan wajib diisi sebelum submit
+- [x] **[REVISI]** Akun baru pending (is_active=FALSE), manager konfirmasi via tab "Menunggu" di TeamPage
+- [x] **[REVISI]** Role `sales` disembunyikan dari UI/routes/create-user form (DB tetap intact)
+- [x] **[REVISI]** Form equipment disederhanakan ke 3 field: nama, deskripsi, lokasi/patokan
 
 ### Akan Dikerjakan
 
@@ -252,9 +255,10 @@ API_BASE_URL=https://project3-production-c96b.up.railway.app/api/v1
 Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai.
 
 ### Role & Akun
-- [ ] Sembunyikan role `sales` dari UI/routes (frontend + backend middleware) — **JANGAN hapus dari DB**
+- [x] Sembunyikan role `sales` dari UI/routes (frontend: nav, router, team page, create user form) — **TIDAK dihapus dari DB**, backend middleware tetap mendukung akun sales lama
 - [ ] Fitur lupa password — reset via email (Resend API sudah tersedia)
-- [ ] Akun baru status `pending` — hanya bisa login setelah Manager konfirmasi/aktivasi
+- [x] Akun baru status pending — `is_active=FALSE` saat register, login ditolak dengan pesan khusus
+- [x] Manager konfirmasi akun: `GET /users/pending` + `PATCH /users/:id/activate`, tab "Menunggu" di TeamPage dengan badge + tombol Aktifkan per akun, email notifikasi ke client saat diaktifkan
 
 ### Registrasi ✅ (selesai di develop_trial, belum merge ke develop)
 - [x] Semua field registrasi force-uppercase via `TextInputFormatter` (bukan hanya auto-cap kata)
@@ -265,8 +269,7 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai.
   - Lokasi ini digunakan untuk cek eligibilitas Emergency (Jabodetabek)
 
 ### Equipment
-- [ ] Form tambah equipment disederhanakan — hanya 3 field wajib: nama, deskripsi, lokasi/patokan
-- [ ] Hapus field lama yang tidak relevan dari form dan tabel DB jika ada
+- [x] Form tambah/edit equipment disederhanakan — hanya 3 field wajib: nama, deskripsi, lokasi/patokan (field lama tetap di DB, migration 014 tambah kolom `description`)
 - [ ] Satu booking support hingga 2 equipment (`equipment_ids[]` array di DB)
 - [ ] Saat teknisi claim job multi-equipment, tampilkan pilihan equipment mana yang dikerjakan dulu
 - [ ] Tambah checklist progress per equipment di halaman teknisi
@@ -298,6 +301,7 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai.
 |---|---|---|
 | 001–012 | ✅ Sudah di Supabase | — |
 | 013 | ⚠️ **Belum dijalankan** | Tambah kolom `province`, `kecamatan`, `kelurahan` ke tabel `companies` |
+| 014 | ⚠️ **Belum dijalankan** | Tambah kolom `description` ke tabel `hydraulic_equipment` |
 
 SQL migration 013 (jalankan di Supabase SQL Editor):
 ```sql
@@ -305,4 +309,10 @@ ALTER TABLE companies
     ADD COLUMN IF NOT EXISTS province   VARCHAR(100),
     ADD COLUMN IF NOT EXISTS kecamatan  VARCHAR(100),
     ADD COLUMN IF NOT EXISTS kelurahan  VARCHAR(100);
+```
+
+SQL migration 014 (jalankan di Supabase SQL Editor):
+```sql
+ALTER TABLE hydraulic_equipment
+    ADD COLUMN IF NOT EXISTS description TEXT;
 ```

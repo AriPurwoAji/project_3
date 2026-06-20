@@ -16,23 +16,19 @@ class _TeamPageState extends State<TeamPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
-  List<dynamic> _teknisi  = [];
-  List<dynamic> _sales    = [];
-  List<dynamic> _clients  = [];
-  List<dynamic> _pending  = [];
+  List<dynamic> _teknisi = [];
+  List<dynamic> _clients = [];
+  List<dynamic> _pending = [];
   bool _loading = true;
   final Set<String> _activating = {};
 
   String _queryTeknisi = '';
-  String _querySales   = '';
   String _queryClient  = '';
 
   final _searchTeknisi = TextEditingController();
-  final _searchSales   = TextEditingController();
   final _searchClient  = TextEditingController();
 
   Timer? _debounceTeknisi;
-  Timer? _debounceSales;
   Timer? _debounceClient;
 
   List<dynamic> _filter(List<dynamic> list, String q) {
@@ -48,17 +44,12 @@ class _TeamPageState extends State<TeamPage>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 4, vsync: this);
+    _tabCtrl = TabController(length: 3, vsync: this);
     _loadData();
     _searchTeknisi.addListener(() {
       _debounceTeknisi?.cancel();
       _debounceTeknisi = Timer(const Duration(milliseconds: 400),
           () { if (mounted) setState(() => _queryTeknisi = _searchTeknisi.text); });
-    });
-    _searchSales.addListener(() {
-      _debounceSales?.cancel();
-      _debounceSales = Timer(const Duration(milliseconds: 400),
-          () { if (mounted) setState(() => _querySales = _searchSales.text); });
     });
     _searchClient.addListener(() {
       _debounceClient?.cancel();
@@ -70,11 +61,9 @@ class _TeamPageState extends State<TeamPage>
   @override
   void dispose() {
     _debounceTeknisi?.cancel();
-    _debounceSales?.cancel();
     _debounceClient?.cancel();
     _tabCtrl.dispose();
     _searchTeknisi.dispose();
-    _searchSales.dispose();
     _searchClient.dispose();
     super.dispose();
   }
@@ -84,16 +73,14 @@ class _TeamPageState extends State<TeamPage>
     try {
       final results = await Future.wait([
         ApiClient.instance.get('/users/teknisi'),
-        ApiClient.instance.get('/users/sales'),
         ApiClient.instance.get('/users/client'),
         ApiClient.instance.get('/users/pending'),
       ]);
       if (mounted) {
         setState(() {
           _teknisi = results[0].data['data'] ?? [];
-          _sales   = results[1].data['data'] ?? [];
-          _clients = results[2].data['data'] ?? [];
-          _pending = results[3].data['data'] ?? [];
+          _clients = results[1].data['data'] ?? [];
+          _pending = results[2].data['data'] ?? [];
           _loading = false;
         });
       }
@@ -156,7 +143,6 @@ class _TeamPageState extends State<TeamPage>
           tabAlignment: TabAlignment.start,
           tabs: [
             Tab(text: 'Teknisi (${_teknisi.length})'),
-            Tab(text: 'Sales (${_sales.length})'),
             Tab(text: 'Client (${_clients.length})'),
             Tab(
               child: Row(
@@ -198,15 +184,6 @@ class _TeamPageState extends State<TeamPage>
                   role: 'teknisi',
                   badgeColor: AppTheme.secondary,
                   badgeBg: AppTheme.secondaryLight,
-                  onRefresh: _loadData,
-                ),
-                _buildTab(
-                  list: _filter(_sales, _querySales),
-                  ctrl: _searchSales,
-                  hint: 'Cari sales...',
-                  role: 'sales',
-                  badgeColor: AppTheme.primary,
-                  badgeBg: AppTheme.primaryLight,
                   onRefresh: _loadData,
                 ),
                 _buildTab(
@@ -589,8 +566,6 @@ class _AddUserSheetState extends State<_AddUserSheet> {
   static const _roleOptions = [
     {'key': 'teknisi', 'label': 'Teknisi',
      'desc': 'Ambil & kerjakan job'},
-    {'key': 'sales',   'label': 'Sales',
-     'desc': 'Buat booking untuk client'},
     {'key': 'client',  'label': 'Client',
      'desc': 'Pemohon servis'},
   ];

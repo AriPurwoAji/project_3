@@ -114,7 +114,7 @@ String _getHomeRoute(String role) {
     case AppConstants.roleManager:  return '/dashboard';
     case AppConstants.roleTeknisi:  return '/job-board';
     case AppConstants.roleClient:   return '/home';
-    case AppConstants.roleSales:    return '/bookings';
+    case AppConstants.roleSales:    return '/home'; // sales disembunyikan, pakai home client
     default:                        return '/login';
   }
 }
