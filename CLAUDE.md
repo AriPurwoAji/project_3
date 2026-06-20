@@ -251,48 +251,44 @@ API_BASE_URL=https://project3-production-c96b.up.railway.app/api/v1
 
 ---
 
-## Revisi Batch 1 (Masukan Dosen)
+## Rekap Revisi HydroServ (Masukan Dosen)
 
-Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai.
+Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai. Merge ke `develop` untuk deploy ke Railway.
 
 ### Role & Akun
-- [x] Sembunyikan role `sales` dari UI/routes (frontend: nav, router, team page, create user form) — **TIDAK dihapus dari DB**, backend middleware tetap mendukung akun sales lama
-- [ ] Fitur lupa password — reset via email (Resend API sudah tersedia)
-- [x] Akun baru status pending — `is_active=FALSE` saat register, login ditolak dengan pesan khusus
-- [x] Manager konfirmasi akun: `GET /users/pending` + `PATCH /users/:id/activate`, tab "Menunggu" di TeamPage dengan badge + tombol Aktifkan per akun, email notifikasi ke client saat diaktifkan
+- [x] **#1** Role `sales` disembunyikan dari seluruh UI/routes/form — **TIDAK dihapus dari DB**, backend middleware tetap mendukung akun sales lama
+- [ ] **#2** Fitur lupa password — reset via email (Resend API sudah tersedia, kerjakan paling akhir)
+- [x] **#3** Akun baru tidak langsung bisa login — status `is_active=FALSE` saat register, login ditolak dengan pesan khusus; manager konfirmasi via tab "Menunggu" di TeamPage (`GET /users/pending` + `PATCH /users/:id/activate`), email notifikasi ke client saat diaktifkan
 
-### Registrasi ✅ (selesai di develop_trial, belum merge ke develop)
-- [x] Semua field registrasi force-uppercase via `TextInputFormatter` (bukan hanya auto-cap kata)
-- [x] Dropdown industri: tambah opsi "Lainnya" yang memunculkan field teks bebas
-- [x] Cascade lokasi perusahaan: Provinsi (static) → Kota/Kabupaten → Kecamatan → Desa (emsifa API) + Alamat Detail
-  - Data disimpan ke: `company_province`, `company_city` (kota), `company_kecamatan`, `company_kelurahan`, `address`
-  - **Migration 013 harus dijalankan di Supabase** (tambah kolom `province`, `kecamatan`, `kelurahan` ke tabel `companies`)
-  - Lokasi ini digunakan untuk cek eligibilitas Emergency (Jabodetabek)
+### Registrasi ✅
+- [x] **#4** Semua field input registrasi force-uppercase via `TextInputFormatter` (kecuali email & password)
+- [x] **#5** Tambah opsi "Lainnya" di dropdown jenis industri — memunculkan field teks bebas
+- [x] **#6** Field alamat/lokasi perusahaan dipindahkan ke form registrasi: cascade Provinsi (static 38) → Kota/Kab → Kecamatan → Desa (emsifa API) + Alamat Detail; disimpan ke `company_province`, `company_city`, `company_kecamatan`, `company_kelurahan`, `address`; digunakan untuk cek eligibilitas Emergency (Jabodetabek)
+- [x] **#7** Field kota/alamat diubah menjadi dropdown bertingkat (tidak lagi teks bebas)
 
 ### Equipment
-- [x] Form tambah/edit equipment disederhanakan — hanya 3 field wajib: nama, deskripsi, lokasi/patokan (field lama tetap di DB, migration 014 tambah kolom `description`)
-- [ ] Satu booking support hingga 2 equipment (`equipment_ids[]` array di DB)
-- [ ] Saat teknisi claim job multi-equipment, tampilkan pilihan equipment mana yang dikerjakan dulu
-- [ ] Tambah checklist progress per equipment di halaman teknisi
+- [x] **#8** Form tambah/edit equipment disederhanakan — 3 field wajib: Nama Equipment, Deskripsi/keterangan mesin, Lokasi/patokan (contoh: "Ruang Produksi A")
+- [ ] **#9** Satu booking dapat memilih hingga 2 equipment sekaligus (`equipment_ids[]` array di DB)
+- [ ] **#10** Saat teknisi claim job dengan 2 equipment, tampilkan pilihan equipment mana yang dikerjakan terlebih dahulu, lalu lanjut ke berikutnya
 
-### Booking ✅ (sebagian selesai)
-- [x] Dialog syarat wajib baca & setujui saat pilih urgensi Emergency: _"Hanya Jabodetabek, tempuh < 4 jam"_ — batal = revert ke Standard
-- [ ] Satu booking bisa punya lebih dari 1 item inspeksi atau maintenance
-- [ ] Layanan `repair` hanya aktif jika ada riwayat inspeksi/maintenance yang belum dipakai:
-  - Tambah kolom `reference_booking_id` di tabel `bookings`
-  - Endpoint baru: `GET /bookings/available-references`
-  - Dropdown riwayat muncul saat Repair dipilih; setelah dipakai tidak bisa dipilih lagi
-  - Jika tidak ada riwayat → opsi Repair disabled + keterangan alasan
+### Booking
+- [x] **#11** Tambah dialog syarat wajib baca & setujui saat memilih urgensi Emergency: _"Emergency hanya untuk area Jabodetabek dengan waktu tempuh di bawah 4 jam"_ — batal = revert ke Standard
+- [ ] **#12** Satu booking bisa memiliki lebih dari 1 item Inspeksi atau Maintenance
 
-### Teknisi ✅ (sebagian selesai)
-- [ ] Halaman detail job tampilkan info booking dari client (deskripsi, foto) sebagai referensi
-- [x] Field Catatan/Rekomendasi di form submit laporan wajib diisi (tidak boleh kosong)
+### Aturan Repair (Perubahan Besar)
+- [ ] **#13** Pilihan layanan Repair hanya aktif jika client sudah memiliki riwayat booking Inspeksi/Maintenance berstatus `done` yang belum pernah dipakai sebagai referensi — tambah kolom `reference_booking_id` di tabel `bookings`, endpoint `GET /bookings/available-references`
+- [ ] **#14** Saat memilih Repair, muncul dropdown riwayat inspeksi/maintenance yang tersedia sebagai referensi
+- [ ] **#15** Riwayat yang sudah digunakan sebagai referensi tidak akan muncul lagi di pilihan berikutnya (`reference_booking_id` di-lock setelah dipakai)
+- [ ] **#16** Jika tidak ada riwayat tersedia → opsi Repair disabled disertai keterangan alasan
 
-### Penyelesaian Job (Alur Baru) ✅ (selesai)
-- [x] Setelah teknisi submit laporan → status berubah ke `waiting_confirmation` (bukan langsung `done`)
-- [x] Client menerima notifikasi untuk konfirmasi hasil kerja
-- [x] Client buka app → validasi/setujui hasil kerja (`booking_detail_page.dart` — tombol konfirmasi muncul untuk client/manager)
-- [x] Setelah client konfirmasi → status `done` (backend: `POST /bookings/:id/confirm`, role: client/manager)
+### Teknisi
+- [ ] **#17** Halaman detail job menampilkan info booking dari client (deskripsi, foto) sebagai referensi validasi
+- [ ] **#18** Tambah checklist equipment mana saja yang sudah dikerjakan (terkait #9 & #10)
+
+### Penyelesaian Job ✅
+- [x] **#19** Field Catatan/Rekomendasi di form submit laporan wajib diisi (tidak boleh kosong)
+- [x] **#20** Setelah laporan dikirim → status berubah ke `waiting_confirmation`; client menerima notifikasi FCM untuk konfirmasi/validasi hasil kerja
+- [x] **#21** Setelah client konfirmasi → status `done` (backend: `POST /bookings/:id/confirm`, role: client/manager; teknisi tidak bisa set `done` secara langsung)
 
 ---
 
