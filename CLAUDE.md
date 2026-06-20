@@ -104,7 +104,7 @@ backend/
   pkg/
     response/               # Unified JSON envelope: { success, message, data }
     validator/              # Custom validation helpers
-  migrations/               # Ordered SQL files (001–009)
+  migrations/               # Ordered SQL files (001–013)
 ```
 
 The `domain/` package defines interfaces that both `usecase/` and `repository/` depend on — never the reverse.
@@ -141,7 +141,7 @@ mobile/lib/
 | `teknisi` | `/job-board` | Claim open bookings, update status, create/view reports |
 | `client` | `/home` | Create bookings, view own bookings, konfirmasi hasil kerja teknisi |
 
-> **Catatan:** Role `sales` sudah dihapus dari sistem (keputusan dosen, revisi batch 1).
+> **Catatan:** Role `sales` **disembunyikan** dari UI dan routes (keputusan dosen), tetapi **TIDAK dihapus dari database** — sewaktu-waktu bisa diaktifkan kembali. Jangan hapus data role sales dari DB.
 
 The Go router enforces roles via `middleware.RoleMiddleware(...)` per route group. The Flutter router reads `user_role` from `FlutterSecureStorage` and redirects accordingly.
 
@@ -235,6 +235,10 @@ API_BASE_URL=https://project3-production-c96b.up.railway.app/api/v1
 - [x] Stateful BottomNav — tidak rebuild/flicker saat ganti tab
 - [x] Navigasi ke Google Maps via `geo:` URI (muncul app chooser di Android)
 - [x] pgxpool pre-warm (MinConns=2) — koneksi DB siap saat request pertama
+- [x] **[REVISI]** Semua field registrasi wajib diisi + force-uppercase (inputFormatters) + Lainnya dropdown industri
+- [x] **[REVISI]** Cascade dropdown lokasi registrasi: Provinsi (static 38) → Kota/Kab → Kecamatan → Desa (emsifa API) + Alamat Detail
+- [x] **[REVISI]** Dialog syarat wajib baca saat pilih Emergency di form booking (Jabodetabek, < 4 jam)
+- [x] **[REVISI]** Field Catatan/Rekomendasi di form laporan wajib diisi sebelum submit
 
 ### Akan Dikerjakan
 
@@ -243,20 +247,22 @@ API_BASE_URL=https://project3-production-c96b.up.railway.app/api/v1
 
 ---
 
-## Revisi Batch 1 (Masukan Dosen — belum diimplementasikan)
+## Revisi Batch 1 (Masukan Dosen)
 
-Semua poin di bawah ini **belum dikerjakan**. Kerjakan di branch `develop_trial`.
+Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai.
 
 ### Role & Akun
-- [ ] Hapus role `sales` sepenuhnya dari backend (router, middleware, DB) dan frontend
+- [ ] Sembunyikan role `sales` dari UI/routes (frontend + backend middleware) — **JANGAN hapus dari DB**
 - [ ] Fitur lupa password — reset via email (Resend API sudah tersedia)
 - [ ] Akun baru status `pending` — hanya bisa login setelah Manager konfirmasi/aktivasi
 
-### Registrasi
-- [ ] Semua field input registrasi auto-kapitalisasi (`TextCapitalization.words`), kecuali email & password
-- [ ] Dropdown jenis industri: tambah opsi "Lainnya" yang memunculkan field teks bebas
-- [ ] Field alamat/lokasi perusahaan dipindahkan dari form booking ke form registrasi
-- [ ] Field kota diubah dari teks bebas menjadi dropdown (provinsi → kota)
+### Registrasi ✅ (selesai di develop_trial, belum merge ke develop)
+- [x] Semua field registrasi force-uppercase via `TextInputFormatter` (bukan hanya auto-cap kata)
+- [x] Dropdown industri: tambah opsi "Lainnya" yang memunculkan field teks bebas
+- [x] Cascade lokasi perusahaan: Provinsi (static) → Kota/Kabupaten → Kecamatan → Desa (emsifa API) + Alamat Detail
+  - Data disimpan ke: `company_province`, `company_city` (kota), `company_kecamatan`, `company_kelurahan`, `address`
+  - **Migration 013 harus dijalankan di Supabase** (tambah kolom `province`, `kecamatan`, `kelurahan` ke tabel `companies`)
+  - Lokasi ini digunakan untuk cek eligibilitas Emergency (Jabodetabek)
 
 ### Equipment
 - [ ] Form tambah equipment disederhanakan — hanya 3 field wajib: nama, deskripsi, lokasi/patokan
@@ -265,8 +271,8 @@ Semua poin di bawah ini **belum dikerjakan**. Kerjakan di branch `develop_trial`
 - [ ] Saat teknisi claim job multi-equipment, tampilkan pilihan equipment mana yang dikerjakan dulu
 - [ ] Tambah checklist progress per equipment di halaman teknisi
 
-### Booking
-- [ ] Saat pilih urgensi Emergency, tampilkan dialog syarat wajib baca & setujui: _"Hanya Jabodetabek, tempuh < 4 jam"_
+### Booking ✅ (sebagian selesai)
+- [x] Dialog syarat wajib baca & setujui saat pilih urgensi Emergency: _"Hanya Jabodetabek, tempuh < 4 jam"_ — batal = revert ke Standard
 - [ ] Satu booking bisa punya lebih dari 1 item inspeksi atau maintenance
 - [ ] Layanan `repair` hanya aktif jika ada riwayat inspeksi/maintenance yang belum dipakai:
   - Tambah kolom `reference_booking_id` di tabel `bookings`
@@ -274,12 +280,29 @@ Semua poin di bawah ini **belum dikerjakan**. Kerjakan di branch `develop_trial`
   - Dropdown riwayat muncul saat Repair dipilih; setelah dipakai tidak bisa dipilih lagi
   - Jika tidak ada riwayat → opsi Repair disabled + keterangan alasan
 
-### Teknisi
+### Teknisi ✅ (sebagian selesai)
 - [ ] Halaman detail job tampilkan info booking dari client (deskripsi, foto) sebagai referensi
-- [ ] Field catatan/notifikasi di form submit laporan wajib diisi (tidak boleh kosong)
+- [x] Field Catatan/Rekomendasi di form submit laporan wajib diisi (tidak boleh kosong)
 
 ### Penyelesaian Job (Alur Baru)
 - [ ] Setelah teknisi submit laporan → status berubah ke `waiting_confirmation` (bukan langsung `done`)
 - [ ] Client menerima notifikasi untuk konfirmasi hasil kerja
 - [ ] Client buka app → validasi/setujui hasil kerja
 - [ ] Setelah client konfirmasi → teknisi bisa set status `done`
+
+---
+
+## Database Migrations — Status
+
+| File | Status | Keterangan |
+|---|---|---|
+| 001–012 | ✅ Sudah di Supabase | — |
+| 013 | ⚠️ **Belum dijalankan** | Tambah kolom `province`, `kecamatan`, `kelurahan` ke tabel `companies` |
+
+SQL migration 013 (jalankan di Supabase SQL Editor):
+```sql
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS province   VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS kecamatan  VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS kelurahan  VARCHAR(100);
+```
