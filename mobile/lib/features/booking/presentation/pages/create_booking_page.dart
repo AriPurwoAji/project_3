@@ -22,14 +22,17 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   final _storage = const FlutterSecureStorage();
   final _descCtrl = TextEditingController();
 
-  String _serviceType = 'repair';
+  String _serviceType = 'inspeksi';
   String _urgencyLevel = 'standard';
   String? _selectedEquipmentId;
+  String? _selectedRefId;
   String _companyId   = '';
   String _companyCity = '';
-  List<dynamic> _equipments = [];
-  bool _loading = false;
+  List<dynamic> _equipments    = [];
+  List<dynamic> _availableRefs = [];
+  bool _loading          = false;
   bool _loadingEquipment = true;
+  bool _loadingRefs      = false;
   DateTime? _scheduledAt;
 
   static const _jabodetabekKeywords = [
@@ -69,12 +72,18 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
     _companyId   = await _storage.read(key: AppConstants.companyIdKey)   ?? '';
     _companyCity = await _storage.read(key: AppConstants.companyCityKey) ?? '';
     try {
-      final url = _companyId.isNotEmpty
-          ? '/equipment?company_id=$_companyId'
-          : '/equipment';
-      final res = await ApiClient.instance.get(url);
+      final futures = <Future>[
+        ApiClient.instance.get(
+          _companyId.isNotEmpty ? '/equipment?company_id=$_companyId' : '/equipment'),
+        if (_companyId.isNotEmpty)
+          ApiClient.instance.get('/bookings/available-references?company_id=$_companyId'),
+      ];
+      final results = await Future.wait(futures);
       setState(() {
-        _equipments = res.data['data'] ?? [];
+        _equipments       = List<dynamic>.from(results[0].data['data'] ?? []);
+        _availableRefs    = _companyId.isNotEmpty
+            ? List<dynamic>.from(results[1].data['data'] ?? [])
+            : [];
         _loadingEquipment = false;
       });
     } catch (e) {
@@ -102,6 +111,15 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
       );
       return;
     }
+    if (_serviceType == 'repair' && _selectedRefId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih riwayat inspeksi/maintenance sebagai referensi repair'),
+          backgroundColor: AppTheme.danger,
+        ),
+      );
+      return;
+    }
 
     setState(() => _loading = true);
     try {
@@ -118,6 +136,8 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
         'photo_urls':    _photoUrls,
         if (_scheduledAt != null)
           'scheduled_at': _scheduledAt!.toUtc().toIso8601String(),
+        if (_serviceType == 'repair' && _selectedRefId != null)
+          'reference_booking_id': _selectedRefId,
       });
 
       if (!mounted) return;
@@ -278,10 +298,15 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: ['repair', 'inspeksi', 'maintenance']
+                      children: ['inspeksi', 'maintenance', 'repair']
                           .map((type) => _serviceChip(type))
                           .toList(),
                     ),
+                    // Dropdown referensi — hanya muncul saat repair dipilih
+                    if (_serviceType == 'repair') ...[
+                      const SizedBox(height: 12),
+                      _buildRepairReferenceSection(),
+                    ],
                     const SizedBox(height: 16),
 
                     // Equipment dropdown
@@ -595,25 +620,109 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
       );
 
   Widget _serviceChip(String type) {
-    final isSelected = _serviceType == type;
+    final isSelected  = _serviceType == type;
+    final isRepair    = type == 'repair';
+    final repairBlock = isRepair && _availableRefs.isEmpty && !_loadingRefs;
+
     return GestureDetector(
-      onTap: () => setState(() => _serviceType = type),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primary : AppTheme.surface,
-          border: Border.all(
-            color: isSelected ? AppTheme.primary : AppTheme.border,
+      onTap: repairBlock
+          ? null
+          : () => setState(() {
+                _serviceType   = type;
+                if (type != 'repair') _selectedRefId = null;
+              }),
+      child: Opacity(
+        opacity: repairBlock ? 0.45 : 1.0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primary : AppTheme.surface,
+            border: Border.all(
+              color: isSelected ? AppTheme.primary : AppTheme.border,
+            ),
+            borderRadius: BorderRadius.circular(99),
           ),
-          borderRadius: BorderRadius.circular(99),
-        ),
-        child: Text(
-          type,
-          style: TextStyle(
-              fontSize: 13,
-              color: isSelected ? Colors.white : AppTheme.textSecondary),
+          child: Text(
+            isRepair && repairBlock ? 'Repair (tidak tersedia)' : type,
+            style: TextStyle(
+                fontSize: 13,
+                color: isSelected ? Colors.white : AppTheme.textSecondary),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildRepairReferenceSection() {
+    if (_loadingRefs) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    if (_availableRefs.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.warningLight,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.warning.withValues(alpha: 0.4)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.info_outline, size: 16, color: AppTheme.warning),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Layanan Repair memerlukan riwayat Inspeksi atau Maintenance yang sudah selesai. Belum ada riwayat tersedia.',
+                style: TextStyle(fontSize: 12, color: AppTheme.warning, height: 1.4),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Riwayat referensi *',
+            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedRefId,
+          hint: const Text('Pilih riwayat inspeksi/maintenance'),
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppTheme.border),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          items: _availableRefs.map<DropdownMenuItem<String>>((ref) {
+            final label =
+                '${ref['service_type']} — ${ref['description'] ?? ''}';
+            final equip = ref['equipment_name'] as String? ?? '';
+            return DropdownMenuItem<String>(
+              value: ref['id'] as String,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13)),
+                  if (equip.isNotEmpty)
+                    Text(equip,
+                        style: const TextStyle(
+                            fontSize: 11, color: AppTheme.textSecondary)),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (val) => setState(() => _selectedRefId = val),
+        ),
+      ],
     );
   }
 }

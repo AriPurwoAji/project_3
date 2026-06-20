@@ -30,18 +30,44 @@ func (u *bookingUsecase) notify(userID string, bookingID *string, notifType, tit
 	}
 }
 
+func (u *bookingUsecase) GetAvailableReferences(companyID string) ([]domain.AvailableReference, error) {
+	return u.bookingRepo.GetAvailableReferences(companyID)
+}
+
 func (u *bookingUsecase) CreateBooking(userID, companyID string, req domain.CreateBookingRequest) (*domain.Booking, error) {
+	// Validasi repair prerequisite
+	if req.ServiceType == "repair" {
+		if req.ReferenceBookingID == nil || *req.ReferenceBookingID == "" {
+			return nil, errors.New("layanan repair memerlukan riwayat inspeksi atau maintenance yang sudah selesai sebagai referensi")
+		}
+		refs, err := u.bookingRepo.GetAvailableReferences(companyID)
+		if err != nil {
+			return nil, errors.New("gagal memverifikasi riwayat: " + err.Error())
+		}
+		found := false
+		for _, r := range refs {
+			if r.ID == *req.ReferenceBookingID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, errors.New("riwayat yang dipilih tidak tersedia atau sudah pernah digunakan sebagai referensi repair")
+		}
+	}
+
 	booking := &domain.Booking{
-		CompanyID:    companyID,
-		CreatedBy:    userID,
-		ServiceType:  req.ServiceType,
-		UrgencyLevel: req.UrgencyLevel,
-		Description:  req.Description,
-		SiteAddress:  req.SiteAddress,
-		SiteCity:     req.SiteCity,
-		Latitude:     req.Latitude,
-		Longitude:    req.Longitude,
-		PhotoURLs:    req.PhotoURLs,
+		CompanyID:          companyID,
+		CreatedBy:          userID,
+		ServiceType:        req.ServiceType,
+		UrgencyLevel:       req.UrgencyLevel,
+		Description:        req.Description,
+		SiteAddress:        req.SiteAddress,
+		SiteCity:           req.SiteCity,
+		Latitude:           req.Latitude,
+		Longitude:          req.Longitude,
+		PhotoURLs:          req.PhotoURLs,
+		ReferenceBookingID: req.ReferenceBookingID,
 	}
 
 	if req.EquipmentID != "" {

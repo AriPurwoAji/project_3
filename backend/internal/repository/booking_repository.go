@@ -24,14 +24,14 @@ func (r *bookingRepository) Create(b *domain.Booking) error {
 		INSERT INTO bookings
 			(company_id, created_by, equipment_id, service_type, urgency_level,
 			 status, description, site_address, site_city, photo_urls, scheduled_at,
-			 latitude, longitude)
-		VALUES ($1,$2,$3,$4,$5,'open',$6,$7,$8,$9,$10,$11,$12)
+			 latitude, longitude, reference_booking_id)
+		VALUES ($1,$2,$3,$4,$5,'open',$6,$7,$8,$9,$10,$11,$12,$13)
 		RETURNING id, created_at, updated_at
 	`
 	return r.db.QueryRow(context.Background(), query,
 		b.CompanyID, b.CreatedBy, b.EquipmentID, b.ServiceType, b.UrgencyLevel,
 		b.Description, b.SiteAddress, b.SiteCity, photoJSON, b.ScheduledAt,
-		b.Latitude, b.Longitude,
+		b.Latitude, b.Longitude, b.ReferenceBookingID,
 	).Scan(&b.ID, &b.CreatedAt, &b.UpdatedAt)
 }
 
@@ -46,7 +46,8 @@ func (r *bookingRepository) FindAll(filters map[string]string) ([]domain.Booking
 			   c.name as company_name,
 			   COALESCE(u.full_name, '') as technician_name,
 			   COALESCE(e.name, '') as equipment_name,
-			   COALESCE(cu.full_name, '') as created_by_name
+			   COALESCE(cu.full_name, '') as created_by_name,
+			   b.reference_booking_id
 		FROM bookings b
 		LEFT JOIN companies c ON b.company_id = c.id
 		LEFT JOIN users u ON b.technician_id = u.id
@@ -117,7 +118,8 @@ func (r *bookingRepository) FindByID(id string) (*domain.Booking, error) {
 			   c.name as company_name,
 			   COALESCE(u.full_name, '') as technician_name,
 			   COALESCE(e.name, '') as equipment_name,
-			   COALESCE(cu.full_name, '') as created_by_name
+			   COALESCE(cu.full_name, '') as created_by_name,
+			   b.reference_booking_id
 		FROM bookings b
 		LEFT JOIN companies c ON b.company_id = c.id
 		LEFT JOIN users u ON b.technician_id = u.id
@@ -255,7 +257,7 @@ func scanBookings(rows interface{ Next() bool; Scan(...interface{}) error; Err()
 	for rows.Next() {
 		var b domain.Booking
 		var photoJSON []byte
-		var techID, equipID *string
+		var techID, equipID, refBookingID *string
 		var scheduledAt, claimedAt, startedAt, completedAt *time.Time
 
 		err := rows.Scan(
@@ -266,17 +268,19 @@ func scanBookings(rows interface{ Next() bool; Scan(...interface{}) error; Err()
 			&b.CreatedAt, &b.UpdatedAt,
 			&b.Latitude, &b.Longitude,
 			&b.CompanyName, &b.TechnicianName, &b.EquipmentName, &b.CreatedByName,
+			&refBookingID,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		b.TechnicianID = techID
-		b.EquipmentID = equipID
-		b.ScheduledAt = scheduledAt
-		b.ClaimedAt = claimedAt
-		b.StartedAt = startedAt
-		b.CompletedAt = completedAt
+		b.TechnicianID       = techID
+		b.EquipmentID        = equipID
+		b.ReferenceBookingID = refBookingID
+		b.ScheduledAt        = scheduledAt
+		b.ClaimedAt          = claimedAt
+		b.StartedAt          = startedAt
+		b.CompletedAt        = completedAt
 
 		if photoJSON != nil {
 			json.Unmarshal(photoJSON, &b.PhotoURLs)
@@ -288,4 +292,42 @@ func scanBookings(rows interface{ Next() bool; Scan(...interface{}) error; Err()
 		bookings = append(bookings, b)
 	}
 	return bookings, rows.Err()
+}
+
+func (r *bookingRepository) GetAvailableReferences(companyID string) ([]domain.AvailableReference, error) {
+	query := `
+		SELECT b.id, b.service_type, b.description,
+		       COALESCE(e.name, '') as equipment_name, b.created_at
+		FROM bookings b
+		LEFT JOIN hydraulic_equipment e ON b.equipment_id = e.id
+		WHERE b.company_id = $1
+		  AND b.status = 'done'
+		  AND b.service_type IN ('inspeksi', 'maintenance')
+		  AND NOT EXISTS (
+		      SELECT 1 FROM bookings b2
+		      WHERE b2.reference_booking_id = b.id
+		        AND b2.deleted_at IS NULL
+		  )
+		  AND b.deleted_at IS NULL
+		ORDER BY b.created_at DESC
+	`
+	rows, err := r.db.Query(context.Background(), query, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var refs []domain.AvailableReference
+	for rows.Next() {
+		var ref domain.AvailableReference
+		if err := rows.Scan(&ref.ID, &ref.ServiceType, &ref.Description,
+			&ref.EquipmentName, &ref.CreatedAt); err != nil {
+			return nil, err
+		}
+		refs = append(refs, ref)
+	}
+	if refs == nil {
+		refs = []domain.AvailableReference{}
+	}
+	return refs, rows.Err()
 }

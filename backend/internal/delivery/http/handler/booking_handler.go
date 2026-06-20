@@ -151,6 +151,20 @@ func (h *BookingHandler) ConfirmJob(c *gin.Context) {
 	response.Success(c, 200, "Hasil kerja berhasil dikonfirmasi", nil)
 }
 
+func (h *BookingHandler) GetAvailableReferences(c *gin.Context) {
+	companyID := c.Query("company_id")
+	if companyID == "" {
+		response.Error(c, 400, "company_id wajib diisi")
+		return
+	}
+	refs, err := h.bookingUsecase.GetAvailableReferences(companyID)
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "OK", refs)
+}
+
 func (h *BookingHandler) AssignTechnician(c *gin.Context) {
 	bookingID := c.Param("id")
 

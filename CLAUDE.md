@@ -276,10 +276,10 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai. Merge ke `develop
 - [ ] **#12** Satu booking bisa memiliki lebih dari 1 item Inspeksi atau Maintenance
 
 ### Aturan Repair (Perubahan Besar)
-- [ ] **#13** Pilihan layanan Repair hanya aktif jika client sudah memiliki riwayat booking Inspeksi/Maintenance berstatus `done` yang belum pernah dipakai sebagai referensi — tambah kolom `reference_booking_id` di tabel `bookings`, endpoint `GET /bookings/available-references`
-- [ ] **#14** Saat memilih Repair, muncul dropdown riwayat inspeksi/maintenance yang tersedia sebagai referensi
-- [ ] **#15** Riwayat yang sudah digunakan sebagai referensi tidak akan muncul lagi di pilihan berikutnya (`reference_booking_id` di-lock setelah dipakai)
-- [ ] **#16** Jika tidak ada riwayat tersedia → opsi Repair disabled disertai keterangan alasan
+- [x] **#13** Pilihan layanan Repair hanya aktif jika client sudah memiliki riwayat booking Inspeksi/Maintenance berstatus `done` yang belum pernah dipakai sebagai referensi — kolom `reference_booking_id` di tabel `bookings` (migration 015), endpoint `GET /bookings/available-references`
+- [x] **#14** Saat memilih Repair, muncul dropdown riwayat inspeksi/maintenance yang tersedia sebagai referensi
+- [x] **#15** Riwayat yang sudah digunakan sebagai referensi tidak akan muncul lagi di pilihan berikutnya (query excludes bookings already referenced)
+- [x] **#16** Jika tidak ada riwayat tersedia → chip Repair disabled (opacity 0.45 + label "tidak tersedia") + banner keterangan alasan
 
 ### Teknisi
 - [ ] **#17** Halaman detail job menampilkan info booking dari client (deskripsi, foto) sebagai referensi validasi
@@ -299,6 +299,7 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai. Merge ke `develop
 | 001–012 | ✅ Sudah di Supabase | — |
 | 013 | ✅ Sudah di Supabase | Tambah kolom `province`, `kecamatan`, `kelurahan` ke tabel `companies` |
 | 014 | ✅ Sudah di Supabase | Tambah kolom `description` ke tabel `hydraulic_equipment` |
+| 015 | ⚠️ **Belum dijalankan** | Tambah kolom `reference_booking_id` ke tabel `bookings` |
 
 SQL migration 013 (jalankan di Supabase SQL Editor):
 ```sql
@@ -312,4 +313,10 @@ SQL migration 014 (jalankan di Supabase SQL Editor):
 ```sql
 ALTER TABLE hydraulic_equipment
     ADD COLUMN IF NOT EXISTS description TEXT;
+```
+
+SQL migration 015 (jalankan di Supabase SQL Editor):
+```sql
+ALTER TABLE bookings
+    ADD COLUMN IF NOT EXISTS reference_booking_id UUID REFERENCES bookings(id);
 ```

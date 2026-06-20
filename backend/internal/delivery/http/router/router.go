@@ -60,6 +60,7 @@ func Setup(
 			booking.POST("/:id/assign", middleware.RoleMiddleware("manager"), bookingHandler.AssignTechnician)
 			booking.PATCH("/:id/cancel",  middleware.RoleMiddleware("client", "manager"), bookingHandler.CancelBooking)
 			booking.POST("/:id/confirm", middleware.RoleMiddleware("client", "manager"), bookingHandler.ConfirmJob)
+			booking.GET("/available-references", middleware.RoleMiddleware("client"), bookingHandler.GetAvailableReferences)
 		}
 
 		// Job board & my jobs
