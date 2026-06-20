@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**HydroServ** — a hydraulic technician service booking app. Clients/sales create service bookings, technicians claim and fulfill jobs, and managers oversee operations via a dashboard. The system enforces role-based access at both the API and UI level.
+**HydroServ** — a hydraulic technician service booking app for **PT Besttoflow System** (distributor resmi Parker & mitra Moog, berdiri 2008). Clients create service bookings, technicians claim and fulfill jobs, and managers oversee operations via a dashboard. The system enforces role-based access at both the API and UI level.
 
 Tech stack: Flutter (mobile) + Go/Gin (REST API) + Supabase PostgreSQL (via pgx connection pool) + JWT auth.
 
@@ -137,10 +137,11 @@ mobile/lib/
 
 | Role | Home Route | Capabilities |
 |---|---|---|
-| `manager` | `/dashboard` | Full read, assign technician, dashboard stats |
+| `manager` | `/dashboard` | Full read, assign technician, dashboard stats, konfirmasi akun user baru |
 | `teknisi` | `/job-board` | Claim open bookings, update status, create/view reports |
-| `client` | `/bookings` | Create bookings, view own bookings |
-| `sales` | `/bookings` | Create bookings, view own bookings |
+| `client` | `/home` | Create bookings, view own bookings, konfirmasi hasil kerja teknisi |
+
+> **Catatan:** Role `sales` sudah dihapus dari sistem (keputusan dosen, revisi batch 1).
 
 The Go router enforces roles via `middleware.RoleMiddleware(...)` per route group. The Flutter router reads `user_role` from `FlutterSecureStorage` and redirects accordingly.
 
@@ -153,10 +154,15 @@ The Go router enforces roles via `middleware.RoleMiddleware(...)` per route grou
 - A teknisi *claims* an open booking (sets `technician_id`, status → `in_progress`).
 - A manager can also *assign* a technician directly.
 - Status updates are restricted to the assigned technician.
+- **[REVISI]** Sebelum teknisi bisa set status `done`, client harus konfirmasi/validasi hasil kerja terlebih dahulu.
 
 **HydraulicReport** is created once per booking (after job completion). It includes: pressure readings, oil condition, leak details, parts replaced, photos (before/after/damage), and for `inspeksi` service type, a list of `InspectionItem` records (hose / cylinder / pump with specifications as JSONB).
 
 **Fitting specs** (hose inspections) use controlled vocabularies: standard (ORFS/BSP/NPT/JIC/Metric/SAE_F61/SAE_F62), angle (straight/45/90/90_long), gender (male/female).
+
+**Equipment** — setiap equipment milik perusahaan, field wajib: nama, deskripsi, lokasi/patokan (contoh: "Ruang Produksi A"). Satu booking bisa memiliki hingga 2 equipment. Saat teknisi claim job multi-equipment, teknisi memilih equipment mana yang dikerjakan terlebih dahulu.
+
+**Repair prerequisite** — layanan `repair` hanya bisa dipilih jika client sudah memiliki riwayat booking `inspeksi` atau `maintenance` yang sudah selesai (status `done`) dan belum pernah digunakan sebagai referensi repair sebelumnya. Riwayat tersebut ditampilkan sebagai dropdown saat memilih Repair. Setelah dipakai, riwayat tersebut tidak bisa dipilih lagi (`reference_booking_id` di-lock).
 
 ---
 
@@ -232,5 +238,48 @@ API_BASE_URL=https://project3-production-c96b.up.railway.app/api/v1
 
 ### Akan Dikerjakan
 
-- [ ] Laporan skripsi — format sesuai panduan yang akan di-upload user (panduan belum diterima)
+- [ ] Laporan skripsi — format sesuai panduan Revisi Juli 2025 ITB BSG (file sudah diterima)
 - [ ] Multi-user per perusahaan — beberapa akun client dalam 1 perusahaan yang sama
+
+---
+
+## Revisi Batch 1 (Masukan Dosen — belum diimplementasikan)
+
+Semua poin di bawah ini **belum dikerjakan**. Kerjakan di branch `develop_trial`.
+
+### Role & Akun
+- [ ] Hapus role `sales` sepenuhnya dari backend (router, middleware, DB) dan frontend
+- [ ] Fitur lupa password — reset via email (Resend API sudah tersedia)
+- [ ] Akun baru status `pending` — hanya bisa login setelah Manager konfirmasi/aktivasi
+
+### Registrasi
+- [ ] Semua field input registrasi auto-kapitalisasi (`TextCapitalization.words`), kecuali email & password
+- [ ] Dropdown jenis industri: tambah opsi "Lainnya" yang memunculkan field teks bebas
+- [ ] Field alamat/lokasi perusahaan dipindahkan dari form booking ke form registrasi
+- [ ] Field kota diubah dari teks bebas menjadi dropdown (provinsi → kota)
+
+### Equipment
+- [ ] Form tambah equipment disederhanakan — hanya 3 field wajib: nama, deskripsi, lokasi/patokan
+- [ ] Hapus field lama yang tidak relevan dari form dan tabel DB jika ada
+- [ ] Satu booking support hingga 2 equipment (`equipment_ids[]` array di DB)
+- [ ] Saat teknisi claim job multi-equipment, tampilkan pilihan equipment mana yang dikerjakan dulu
+- [ ] Tambah checklist progress per equipment di halaman teknisi
+
+### Booking
+- [ ] Saat pilih urgensi Emergency, tampilkan dialog syarat wajib baca & setujui: _"Hanya Jabodetabek, tempuh < 4 jam"_
+- [ ] Satu booking bisa punya lebih dari 1 item inspeksi atau maintenance
+- [ ] Layanan `repair` hanya aktif jika ada riwayat inspeksi/maintenance yang belum dipakai:
+  - Tambah kolom `reference_booking_id` di tabel `bookings`
+  - Endpoint baru: `GET /bookings/available-references`
+  - Dropdown riwayat muncul saat Repair dipilih; setelah dipakai tidak bisa dipilih lagi
+  - Jika tidak ada riwayat → opsi Repair disabled + keterangan alasan
+
+### Teknisi
+- [ ] Halaman detail job tampilkan info booking dari client (deskripsi, foto) sebagai referensi
+- [ ] Field catatan/notifikasi di form submit laporan wajib diisi (tidak boleh kosong)
+
+### Penyelesaian Job (Alur Baru)
+- [ ] Setelah teknisi submit laporan → status berubah ke `waiting_confirmation` (bukan langsung `done`)
+- [ ] Client menerima notifikasi untuk konfirmasi hasil kerja
+- [ ] Client buka app → validasi/setujui hasil kerja
+- [ ] Setelah client konfirmasi → teknisi bisa set status `done`
