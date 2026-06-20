@@ -321,13 +321,22 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                         const SizedBox(height: 16),
                         _buildWaitingConfirmationInfo(),
                       ],
+                      // Referensi dari client — khusus teknisi saat job aktif
+                      if (_userRole == AppConstants.roleTeknisi &&
+                          const {'in_progress', 'on_the_way', 'on_site', 'waiting_confirmation'}
+                              .contains(_booking!['status'])) ...[
+                        const SizedBox(height: 16),
+                        _buildClientReferenceCard(),
+                      ],
                       if ((_booking!['technician_name'] ?? '').isNotEmpty) ...[
                         const SizedBox(height: 16),
                         _buildTechnicianCard(),
                       ],
                       const SizedBox(height: 16),
                       _buildEquipmentCard(),
-                      if ((_booking!['photo_urls'] as List?)?.isNotEmpty == true) ...[
+                      // Foto kerusakan — untuk client/manager (teknisi sudah ada di referensi card)
+                      if (_userRole != AppConstants.roleTeknisi &&
+                          (_booking!['photo_urls'] as List?)?.isNotEmpty == true) ...[
                         const SizedBox(height: 16),
                         _buildBookingPhotosCard(),
                       ],
@@ -708,6 +717,108 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                   fontWeight: FontWeight.w500),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ─── CLIENT REFERENCE CARD (teknisi only) ────────────────────────────────
+
+  Widget _buildClientReferenceCard() {
+    final b       = _booking!;
+    final desc    = (b['description'] as String? ?? '').trim();
+    final photos  = List<String>.from(b['photo_urls'] as List? ?? []);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.info_outline, size: 15, color: AppTheme.primary),
+              SizedBox(width: 6),
+              Text('Laporan masalah dari client',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          if (desc.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.background,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(desc,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textPrimary,
+                      height: 1.5)),
+            ),
+          ],
+          if (photos.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text('Foto kerusakan',
+                style: TextStyle(
+                    fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: photos.asMap().entries.map((entry) {
+                  final i   = entry.key;
+                  final url = entry.value;
+                  return GestureDetector(
+                    onTap: () =>
+                        showPhotoViewer(context, photos, initialIndex: i),
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 90,
+                          height: 90,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            image: DecorationImage(
+                                image: NetworkImage(url),
+                                fit: BoxFit.cover),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 4,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.black45,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.zoom_in,
+                                size: 13, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+          if (desc.isEmpty && photos.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('Client tidak menyertakan deskripsi atau foto.',
+                  style: TextStyle(
+                      fontSize: 12, color: AppTheme.textTertiary)),
+            ),
         ],
       ),
     );
