@@ -25,11 +25,12 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   final _storage = const FlutterSecureStorage();
   Map<String, dynamic>? _booking;
   Map<String, dynamic>? _report;
-  bool   _loading    = true;
-  String _error      = '';
-  String _userRole   = '';
-  String _userId     = '';
-  bool   _cancelling = false;
+  bool   _loading     = true;
+  String _error       = '';
+  String _userRole    = '';
+  String _userId      = '';
+  bool   _cancelling  = false;
+  bool   _confirming  = false;
 
   @override
   void initState() {
@@ -48,7 +49,9 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         _booking = booking;
         _loading = false;
       });
-      if (booking['status'] == 'done') _loadReport();
+      if (booking['status'] == 'done' || booking['status'] == 'waiting_confirmation') {
+        _loadReport();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -105,6 +108,53 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     }
   }
 
+  Future<void> _confirmJob() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Konfirmasi Hasil Kerja'),
+        content: const Text(
+            'Apakah kamu yakin hasil pekerjaan teknisi sudah sesuai dan memuaskan?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Belum'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.secondary,
+                foregroundColor: Colors.white),
+            child: const Text('Ya, Konfirmasi'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    setState(() => _confirming = true);
+    try {
+      await ApiClient.instance.post('/bookings/${widget.bookingId}/confirm');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Terima kasih! Pekerjaan dinyatakan selesai.'),
+              backgroundColor: AppTheme.secondary),
+        );
+        _loadBooking();
+      }
+    } catch (e) {
+      if (mounted) {
+        final msg = e is DioException
+            ? e.response?.data['message'] ?? 'Gagal konfirmasi'
+            : 'Gagal konfirmasi';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } finally {
+      if (mounted) setState(() => _confirming = false);
+    }
+  }
+
   Future<void> _loadReport() async {
     try {
       final res = await ApiClient.instance
@@ -148,25 +198,27 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
 
   Color _statusColor(String s) {
     switch (s) {
-      case 'open':        return AppTheme.primary;
+      case 'open':                 return AppTheme.primary;
       case 'in_progress':
-      case 'on_the_way':  return AppTheme.warning;
-      case 'on_site':     return AppTheme.primary;
-      case 'done':        return AppTheme.secondary;
-      case 'cancelled':   return AppTheme.danger;
-      default:            return AppTheme.textTertiary;
+      case 'on_the_way':           return AppTheme.warning;
+      case 'on_site':              return AppTheme.primary;
+      case 'waiting_confirmation': return AppTheme.warning;
+      case 'done':                 return AppTheme.secondary;
+      case 'cancelled':            return AppTheme.danger;
+      default:                     return AppTheme.textTertiary;
     }
   }
 
   String _statusLabel(String s) {
     switch (s) {
-      case 'open':        return 'Open';
-      case 'in_progress': return 'In Progress';
-      case 'on_the_way':  return 'On The Way';
-      case 'on_site':     return 'On Site';
-      case 'done':        return 'Selesai';
-      case 'cancelled':   return 'Dibatalkan';
-      default:            return s;
+      case 'open':                 return 'Open';
+      case 'in_progress':          return 'In Progress';
+      case 'on_the_way':           return 'On The Way';
+      case 'on_site':              return 'On Site';
+      case 'waiting_confirmation': return 'Menunggu Konfirmasi';
+      case 'done':                 return 'Selesai';
+      case 'cancelled':            return 'Dibatalkan';
+      default:                     return s;
     }
   }
 
@@ -190,15 +242,17 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
 
   // Returns index of current active step (0-based):
   // 0 = booking dibuat, 1 = teknisi ambil, 2 = proses, 3 = selesai
+  // 0=dibuat 1=teknisi ambil 2=proses 3=menunggu konfirmasi 4=selesai
   int _currentStep(String status) {
     switch (status) {
-      case 'open':        return 0;
-      case 'in_progress': return 1;
-      case 'on_the_way':  return 2;
-      case 'on_site':     return 2;
-      case 'done':        return 3;
-      case 'cancelled':   return 3;
-      default:            return 0;
+      case 'open':                 return 0;
+      case 'in_progress':          return 1;
+      case 'on_the_way':           return 2;
+      case 'on_site':              return 2;
+      case 'waiting_confirmation': return 3;
+      case 'done':                 return 4;
+      case 'cancelled':            return 4;
+      default:                     return 0;
     }
   }
 
@@ -253,6 +307,19 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                               _booking!['created_by'] == _userId)) ...[
                         const SizedBox(height: 12),
                         _buildCancelButton(),
+                      ],
+                      // Tombol konfirmasi untuk client / manager
+                      if (_booking!['status'] == 'waiting_confirmation' &&
+                          (_userRole == AppConstants.roleClient ||
+                              _userRole == AppConstants.roleManager)) ...[
+                        const SizedBox(height: 16),
+                        _buildConfirmButton(),
+                      ],
+                      // Info menunggu konfirmasi untuk teknisi
+                      if (_booking!['status'] == 'waiting_confirmation' &&
+                          _userRole == AppConstants.roleTeknisi) ...[
+                        const SizedBox(height: 16),
+                        _buildWaitingConfirmationInfo(),
                       ],
                       if ((_booking!['technician_name'] ?? '').isNotEmpty) ...[
                         const SizedBox(height: 16),
@@ -402,13 +469,12 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     final b      = _booking!;
     final status = b['status'] ?? '';
     final step   = _currentStep(status);
-    final isDone = status == 'done';
+    final isDone      = status == 'done';
     final isCancelled = status == 'cancelled';
+    final isWaiting   = status == 'waiting_confirmation';
 
-    final techName = (b['technician_name'] ?? '').toString();
-    final techShort = techName.isNotEmpty
-        ? techName.split(' ').first
-        : '';
+    final techName  = (b['technician_name'] ?? '').toString();
+    final techShort = techName.isNotEmpty ? techName.split(' ').first : '';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -421,8 +487,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Tracking status',
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w600)),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           _timelineStep(
             completed: true,
@@ -441,7 +506,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
             isLast: false,
           ),
           _timelineStep(
-            completed: step >= 2,
+            completed: step >= 3,
             active: step == 2,
             label: step == 2 ? _activeStepLabel(status) : 'Proses pengerjaan',
             time: step >= 2 ? _formatDateTime(b['started_at']) : '',
@@ -450,9 +515,20 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
           ),
           _timelineStep(
             completed: isDone,
+            active: isWaiting,
+            label: 'Menunggu konfirmasi client',
+            time: (isWaiting || isDone)
+                ? _formatDateTime(b['completed_at'])
+                : '',
+            isLast: false,
+            pending: step < 3 && !isCancelled,
+            activeColor: AppTheme.warning,
+          ),
+          _timelineStep(
+            completed: isDone,
             active: isCancelled,
             label: isCancelled ? 'Dibatalkan' : 'Selesai',
-            time: isDone ? _formatDateTime(b['completed_at']) : '',
+            time: isDone ? _formatDateTime(b['updated_at']) : '',
             isLast: true,
             pending: !isDone && !isCancelled,
             activeColor: isCancelled ? AppTheme.danger : AppTheme.secondary,
@@ -549,6 +625,91 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
           ),
         ),
       ],
+    );
+  }
+
+  // ─── CONFIRM BUTTON (client/manager) ─────────────────────────────────────
+
+  Widget _buildConfirmButton() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.secondaryLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.assignment_turned_in_outlined,
+                  size: 16, color: AppTheme.secondary),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Teknisi telah menyelesaikan pekerjaan dan mengajukan laporan.',
+                  style: TextStyle(fontSize: 13, color: AppTheme.secondary,
+                      fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Silakan periksa laporan di bawah, lalu konfirmasi hasilnya.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: _confirming ? null : _confirmJob,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.secondary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: _confirming
+                ? const SizedBox(
+                    height: 16, width: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.check_circle_outline, size: 18),
+            label: Text(
+              _confirming ? 'Memproses...' : 'Konfirmasi Hasil Kerja',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── WAITING INFO (teknisi) ───────────────────────────────────────────────
+
+  Widget _buildWaitingConfirmationInfo() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.warningLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.hourglass_top_outlined,
+              size: 18, color: AppTheme.warning),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Laporan sudah terkirim. Menunggu konfirmasi dari client untuk menyelesaikan job ini.',
+              style: TextStyle(fontSize: 13, color: AppTheme.warning,
+                  fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

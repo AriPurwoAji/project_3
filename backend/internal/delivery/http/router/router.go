@@ -58,7 +58,8 @@ func Setup(
 			booking.POST("/:id/claim", middleware.RoleMiddleware("teknisi"), bookingHandler.ClaimBooking)
 			booking.PATCH("/:id/status", middleware.RoleMiddleware("teknisi"), bookingHandler.UpdateStatus)
 			booking.POST("/:id/assign", middleware.RoleMiddleware("manager"), bookingHandler.AssignTechnician)
-			booking.PATCH("/:id/cancel", middleware.RoleMiddleware("client", "manager"), bookingHandler.CancelBooking)
+			booking.PATCH("/:id/cancel",  middleware.RoleMiddleware("client", "manager"), bookingHandler.CancelBooking)
+			booking.POST("/:id/confirm", middleware.RoleMiddleware("client", "manager"), bookingHandler.ConfirmJob)
 		}
 
 		// Job board & my jobs

@@ -93,25 +93,25 @@ func (u *reportUsecase) CreateReport(bookingID, technicianID string, req domain.
 		report.InspectionItems = items
 	}
 
-	// Update booking status jadi done
-	u.bookingRepo.UpdateStatus(bookingID, technicianID, "done")
+	// Update booking status jadi waiting_confirmation (client perlu konfirmasi dulu)
+	u.bookingRepo.UpdateStatus(bookingID, technicianID, "waiting_confirmation")
 
-	// Notify client that work is complete
+	// Notify client untuk konfirmasi hasil kerja
 	if err := u.notifRepo.Create(&domain.Notification{
 		UserID:    booking.CreatedBy,
 		BookingID: &bookingID,
 		Type:      "job_done",
-		Title:     "Pekerjaan selesai",
-		Body:      fmt.Sprintf("Laporan servis %s telah dibuat. Silakan cek detail dan unduh PDF.", booking.EquipmentName),
+		Title:     "Harap konfirmasi hasil kerja",
+		Body:      fmt.Sprintf("Teknisi telah menyelesaikan pekerjaan dan mengajukan laporan. Buka app untuk konfirmasi hasilnya."),
 		Payload:   map[string]interface{}{},
 	}); err != nil {
-		log.Printf("[notify] gagal buat notif laporan selesai userID=%s: %v", booking.CreatedBy, err)
+		log.Printf("[notify] gagal buat notif waiting_confirmation userID=%s: %v", booking.CreatedBy, err)
 	}
 
-	// Notify all managers that a report was submitted
+	// Notify manager bahwa laporan sudah masuk dan menunggu konfirmasi
 	u.notifRepo.BroadcastToRole("manager", &bookingID, "job_done", //nolint
-		"Laporan servis masuk",
-		fmt.Sprintf("Teknisi %s telah menyelesaikan pekerjaan di %s.", booking.TechnicianName, booking.SiteCity))
+		"Laporan servis menunggu konfirmasi",
+		fmt.Sprintf("Teknisi %s telah submit laporan di %s. Menunggu konfirmasi client.", booking.TechnicianName, booking.SiteCity))
 
 
 	// Generate PDF (best-effort; does not fail the report creation)

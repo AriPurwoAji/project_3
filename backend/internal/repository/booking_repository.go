@@ -171,12 +171,12 @@ func (r *bookingRepository) UpdateStatus(bookingID, technicianID, status string)
 	switch status {
 	case "on_site":
 		timeField = ", started_at = NOW()"
-	case "done":
+	case "waiting_confirmation":
 		timeField = ", completed_at = NOW()"
 	}
 
 	query := `
-		UPDATE bookings 
+		UPDATE bookings
 		SET status = $1, updated_at = NOW()` + timeField + `
 		WHERE id = $2 AND technician_id = $3 AND deleted_at IS NULL
 	`
@@ -186,6 +186,23 @@ func (r *bookingRepository) UpdateStatus(bookingID, technicianID, status string)
 	}
 
 	r.logStatus(bookingID, technicianID, "", status)
+	return nil
+}
+
+func (r *bookingRepository) ConfirmJob(bookingID, userID string) error {
+	query := `
+		UPDATE bookings
+		SET status = 'done', updated_at = NOW()
+		WHERE id = $1 AND status = 'waiting_confirmation' AND deleted_at IS NULL
+	`
+	result, err := r.db.Exec(context.Background(), query, bookingID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return errors.New("booking tidak dapat dikonfirmasi (status bukan waiting_confirmation atau tidak ditemukan)")
+	}
+	r.logStatus(bookingID, userID, "waiting_confirmation", "done")
 	return nil
 }
 

@@ -170,7 +170,8 @@ class _BookingListPageState extends State<BookingListPage> {
       case 'open': return AppTheme.primary;
       case 'in_progress':
       case 'on_the_way':
-      case 'on_site': return AppTheme.warning;
+      case 'on_site':
+      case 'waiting_confirmation': return AppTheme.warning;
       case 'done': return AppTheme.secondary;
       case 'cancelled': return AppTheme.textTertiary;
       default: return AppTheme.textTertiary;
@@ -179,13 +180,14 @@ class _BookingListPageState extends State<BookingListPage> {
 
   String _statusLabel(String status) {
     switch (status) {
-      case 'open': return 'Open';
-      case 'in_progress': return 'In Progress';
-      case 'on_the_way': return 'On The Way';
-      case 'on_site': return 'On Site';
-      case 'done': return 'Selesai';
-      case 'cancelled': return 'Dibatalkan';
-      default: return status;
+      case 'open':                 return 'Open';
+      case 'in_progress':          return 'In Progress';
+      case 'on_the_way':           return 'On The Way';
+      case 'on_site':              return 'On Site';
+      case 'waiting_confirmation': return 'Menunggu Konfirmasi';
+      case 'done':                 return 'Selesai';
+      case 'cancelled':            return 'Dibatalkan';
+      default:                     return status;
     }
   }
 
@@ -275,6 +277,7 @@ class _BookingListPageState extends State<BookingListPage> {
                 _filterChip('In Progress', 'in_progress'),
                 _filterChip('On The Way', 'on_the_way'),
                 _filterChip('On Site', 'on_site'),
+                _filterChip('Menunggu Konfirmasi', 'waiting_confirmation'),
                 _filterChip('Selesai', 'done'),
                 _filterChip('Batal', 'cancelled'),
               ],

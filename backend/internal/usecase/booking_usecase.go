@@ -146,6 +146,32 @@ func (u *bookingUsecase) UpdateStatus(bookingID, technicianID, status string) er
 	return nil
 }
 
+func (u *bookingUsecase) ConfirmJob(bookingID, userID, role string) error {
+	booking, err := u.bookingRepo.FindByID(bookingID)
+	if err != nil {
+		return errors.New("booking tidak ditemukan")
+	}
+	if booking.Status != "waiting_confirmation" {
+		return errors.New("booking belum dalam status menunggu konfirmasi")
+	}
+	if role != "manager" && booking.CreatedBy != userID {
+		return errors.New("kamu tidak berhak mengonfirmasi booking ini")
+	}
+	if err := u.bookingRepo.ConfirmJob(bookingID, userID); err != nil {
+		return err
+	}
+	// Notifikasi ke teknisi bahwa client sudah konfirmasi
+	if booking.TechnicianID != nil {
+		u.notify(*booking.TechnicianID, &bookingID, "job_done",
+			"Pekerjaan dikonfirmasi client ✅",
+			"Client telah mengonfirmasi penyelesaian job "+booking.ServiceType+" di "+booking.SiteCity+". Job selesai!")
+	}
+	u.notify(booking.CreatedBy, &bookingID, "job_done",
+		"Konfirmasi berhasil ✅",
+		"Terima kasih! Hasil kerja teknisi telah kamu konfirmasi. Job dinyatakan selesai.")
+	return nil
+}
+
 func (u *bookingUsecase) CancelBooking(bookingID, userID, role string) error {
 	booking, err := u.bookingRepo.FindByID(bookingID)
 	if err != nil {

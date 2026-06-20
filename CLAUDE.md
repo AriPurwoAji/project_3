@@ -149,7 +149,7 @@ The Go router enforces roles via `middleware.RoleMiddleware(...)` per route grou
 
 ## Key Domain Concepts
 
-**Booking status flow**: `open → in_progress → on_the_way → on_site → done` (or `cancelled`)
+**Booking status flow**: `open → in_progress → on_the_way → on_site → waiting_confirmation → done` (or `cancelled`)
 
 - A teknisi *claims* an open booking (sets `technician_id`, status → `in_progress`).
 - A manager can also *assign* a technician directly.
@@ -242,6 +242,7 @@ API_BASE_URL=https://project3-production-c96b.up.railway.app/api/v1
 - [x] **[REVISI]** Akun baru pending (is_active=FALSE), manager konfirmasi via tab "Menunggu" di TeamPage
 - [x] **[REVISI]** Role `sales` disembunyikan dari UI/routes/create-user form (DB tetap intact)
 - [x] **[REVISI]** Form equipment disederhanakan ke 3 field: nama, deskripsi, lokasi/patokan
+- [x] **[REVISI]** Penyelesaian job alur baru: laporan submit → `waiting_confirmation` → client konfirmasi → `done` (endpoint `POST /bookings/:id/confirm`, notifikasi FCM ke client & teknisi)
 
 ### Akan Dikerjakan
 
@@ -287,11 +288,11 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai.
 - [ ] Halaman detail job tampilkan info booking dari client (deskripsi, foto) sebagai referensi
 - [x] Field Catatan/Rekomendasi di form submit laporan wajib diisi (tidak boleh kosong)
 
-### Penyelesaian Job (Alur Baru)
-- [ ] Setelah teknisi submit laporan → status berubah ke `waiting_confirmation` (bukan langsung `done`)
-- [ ] Client menerima notifikasi untuk konfirmasi hasil kerja
-- [ ] Client buka app → validasi/setujui hasil kerja
-- [ ] Setelah client konfirmasi → teknisi bisa set status `done`
+### Penyelesaian Job (Alur Baru) ✅ (selesai)
+- [x] Setelah teknisi submit laporan → status berubah ke `waiting_confirmation` (bukan langsung `done`)
+- [x] Client menerima notifikasi untuk konfirmasi hasil kerja
+- [x] Client buka app → validasi/setujui hasil kerja (`booking_detail_page.dart` — tombol konfirmasi muncul untuk client/manager)
+- [x] Setelah client konfirmasi → status `done` (backend: `POST /bookings/:id/confirm`, role: client/manager)
 
 ---
 
@@ -300,8 +301,8 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai.
 | File | Status | Keterangan |
 |---|---|---|
 | 001–012 | ✅ Sudah di Supabase | — |
-| 013 | ⚠️ **Belum dijalankan** | Tambah kolom `province`, `kecamatan`, `kelurahan` ke tabel `companies` |
-| 014 | ⚠️ **Belum dijalankan** | Tambah kolom `description` ke tabel `hydraulic_equipment` |
+| 013 | ✅ Sudah di Supabase | Tambah kolom `province`, `kecamatan`, `kelurahan` ke tabel `companies` |
+| 014 | ✅ Sudah di Supabase | Tambah kolom `description` ke tabel `hydraulic_equipment` |
 
 SQL migration 013 (jalankan di Supabase SQL Editor):
 ```sql

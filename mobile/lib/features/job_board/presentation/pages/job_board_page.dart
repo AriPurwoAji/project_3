@@ -113,7 +113,7 @@ class _JobBoardPageState extends State<JobBoardPage>
       if (mounted) {
         final open   = List<dynamic>.from(results[0].data['data'] ?? []);
         final all    = List<dynamic>.from(results[1].data['data'] ?? []);
-        final active = all.where((j) => j['status'] != 'done').toList();
+        final active = all.where((j) => j['status'] != 'done' && j['status'] != 'cancelled').toList();
         final unread = (results[2].data['data']['unread_count'] as num?)?.toInt() ?? 0;
 
         PageCache.set('job_board', {
@@ -246,27 +246,30 @@ class _JobBoardPageState extends State<JobBoardPage>
   Color _statusColor(String s) {
     switch (s) {
       case 'in_progress':
-      case 'on_the_way':  return AppTheme.warning;
-      case 'on_site':     return AppTheme.primary;
-      default:            return AppTheme.textTertiary;
+      case 'on_the_way':
+      case 'waiting_confirmation': return AppTheme.warning;
+      case 'on_site':              return AppTheme.primary;
+      default:                     return AppTheme.textTertiary;
     }
   }
 
   String _statusLabel(String s) {
     switch (s) {
-      case 'in_progress': return 'In Progress';
-      case 'on_the_way':  return 'On The Way';
-      case 'on_site':     return 'On Site';
-      default:            return s;
+      case 'in_progress':          return 'In Progress';
+      case 'on_the_way':           return 'On The Way';
+      case 'on_site':              return 'On Site';
+      case 'waiting_confirmation': return 'Menunggu Konfirmasi';
+      default:                     return s;
     }
   }
 
   String _nextStatusLabel(String s) {
     switch (s) {
-      case 'in_progress': return 'Berangkat';
-      case 'on_the_way':  return 'Tiba di Lokasi';
-      case 'on_site':     return 'Submit Laporan';
-      default:            return 'Update';
+      case 'in_progress':          return 'Berangkat';
+      case 'on_the_way':           return 'Tiba di Lokasi';
+      case 'on_site':              return 'Submit Laporan';
+      case 'waiting_confirmation': return 'Menunggu Konfirmasi Client';
+      default:                     return 'Update';
     }
   }
 
@@ -699,11 +702,15 @@ class _JobBoardPageState extends State<JobBoardPage>
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _updateStatus(job),
+                    onPressed: status == 'waiting_confirmation'
+                        ? null
+                        : () => _updateStatus(job),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: status == 'on_site'
                           ? AppTheme.secondary
-                          : AppTheme.primary,
+                          : status == 'waiting_confirmation'
+                              ? AppTheme.textTertiary
+                              : AppTheme.primary,
                       minimumSize: const Size(0, 38),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),

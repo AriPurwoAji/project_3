@@ -32,7 +32,7 @@ class AppConstants {
 
   // Booking status
   static const List<String> bookingStatuses = [
-    'open', 'in_progress', 'on_the_way', 'on_site', 'done', 'cancelled'
+    'open', 'in_progress', 'on_the_way', 'on_site', 'waiting_confirmation', 'done', 'cancelled'
   ];
 
   // Item types inspeksi

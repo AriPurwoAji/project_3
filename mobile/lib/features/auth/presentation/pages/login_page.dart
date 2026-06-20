@@ -133,7 +133,7 @@ class _LoginPageState extends State<LoginPage> {
         ]).then((r) {
           final open    = List<dynamic>.from(r[0].data['data'] ?? []);
           final allJobs = List<dynamic>.from(r[1].data['data'] ?? []);
-          final active  = allJobs.where((j) => j['status'] != 'done').toList();
+          final active  = allJobs.where((j) => j['status'] != 'done' && j['status'] != 'cancelled').toList();
           final unread  = (r[3].data['data']['unread_count'] as num?)?.toInt() ?? 0;
           PageCache.set('job_board', {
             'open':   open,
@@ -154,7 +154,7 @@ class _LoginPageState extends State<LoginPage> {
         ]).then((r) {
           final unread = (r[0].data['data']['unread_count'] as num?)?.toInt() ?? 0;
           final all    = List<dynamic>.from(r[1].data['data'] ?? []);
-          const activeStatuses = {'in_progress', 'on_the_way', 'on_site'};
+          const activeStatuses = {'in_progress', 'on_the_way', 'on_site', 'waiting_confirmation'};
           final active = all
               .where((b) => activeStatuses.contains(b['status'] ?? ''))
               .toList();

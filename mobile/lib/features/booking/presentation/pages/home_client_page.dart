@@ -60,7 +60,7 @@ class _HomeClientPageState extends State<HomeClientPage> {
       final unread = (results[0].data['data']['unread_count'] as num?)?.toInt() ?? 0;
       final all    = List<dynamic>.from(results[1].data['data'] ?? []);
 
-      const activeStatuses = {'in_progress', 'on_the_way', 'on_site'};
+      const activeStatuses = {'in_progress', 'on_the_way', 'on_site', 'waiting_confirmation'};
       final active = all
           .where((b) => activeStatuses.contains(b['status'] ?? ''))
           .toList();
@@ -105,22 +105,24 @@ class _HomeClientPageState extends State<HomeClientPage> {
   Color _statusColor(String s) {
     switch (s) {
       case 'in_progress':
-      case 'on_the_way':  return AppTheme.warning;
-      case 'on_site':     return AppTheme.primary;
-      case 'done':        return AppTheme.secondary;
-      default:            return AppTheme.textTertiary;
+      case 'on_the_way':          return AppTheme.warning;
+      case 'on_site':             return AppTheme.primary;
+      case 'waiting_confirmation': return AppTheme.warning;
+      case 'done':                return AppTheme.secondary;
+      default:                    return AppTheme.textTertiary;
     }
   }
 
   String _statusLabel(String s) {
     switch (s) {
-      case 'open':        return 'Open';
-      case 'in_progress': return 'In Progress';
-      case 'on_the_way':  return 'On The Way';
-      case 'on_site':     return 'On Site';
-      case 'done':        return 'Selesai';
-      case 'cancelled':   return 'Dibatalkan';
-      default:            return s;
+      case 'open':                 return 'Open';
+      case 'in_progress':          return 'In Progress';
+      case 'on_the_way':           return 'On The Way';
+      case 'on_site':              return 'On Site';
+      case 'waiting_confirmation': return 'Menunggu Konfirmasi';
+      case 'done':                 return 'Selesai';
+      case 'cancelled':            return 'Dibatalkan';
+      default:                     return s;
     }
   }
 

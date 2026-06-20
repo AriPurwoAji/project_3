@@ -47,8 +47,10 @@ type CreateBookingRequest struct {
 	ScheduledAt  *string  `json:"scheduled_at"`
 }
 
+// Teknisi hanya bisa update ke on_the_way / on_site / cancelled.
+// Status done hanya bisa dicapai via ConfirmJob oleh client/manager.
 type UpdateStatusRequest struct {
-	Status string `json:"status" binding:"required,oneof=on_the_way on_site done cancelled"`
+	Status string `json:"status" binding:"required,oneof=on_the_way on_site cancelled"`
 }
 
 type BookingRepository interface {
@@ -61,6 +63,7 @@ type BookingRepository interface {
 	UpdateStatus(bookingID, technicianID, status string) error
 	AssignTechnician(bookingID, technicianID string) error
 	CancelBooking(bookingID string) error
+	ConfirmJob(bookingID, userID string) error
 }
 
 type BookingUsecase interface {
@@ -73,4 +76,5 @@ type BookingUsecase interface {
 	UpdateStatus(bookingID, technicianID, status string) error
 	AssignTechnician(bookingID, technicianID string) error
 	CancelBooking(bookingID, userID, role string) error
+	ConfirmJob(bookingID, userID, role string) error
 }
