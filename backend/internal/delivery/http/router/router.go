@@ -101,10 +101,12 @@ func Setup(
 		// Users
 		users := protected.Group("/users")
 		{
-			users.GET("/teknisi", middleware.RoleMiddleware("manager"), authHandler.GetTechnicians)
-			users.GET("/sales",   middleware.RoleMiddleware("manager"), authHandler.GetSales)
-			users.GET("/client",  middleware.RoleMiddleware("manager"), authHandler.GetClients)
-			users.POST("",        middleware.RoleMiddleware("manager"), authHandler.CreateUser)
+			users.GET("/teknisi",      middleware.RoleMiddleware("manager"), authHandler.GetTechnicians)
+			users.GET("/sales",        middleware.RoleMiddleware("manager"), authHandler.GetSales)
+			users.GET("/client",       middleware.RoleMiddleware("manager"), authHandler.GetClients)
+			users.GET("/pending",      middleware.RoleMiddleware("manager"), authHandler.GetPendingUsers)
+			users.PATCH("/:id/activate", middleware.RoleMiddleware("manager"), authHandler.ActivateUser)
+			users.POST("",             middleware.RoleMiddleware("manager"), authHandler.CreateUser)
 		}
 
 		// Dashboard — manager only

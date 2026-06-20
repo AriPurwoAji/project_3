@@ -28,7 +28,7 @@ func (r *userRepository) FindByEmail(email string) (*domain.User, string, error)
 		       COALESCE(c.city, '')            AS company_city
 		FROM users u
 		LEFT JOIN companies c ON u.company_id = c.id
-		WHERE u.email = $1 AND u.deleted_at IS NULL AND u.is_active = TRUE
+		WHERE u.email = $1 AND u.deleted_at IS NULL
 	`
 	var user domain.User
 	var passwordHash string
@@ -196,11 +196,11 @@ func (r *userRepository) Register(req domain.RegisterRequest) (*domain.User, err
 		return nil, err
 	}
 
-	// 2. Buat user dengan role client
+	// 2. Buat user dengan role client — is_active=false, butuh konfirmasi manager
 	var user domain.User
 	err = tx.QueryRow(ctx,
-		`INSERT INTO users (email, password_hash, full_name, phone, role, company_id)
-		 VALUES ($1, $2, $3, NULLIF($4,''), 'client', $5)
+		`INSERT INTO users (email, password_hash, full_name, phone, role, company_id, is_active)
+		 VALUES ($1, $2, $3, NULLIF($4,''), 'client', $5, FALSE)
 		 RETURNING id, email, full_name, role, is_active, created_at, updated_at`,
 		req.Email, req.PasswordHash, req.FullName, req.Phone, companyID,
 	).Scan(
@@ -299,6 +299,62 @@ func (r *userRepository) SaveVerificationToken(userID, token string) error {
 		VALUES ($1, $2, NOW() + INTERVAL '24 hours')
 	`, userID, token)
 	return err
+}
+
+func (r *userRepository) GetPendingUsers() ([]domain.User, error) {
+	query := `
+		SELECT u.id, u.email, u.full_name, u.phone, u.role,
+		       u.is_active, u.email_verified_at, u.created_at,
+		       COALESCE(u.company_id::text, '') AS company_id,
+		       COALESCE(c.name, '')             AS company_name,
+		       COALESCE(c.city, '')             AS company_city
+		FROM users u
+		LEFT JOIN companies c ON u.company_id = c.id
+		WHERE u.role = 'client' AND u.is_active = FALSE AND u.deleted_at IS NULL
+		ORDER BY u.created_at DESC
+	`
+	rows, err := r.db.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []domain.User
+	for rows.Next() {
+		var u domain.User
+		var phone *string
+		if err := rows.Scan(
+			&u.ID, &u.Email, &u.FullName,
+			&phone, &u.Role,
+			&u.IsActive, &u.EmailVerifiedAt, &u.CreatedAt,
+			&u.CompanyID, &u.CompanyName, &u.CompanyCity,
+		); err != nil {
+			return nil, err
+		}
+		if phone != nil {
+			u.Phone = *phone
+		}
+		users = append(users, u)
+	}
+	if users == nil {
+		users = []domain.User{}
+	}
+	return users, rows.Err()
+}
+
+func (r *userRepository) ActivateUser(userID string) error {
+	tag, err := r.db.Exec(context.Background(),
+		`UPDATE users SET is_active = TRUE, updated_at = NOW()
+		 WHERE id = $1 AND is_active = FALSE AND deleted_at IS NULL`,
+		userID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errors.New("user tidak ditemukan atau sudah aktif")
+	}
+	return nil
 }
 
 func (r *userRepository) VerifyEmailToken(token string) error {

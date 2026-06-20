@@ -91,6 +91,9 @@ type UserRepository interface {
 	// Email verification
 	SaveVerificationToken(userID, token string) error
 	VerifyEmailToken(token string) error
+	// Pending account management
+	GetPendingUsers() ([]User, error)
+	ActivateUser(userID string) error
 }
 
 type RefreshRequest struct {
@@ -110,6 +113,8 @@ type AuthUsecase interface {
 	CreateUser(req CreateUserRequest) (*User, error)
 	UpdateFCMToken(userID, token string) error
 	VerifyEmail(token string) error
+	GetPendingUsers() ([]User, error)
+	ActivateUser(userID string) error
 }
 
 // EmailSender abstraksi pengiriman email

@@ -263,32 +263,44 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 8),
 
                       if (_error != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppTheme.dangerLight,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: AppTheme.danger,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _error!,
-                                  style: const TextStyle(
-                                    color: AppTheme.danger,
-                                    fontSize: 13,
+                        Builder(builder: (_) {
+                          final isPending = _error!.contains('menunggu konfirmasi');
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isPending
+                                  ? AppTheme.warningLight
+                                  : AppTheme.dangerLight,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  isPending
+                                      ? Icons.hourglass_top_outlined
+                                      : Icons.error_outline,
+                                  color: isPending
+                                      ? AppTheme.warning
+                                      : AppTheme.danger,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _error!,
+                                    style: TextStyle(
+                                      color: isPending
+                                          ? AppTheme.warning
+                                          : AppTheme.danger,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
+                              ],
+                            ),
+                          );
+                        }),
                         const SizedBox(height: 16),
                       ],
 

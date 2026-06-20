@@ -145,6 +145,24 @@ func (h *AuthHandler) GetTechnicians(c *gin.Context) {
 	response.Success(c, 200, "Success", users)
 }
 
+func (h *AuthHandler) GetPendingUsers(c *gin.Context) {
+	users, err := h.authUsecase.GetPendingUsers()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "Success", users)
+}
+
+func (h *AuthHandler) ActivateUser(c *gin.Context) {
+	userID := c.Param("id")
+	if err := h.authUsecase.ActivateUser(userID); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Akun berhasil diaktifkan", nil)
+}
+
 // RefreshToken menukar refresh token dengan access token baru.
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var req domain.RefreshRequest

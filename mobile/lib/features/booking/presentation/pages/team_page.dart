@@ -16,10 +16,12 @@ class _TeamPageState extends State<TeamPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
-  List<dynamic> _teknisi = [];
-  List<dynamic> _sales   = [];
-  List<dynamic> _clients = [];
+  List<dynamic> _teknisi  = [];
+  List<dynamic> _sales    = [];
+  List<dynamic> _clients  = [];
+  List<dynamic> _pending  = [];
   bool _loading = true;
+  final Set<String> _activating = {};
 
   String _queryTeknisi = '';
   String _querySales   = '';
@@ -46,7 +48,7 @@ class _TeamPageState extends State<TeamPage>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
     _loadData();
     _searchTeknisi.addListener(() {
       _debounceTeknisi?.cancel();
@@ -84,17 +86,40 @@ class _TeamPageState extends State<TeamPage>
         ApiClient.instance.get('/users/teknisi'),
         ApiClient.instance.get('/users/sales'),
         ApiClient.instance.get('/users/client'),
+        ApiClient.instance.get('/users/pending'),
       ]);
       if (mounted) {
         setState(() {
           _teknisi = results[0].data['data'] ?? [];
           _sales   = results[1].data['data'] ?? [];
           _clients = results[2].data['data'] ?? [];
+          _pending = results[3].data['data'] ?? [];
           _loading = false;
         });
       }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _activateUser(String userId) async {
+    setState(() => _activating.add(userId));
+    try {
+      await ApiClient.instance.patch('/users/$userId/activate');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Akun berhasil diaktifkan! Email notifikasi terkirim.'),
+        backgroundColor: AppTheme.secondary,
+      ));
+      _loadData();
+    } catch (e) {
+      String msg = 'Gagal mengaktifkan akun';
+      if (e is DioException) msg = e.response?.data['message'] ?? msg;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppTheme.danger));
+    } finally {
+      if (mounted) setState(() => _activating.remove(userId));
     }
   }
 
@@ -127,10 +152,36 @@ class _TeamPageState extends State<TeamPage>
           labelColor: AppTheme.primary,
           unselectedLabelColor: AppTheme.textSecondary,
           indicatorColor: AppTheme.primary,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: [
             Tab(text: 'Teknisi (${_teknisi.length})'),
             Tab(text: 'Sales (${_sales.length})'),
             Tab(text: 'Client (${_clients.length})'),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Menunggu'),
+                  if (_pending.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warning,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text('${_pending.length}',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -168,8 +219,163 @@ class _TeamPageState extends State<TeamPage>
                   onRefresh: _loadData,
                   showCompany: true,
                 ),
+                _buildPendingTab(),
               ],
             ),
+    );
+  }
+
+  Widget _buildPendingTab() {
+    if (_pending.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadData,
+        child: ListView(
+          children: const [
+            SizedBox(height: 120),
+            Center(
+              child: Column(
+                children: [
+                  Icon(Icons.check_circle_outline,
+                      size: 48, color: AppTheme.secondary),
+                  SizedBox(height: 12),
+                  Text('Tidak ada akun yang menunggu konfirmasi',
+                      style: TextStyle(color: AppTheme.textSecondary)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _pending.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, i) {
+          final u           = _pending[i];
+          final userId      = u['id'] as String? ?? '';
+          final name        = u['full_name'] ?? '-';
+          final email       = u['email']     ?? '';
+          final phone       = u['phone']     ?? '';
+          final company     = u['company_name'] ?? '';
+          final city        = u['company_city'] ?? '';
+          final initial     = name.isNotEmpty ? name[0].toUpperCase() : '?';
+          final isActivating = _activating.contains(userId);
+
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.warningLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: AppTheme.warning.withValues(alpha: 0.4), width: 1),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor:
+                      AppTheme.warning.withValues(alpha: 0.15),
+                  child: Text(initial,
+                      style: const TextStyle(
+                          color: AppTheme.warning,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      if (company.isNotEmpty)
+                        Row(children: [
+                          const Icon(Icons.business_outlined,
+                              size: 12, color: AppTheme.textTertiary),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(company,
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ]),
+                      if (city.isNotEmpty)
+                        Row(children: [
+                          const Icon(Icons.location_on_outlined,
+                              size: 12, color: AppTheme.textTertiary),
+                          const SizedBox(width: 4),
+                          Text(city,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondary)),
+                        ]),
+                      if (email.isNotEmpty)
+                        Row(children: [
+                          const Icon(Icons.email_outlined,
+                              size: 12, color: AppTheme.textTertiary),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(email,
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ]),
+                      if (phone.isNotEmpty)
+                        Row(children: [
+                          const Icon(Icons.phone_outlined,
+                              size: 12, color: AppTheme.textTertiary),
+                          const SizedBox(width: 4),
+                          Text(phone,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondary)),
+                        ]),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: isActivating
+                              ? null
+                              : () => _activateUser(userId),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.secondary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: isActivating
+                              ? const SizedBox(
+                                  height: 14,
+                                  width: 14,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.check_circle_outline,
+                                  size: 16),
+                          label: Text(
+                              isActivating ? 'Mengaktifkan...' : 'Aktifkan Akun',
+                              style: const TextStyle(fontSize: 13)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
