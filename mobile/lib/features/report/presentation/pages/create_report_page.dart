@@ -285,12 +285,15 @@ class _CreateReportPageState extends State<CreateReportPage> {
               v == null || v.isEmpty ? 'Deskripsi wajib diisi' : null,
         ),
         const SizedBox(height: 12),
-        _label('Rekomendasi tindak lanjut'),
+        _label('Catatan / Rekomendasi *'),
         TextFormField(
           controller: _recsCtrl,
           maxLines: 2,
           decoration: const InputDecoration(
-              hintText: 'Masukkan rekomendasi (opsional)'),
+              hintText: 'Tuliskan catatan atau rekomendasi tindak lanjut...'),
+          validator: (v) => v == null || v.trim().isEmpty
+              ? 'Catatan/rekomendasi wajib diisi'
+              : null,
         ),
       ],
     );

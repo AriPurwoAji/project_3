@@ -424,6 +424,72 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
     );
   }
 
+  Future<bool> _showEmergencyDialog() async {
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: AppTheme.danger, size: 24),
+                SizedBox(width: 8),
+                Text('Syarat Emergency',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerLight,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: AppTheme.danger.withValues(alpha: 0.3)),
+                  ),
+                  child: const Text(
+                    'Emergency hanya tersedia untuk area Jabodetabek dengan estimasi waktu tempuh di bawah 4 jam.',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.danger,
+                        height: 1.5),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Apakah lokasi site Anda berada di area Jabodetabek?',
+                  style: TextStyle(
+                      fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Batal',
+                    style: TextStyle(color: AppTheme.textSecondary)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.danger,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Ya, Saya Mengerti'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   Widget _urgencyCard(
       String value, String label, String sub, IconData icon) {
     final isSelected = _urgencyLevel == value;
@@ -432,10 +498,16 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
     final bgColor = isEmergency ? AppTheme.dangerLight : AppTheme.primaryLight;
 
     return GestureDetector(
-      onTap: () => setState(() {
-        _urgencyLevel = value;
-        if (value == 'emergency') _scheduledAt = null;
-      }),
+      onTap: () async {
+        if (value == 'emergency' && _urgencyLevel != 'emergency') {
+          final confirmed = await _showEmergencyDialog();
+          if (!confirmed || !mounted) return;
+        }
+        setState(() {
+          _urgencyLevel = value;
+          if (value == 'emergency') _scheduledAt = null;
+        });
+      },
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(

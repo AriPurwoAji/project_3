@@ -11,14 +11,15 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final _formKey       = GlobalKey<FormState>();
-  final _nameCtrl      = TextEditingController();
-  final _emailCtrl     = TextEditingController();
-  final _passCtrl      = TextEditingController();
-  final _confirmCtrl   = TextEditingController();
-  final _phoneCtrl     = TextEditingController();
-  final _companyCtrl   = TextEditingController();
-  final _cityCtrl      = TextEditingController();
+  final _formKey             = GlobalKey<FormState>();
+  final _nameCtrl            = TextEditingController();
+  final _emailCtrl           = TextEditingController();
+  final _passCtrl            = TextEditingController();
+  final _confirmCtrl         = TextEditingController();
+  final _phoneCtrl           = TextEditingController();
+  final _companyCtrl         = TextEditingController();
+  final _cityCtrl            = TextEditingController();
+  final _industryOtherCtrl   = TextEditingController();
 
   String  _industry    = '';
   bool    _loading     = false;
@@ -39,6 +40,11 @@ class _RegisterPageState extends State<RegisterPage> {
     'Lainnya',
   ];
 
+  bool get _isOther => _industry == 'Lainnya';
+
+  String get _industryValue =>
+      _isOther ? _industryOtherCtrl.text.trim() : _industry;
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -48,6 +54,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _phoneCtrl.dispose();
     _companyCtrl.dispose();
     _cityCtrl.dispose();
+    _industryOtherCtrl.dispose();
     super.dispose();
   }
 
@@ -61,7 +68,7 @@ class _RegisterPageState extends State<RegisterPage> {
         'password':          _passCtrl.text,
         'phone':             _phoneCtrl.text.trim(),
         'company_name':      _companyCtrl.text.trim(),
-        'company_industry':  _industry,
+        'company_industry':  _industryValue,
         'company_city':      _cityCtrl.text.trim(),
       });
       if (!mounted) return;
@@ -137,8 +144,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             color: AppTheme.dangerLight,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                                color:
-                                    AppTheme.danger.withValues(alpha: 0.3)),
+                                color: AppTheme.danger.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
@@ -148,8 +154,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               Expanded(
                                 child: Text(_error!,
                                     style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.danger)),
+                                        fontSize: 13, color: AppTheme.danger)),
                               ),
                             ],
                           ),
@@ -164,8 +169,9 @@ class _RegisterPageState extends State<RegisterPage> {
                       _label('Nama Lengkap *'),
                       _field(
                         ctrl: _nameCtrl,
-                        hint: 'Contoh: Budi Santoso',
+                        hint: 'Contoh: BUDI SANTOSO',
                         icon: Icons.person_outline,
+                        capitalization: TextCapitalization.words,
                         validator: (v) => (v == null || v.trim().isEmpty)
                             ? 'Nama wajib diisi'
                             : null,
@@ -178,6 +184,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         hint: 'nama@perusahaan.com',
                         icon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
+                        capitalization: TextCapitalization.none,
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
                             return 'Email wajib diisi';
@@ -190,12 +197,16 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                       const SizedBox(height: 14),
 
-                      _label('No. HP (opsional)'),
+                      _label('No. HP *'),
                       _field(
                         ctrl: _phoneCtrl,
                         hint: '08xxxxxxxxxx',
                         icon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
+                        capitalization: TextCapitalization.none,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'No. HP wajib diisi'
+                            : null,
                       ),
                       const SizedBox(height: 14),
 
@@ -232,15 +243,16 @@ class _RegisterPageState extends State<RegisterPage> {
                       _label('Nama Perusahaan *'),
                       _field(
                         ctrl: _companyCtrl,
-                        hint: 'Contoh: PT Maju Jaya',
+                        hint: 'Contoh: PT MAJU JAYA',
                         icon: Icons.business_outlined,
+                        capitalization: TextCapitalization.words,
                         validator: (v) => (v == null || v.trim().isEmpty)
                             ? 'Nama perusahaan wajib diisi'
                             : null,
                       ),
                       const SizedBox(height: 14),
 
-                      _label('Industri'),
+                      _label('Industri *'),
                       DropdownButtonFormField<String>(
                         initialValue: _industry.isEmpty ? null : _industry,
                         hint: const Text('Pilih industri'),
@@ -269,16 +281,34 @@ class _RegisterPageState extends State<RegisterPage> {
                                       style: const TextStyle(fontSize: 14)),
                                 ))
                             .toList(),
+                        validator: (v) => (v == null || v.isEmpty)
+                            ? 'Industri wajib dipilih'
+                            : null,
                         onChanged: (v) =>
                             setState(() => _industry = v ?? ''),
                       ),
+
+                      // Field teks muncul hanya saat pilih "Lainnya"
+                      if (_isOther) ...[
+                        const SizedBox(height: 10),
+                        _field(
+                          ctrl: _industryOtherCtrl,
+                          hint: 'Tuliskan jenis industri',
+                          icon: Icons.edit_outlined,
+                          capitalization: TextCapitalization.words,
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Jenis industri wajib diisi'
+                              : null,
+                        ),
+                      ],
                       const SizedBox(height: 14),
 
                       _label('Kota / Kabupaten *'),
                       _field(
                         ctrl: _cityCtrl,
-                        hint: 'Contoh: Surabaya',
+                        hint: 'Contoh: SURABAYA',
                         icon: Icons.location_city_outlined,
+                        capitalization: TextCapitalization.words,
                         validator: (v) => (v == null || v.trim().isEmpty)
                             ? 'Kota wajib diisi'
                             : null,
@@ -363,11 +393,13 @@ class _RegisterPageState extends State<RegisterPage> {
     required String hint,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
+    TextCapitalization capitalization = TextCapitalization.none,
     String? Function(String?)? validator,
   }) =>
       TextFormField(
         controller: ctrl,
         keyboardType: keyboardType,
+        textCapitalization: capitalization,
         decoration: InputDecoration(
           hintText: hint,
           prefixIcon: Icon(icon, size: 18, color: AppTheme.textTertiary),
