@@ -25,11 +25,22 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   String _serviceType = 'repair';
   String _urgencyLevel = 'standard';
   String? _selectedEquipmentId;
-  String _companyId = '';
+  String _companyId   = '';
+  String _companyCity = '';
   List<dynamic> _equipments = [];
   bool _loading = false;
   bool _loadingEquipment = true;
   DateTime? _scheduledAt;
+
+  static const _jabodetabekKeywords = [
+    'JAKARTA', 'BOGOR', 'DEPOK', 'TANGERANG', 'BEKASI',
+  ];
+
+  bool get _isJabodetabek {
+    if (_companyCity.isEmpty) return true; // default allow jika belum tahu
+    final city = _companyCity.toUpperCase();
+    return _jabodetabekKeywords.any((k) => city.contains(k));
+  }
 
   // Lokasi
   String   _address   = '';
@@ -55,7 +66,8 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   }
 
   Future<void> _loadData() async {
-    _companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
+    _companyId   = await _storage.read(key: AppConstants.companyIdKey)   ?? '';
+    _companyCity = await _storage.read(key: AppConstants.companyCityKey) ?? '';
     try {
       final url = _companyId.isNotEmpty
           ? '/equipment?company_id=$_companyId'
@@ -424,114 +436,54 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
     );
   }
 
-  Future<bool> _showEmergencyDialog() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
-              children: [
-                Icon(Icons.warning_amber_rounded,
-                    color: AppTheme.danger, size: 24),
-                SizedBox(width: 8),
-                Text('Syarat Emergency',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-              ],
+  Widget _urgencyCard(
+      String value, String label, String sub, IconData icon) {
+    final isEmergency = value == 'emergency';
+    final disabled    = isEmergency && !_isJabodetabek;
+    final isSelected  = _urgencyLevel == value;
+    final color       = isEmergency ? AppTheme.danger : AppTheme.primary;
+    final bgColor     = isEmergency ? AppTheme.dangerLight : AppTheme.primaryLight;
+
+    return GestureDetector(
+      onTap: disabled
+          ? null
+          : () {
+              setState(() {
+                _urgencyLevel = value;
+                if (value == 'emergency') _scheduledAt = null;
+              });
+            },
+      child: Opacity(
+        opacity: disabled ? 0.4 : 1.0,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSelected ? bgColor : AppTheme.surface,
+            border: Border.all(
+              color: isSelected ? color : AppTheme.border,
+              width: isSelected ? 1.5 : 0.5,
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.dangerLight,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: AppTheme.danger.withValues(alpha: 0.3)),
-                  ),
-                  child: const Text(
-                    'Emergency hanya tersedia untuk area Jabodetabek dengan estimasi waktu tempuh di bawah 4 jam.',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.danger,
-                        height: 1.5),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Apakah lokasi site Anda berada di area Jabodetabek?',
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: isSelected ? color : AppTheme.textTertiary),
+              const SizedBox(height: 4),
+              Text(label,
                   style: TextStyle(
-                      fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Batal',
-                    style: TextStyle(color: AppTheme.textSecondary)),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.danger,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('Ya, Saya Mengerti'),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected ? color : AppTheme.textSecondary)),
+              Text(
+                disabled ? 'Hanya Jabodetabek' : sub,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: disabled
+                        ? AppTheme.textTertiary
+                        : isSelected ? color : AppTheme.textTertiary),
               ),
             ],
           ),
-        ) ??
-        false;
-  }
-
-  Widget _urgencyCard(
-      String value, String label, String sub, IconData icon) {
-    final isSelected = _urgencyLevel == value;
-    final isEmergency = value == 'emergency';
-    final color = isEmergency ? AppTheme.danger : AppTheme.primary;
-    final bgColor = isEmergency ? AppTheme.dangerLight : AppTheme.primaryLight;
-
-    return GestureDetector(
-      onTap: () async {
-        if (value == 'emergency' && _urgencyLevel != 'emergency') {
-          final confirmed = await _showEmergencyDialog();
-          if (!confirmed || !mounted) return;
-        }
-        setState(() {
-          _urgencyLevel = value;
-          if (value == 'emergency') _scheduledAt = null;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? bgColor : AppTheme.surface,
-          border: Border.all(
-            color: isSelected ? color : AppTheme.border,
-            width: isSelected ? 1.5 : 0.5,
-          ),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: isSelected ? color : AppTheme.textTertiary),
-            const SizedBox(height: 4),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: isSelected ? color : AppTheme.textSecondary)),
-            Text(sub,
-                style: TextStyle(
-                    fontSize: 11,
-                    color: isSelected ? color : AppTheme.textTertiary)),
-          ],
         ),
       ),
     );

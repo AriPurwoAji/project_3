@@ -78,6 +78,10 @@ class _LoginPageState extends State<LoginPage> {
         key: AppConstants.companyNameKey,
         value: data['user']['company_name'] ?? '',
       );
+      await _storage.write(
+        key: AppConstants.companyCityKey,
+        value: data['user']['company_city'] ?? '',
+      );
       if (!mounted) return;
       // Setup FCM setelah login berhasil (background, tidak block navigasi)
       FCMService.setup(navigatorKey).catchError((_) {});
