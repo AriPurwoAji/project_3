@@ -268,12 +268,12 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai. Merge ke `develop
 
 ### Equipment
 - [x] **#8** Form tambah/edit equipment disederhanakan — 3 field wajib: Nama Equipment, Deskripsi/keterangan mesin, Lokasi/patokan (contoh: "Ruang Produksi A")
-- [ ] **#9** Satu booking dapat memilih hingga 2 equipment sekaligus (`equipment_ids[]` array di DB)
-- [ ] **#10** Saat teknisi claim job dengan 2 equipment, tampilkan pilihan equipment mana yang dikerjakan terlebih dahulu, lalu lanjut ke berikutnya
+- [x] **#9** Satu booking dapat memilih hingga 2 equipment sekaligus (`equipment_id_2` kolom di tabel `bookings`, migration 016)
+- [x] **#10** Saat teknisi claim job dengan 2 equipment, tampilkan bottom sheet pilihan equipment mana yang dikerjakan terlebih dahulu (`work_equipment_id` disimpan saat claim)
 
 ### Booking
 - [x] **#11** Tambah dialog syarat wajib baca & setujui saat memilih urgensi Emergency: _"Emergency hanya untuk area Jabodetabek dengan waktu tempuh di bawah 4 jam"_ — batal = revert ke Standard
-- [ ] **#12** Satu booking bisa memiliki lebih dari 1 item Inspeksi atau Maintenance
+- [x] **#12** Satu booking bisa memiliki lebih dari 1 item Inspeksi atau Maintenance
 
 ### Aturan Repair (Perubahan Besar)
 - [x] **#13** Pilihan layanan Repair hanya aktif jika client sudah memiliki riwayat booking Inspeksi/Maintenance berstatus `done` yang belum pernah dipakai sebagai referensi — kolom `reference_booking_id` di tabel `bookings` (migration 015), endpoint `GET /bookings/available-references`
@@ -282,8 +282,8 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai. Merge ke `develop
 - [x] **#16** Jika tidak ada riwayat tersedia → chip Repair disabled (opacity 0.45 + label "tidak tersedia") + banner keterangan alasan
 
 ### Teknisi
-- [ ] **#17** Halaman detail job menampilkan info booking dari client (deskripsi, foto) sebagai referensi validasi
-- [ ] **#18** Tambah checklist equipment mana saja yang sudah dikerjakan (terkait #9 & #10)
+- [x] **#17** Halaman detail job menampilkan info booking dari client (deskripsi, foto) sebagai referensi validasi
+- [x] **#18** Tambah checklist equipment mana saja yang sudah dikerjakan (terkait #9 & #10)
 
 ### Penyelesaian Job ✅
 - [x] **#19** Field Catatan/Rekomendasi di form submit laporan wajib diisi (tidak boleh kosong)
@@ -299,7 +299,10 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai. Merge ke `develop
 | 001–012 | ✅ Sudah di Supabase | — |
 | 013 | ✅ Sudah di Supabase | Tambah kolom `province`, `kecamatan`, `kelurahan` ke tabel `companies` |
 | 014 | ✅ Sudah di Supabase | Tambah kolom `description` ke tabel `hydraulic_equipment` |
-| 015 | ⚠️ **Belum dijalankan** | Tambah kolom `reference_booking_id` ke tabel `bookings` |
+| 015 | ✅ Sudah di Supabase | Tambah kolom `reference_booking_id` ke tabel `bookings` |
+| 016 | ✅ Sudah di Supabase | Tambah kolom `equipment_id_2` + `work_equipment_id` ke tabel `bookings` |
+| 017 | ⚠️ **Belum dijalankan** | Tambah kolom `done_equipment_ids` ke tabel `bookings` |
+| 018 | ⚠️ **Belum dijalankan** | Buat tabel `booking_items` — sub-item/checklist per booking |
 
 SQL migration 013 (jalankan di Supabase SQL Editor):
 ```sql
@@ -319,4 +322,30 @@ SQL migration 015 (jalankan di Supabase SQL Editor):
 ```sql
 ALTER TABLE bookings
     ADD COLUMN IF NOT EXISTS reference_booking_id UUID REFERENCES bookings(id);
+```
+
+SQL migration 016 (jalankan di Supabase SQL Editor):
+```sql
+ALTER TABLE bookings
+    ADD COLUMN IF NOT EXISTS equipment_id_2   UUID REFERENCES hydraulic_equipment(id),
+    ADD COLUMN IF NOT EXISTS work_equipment_id UUID REFERENCES hydraulic_equipment(id);
+```
+
+SQL migration 017 (jalankan di Supabase SQL Editor):
+```sql
+ALTER TABLE bookings
+    ADD COLUMN IF NOT EXISTS done_equipment_ids UUID[] DEFAULT ARRAY[]::UUID[];
+```
+
+SQL migration 018 (jalankan di Supabase SQL Editor):
+```sql
+CREATE TABLE IF NOT EXISTS booking_items (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    booking_id  UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    is_done     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_booking_items_booking_id ON booking_items(booking_id);
 ```
