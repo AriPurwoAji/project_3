@@ -22,14 +22,14 @@ func (r *bookingRepository) Create(b *domain.Booking) error {
 	photoJSON, _ := json.Marshal(b.PhotoURLs)
 	query := `
 		INSERT INTO bookings
-			(company_id, created_by, equipment_id, service_type, urgency_level,
+			(company_id, created_by, equipment_id, equipment_id_2, service_type, urgency_level,
 			 status, description, site_address, site_city, photo_urls, scheduled_at,
 			 latitude, longitude, reference_booking_id)
-		VALUES ($1,$2,$3,$4,$5,'open',$6,$7,$8,$9,$10,$11,$12,$13)
+		VALUES ($1,$2,$3,$4,$5,$6,'open',$7,$8,$9,$10,$11,$12,$13,$14)
 		RETURNING id, created_at, updated_at
 	`
 	return r.db.QueryRow(context.Background(), query,
-		b.CompanyID, b.CreatedBy, b.EquipmentID, b.ServiceType, b.UrgencyLevel,
+		b.CompanyID, b.CreatedBy, b.EquipmentID, b.EquipmentID2, b.ServiceType, b.UrgencyLevel,
 		b.Description, b.SiteAddress, b.SiteCity, photoJSON, b.ScheduledAt,
 		b.Latitude, b.Longitude, b.ReferenceBookingID,
 	).Scan(&b.ID, &b.CreatedAt, &b.UpdatedAt)
@@ -47,11 +47,17 @@ func (r *bookingRepository) FindAll(filters map[string]string) ([]domain.Booking
 			   COALESCE(u.full_name, '') as technician_name,
 			   COALESCE(e.name, '') as equipment_name,
 			   COALESCE(cu.full_name, '') as created_by_name,
-			   b.reference_booking_id
+			   b.reference_booking_id,
+			   b.equipment_id_2, b.work_equipment_id,
+			   COALESCE(e2.name, '') as equipment_name_2,
+			   COALESCE(ew.name, '') as work_equipment_name,
+			   COALESCE(b.done_equipment_ids, ARRAY[]::UUID[]) as done_equipment_ids
 		FROM bookings b
 		LEFT JOIN companies c ON b.company_id = c.id
 		LEFT JOIN users u ON b.technician_id = u.id
 		LEFT JOIN hydraulic_equipment e ON b.equipment_id = e.id
+		LEFT JOIN hydraulic_equipment e2 ON b.equipment_id_2 = e2.id
+		LEFT JOIN hydraulic_equipment ew ON b.work_equipment_id = ew.id
 		LEFT JOIN users cu ON b.created_by = cu.id
 		WHERE b.deleted_at IS NULL
 	`
@@ -119,11 +125,17 @@ func (r *bookingRepository) FindByID(id string) (*domain.Booking, error) {
 			   COALESCE(u.full_name, '') as technician_name,
 			   COALESCE(e.name, '') as equipment_name,
 			   COALESCE(cu.full_name, '') as created_by_name,
-			   b.reference_booking_id
+			   b.reference_booking_id,
+			   b.equipment_id_2, b.work_equipment_id,
+			   COALESCE(e2.name, '') as equipment_name_2,
+			   COALESCE(ew.name, '') as work_equipment_name,
+			   COALESCE(b.done_equipment_ids, ARRAY[]::UUID[]) as done_equipment_ids
 		FROM bookings b
 		LEFT JOIN companies c ON b.company_id = c.id
 		LEFT JOIN users u ON b.technician_id = u.id
 		LEFT JOIN hydraulic_equipment e ON b.equipment_id = e.id
+		LEFT JOIN hydraulic_equipment e2 ON b.equipment_id_2 = e2.id
+		LEFT JOIN hydraulic_equipment ew ON b.work_equipment_id = ew.id
 		LEFT JOIN users cu ON b.created_by = cu.id
 		WHERE b.id = $1 AND b.deleted_at IS NULL
 	`
@@ -148,14 +160,14 @@ func (r *bookingRepository) FindOpenBookings() ([]domain.Booking, error) {
 	return r.FindAll(map[string]string{"status": "open"})
 }
 
-func (r *bookingRepository) ClaimBooking(bookingID, technicianID string) error {
+func (r *bookingRepository) ClaimBooking(bookingID, technicianID string, workEquipmentID *string) error {
 	query := `
-		UPDATE bookings 
-		SET technician_id = $1, status = 'in_progress', 
+		UPDATE bookings
+		SET technician_id = $1, status = 'in_progress', work_equipment_id = $2,
 		    claimed_at = NOW(), updated_at = NOW()
-		WHERE id = $2 AND status = 'open' AND deleted_at IS NULL
+		WHERE id = $3 AND status = 'open' AND deleted_at IS NULL
 	`
-	result, err := r.db.Exec(context.Background(), query, technicianID, bookingID)
+	result, err := r.db.Exec(context.Background(), query, technicianID, workEquipmentID, bookingID)
 	if err != nil {
 		return err
 	}
@@ -163,7 +175,6 @@ func (r *bookingRepository) ClaimBooking(bookingID, technicianID string) error {
 		return errors.New("job sudah diambil oleh teknisi lain")
 	}
 
-	// Log status change
 	r.logStatus(bookingID, technicianID, "open", "in_progress")
 	return nil
 }
@@ -257,7 +268,7 @@ func scanBookings(rows interface{ Next() bool; Scan(...interface{}) error; Err()
 	for rows.Next() {
 		var b domain.Booking
 		var photoJSON []byte
-		var techID, equipID, refBookingID *string
+		var techID, equipID, refBookingID, equipID2, workEquipID *string
 		var scheduledAt, claimedAt, startedAt, completedAt *time.Time
 
 		err := rows.Scan(
@@ -269,6 +280,9 @@ func scanBookings(rows interface{ Next() bool; Scan(...interface{}) error; Err()
 			&b.Latitude, &b.Longitude,
 			&b.CompanyName, &b.TechnicianName, &b.EquipmentName, &b.CreatedByName,
 			&refBookingID,
+			&equipID2, &workEquipID,
+			&b.EquipmentName2, &b.WorkEquipmentName,
+			&b.DoneEquipmentIDs,
 		)
 		if err != nil {
 			return nil, err
@@ -276,6 +290,8 @@ func scanBookings(rows interface{ Next() bool; Scan(...interface{}) error; Err()
 
 		b.TechnicianID       = techID
 		b.EquipmentID        = equipID
+		b.EquipmentID2       = equipID2
+		b.WorkEquipmentID    = workEquipID
 		b.ReferenceBookingID = refBookingID
 		b.ScheduledAt        = scheduledAt
 		b.ClaimedAt          = claimedAt
@@ -288,10 +304,92 @@ func scanBookings(rows interface{ Next() bool; Scan(...interface{}) error; Err()
 		if b.PhotoURLs == nil {
 			b.PhotoURLs = []string{}
 		}
+		if b.DoneEquipmentIDs == nil {
+			b.DoneEquipmentIDs = []string{}
+		}
 
 		bookings = append(bookings, b)
 	}
 	return bookings, rows.Err()
+}
+
+func (r *bookingRepository) CreateBookingItems(bookingID string, items []string) error {
+	for i, desc := range items {
+		if desc == "" {
+			continue
+		}
+		_, err := r.db.Exec(context.Background(),
+			`INSERT INTO booking_items (booking_id, description, sort_order) VALUES ($1, $2, $3)`,
+			bookingID, desc, i,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *bookingRepository) GetBookingItems(bookingID string) ([]domain.BookingItem, error) {
+	rows, err := r.db.Query(context.Background(),
+		`SELECT id, booking_id, description, sort_order, is_done, created_at
+		 FROM booking_items
+		 WHERE booking_id = $1
+		 ORDER BY sort_order ASC, created_at ASC`,
+		bookingID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []domain.BookingItem
+	for rows.Next() {
+		var it domain.BookingItem
+		if err := rows.Scan(&it.ID, &it.BookingID, &it.Description,
+			&it.SortOrder, &it.IsDone, &it.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, it)
+	}
+	if items == nil {
+		items = []domain.BookingItem{}
+	}
+	return items, rows.Err()
+}
+
+func (r *bookingRepository) ToggleBookingItem(itemID string, isDone bool) error {
+	_, err := r.db.Exec(context.Background(),
+		`UPDATE booking_items SET is_done = $1 WHERE id = $2`,
+		isDone, itemID,
+	)
+	return err
+}
+
+func (r *bookingRepository) MarkEquipmentDone(bookingID, equipmentID string, done bool) error {
+	var query string
+	if done {
+		query = `
+			UPDATE bookings
+			SET done_equipment_ids = array_append(
+			    COALESCE(done_equipment_ids, ARRAY[]::UUID[]),
+			    $2::UUID
+			), updated_at = NOW()
+			WHERE id = $1
+			  AND NOT ($2::UUID = ANY(COALESCE(done_equipment_ids, ARRAY[]::UUID[])))
+			  AND deleted_at IS NULL
+		`
+	} else {
+		query = `
+			UPDATE bookings
+			SET done_equipment_ids = array_remove(
+			    COALESCE(done_equipment_ids, ARRAY[]::UUID[]),
+			    $2::UUID
+			), updated_at = NOW()
+			WHERE id = $1 AND deleted_at IS NULL
+		`
+	}
+	_, err := r.db.Exec(context.Background(), query, bookingID, equipmentID)
+	return err
 }
 
 func (r *bookingRepository) GetAvailableReferences(companyID string) ([]domain.AvailableReference, error) {

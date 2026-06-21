@@ -98,10 +98,13 @@ func (h *BookingHandler) GetMyJobs(c *gin.Context) {
 }
 
 func (h *BookingHandler) ClaimBooking(c *gin.Context) {
-	bookingID := c.Param("id")
+	bookingID    := c.Param("id")
 	technicianID := c.GetString("user_id")
 
-	if err := h.bookingUsecase.ClaimBooking(bookingID, technicianID); err != nil {
+	var req domain.ClaimBookingRequest
+	_ = c.ShouldBindJSON(&req) // optional body
+
+	if err := h.bookingUsecase.ClaimBooking(bookingID, technicianID, req.WorkEquipmentID); err != nil {
 		response.Error(c, 400, err.Error())
 		return
 	}
@@ -163,6 +166,41 @@ func (h *BookingHandler) GetAvailableReferences(c *gin.Context) {
 		return
 	}
 	response.Success(c, 200, "OK", refs)
+}
+
+func (h *BookingHandler) ToggleBookingItem(c *gin.Context) {
+	bookingID    := c.Param("id")
+	itemID       := c.Param("item_id")
+	technicianID := c.GetString("user_id")
+
+	var req domain.ToggleBookingItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Request tidak valid: "+err.Error())
+		return
+	}
+
+	if err := h.bookingUsecase.ToggleBookingItem(bookingID, itemID, technicianID, req.IsDone); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Item diperbarui", nil)
+}
+
+func (h *BookingHandler) MarkEquipmentDone(c *gin.Context) {
+	bookingID    := c.Param("id")
+	technicianID := c.GetString("user_id")
+
+	var req domain.MarkEquipmentDoneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Request tidak valid: "+err.Error())
+		return
+	}
+
+	if err := h.bookingUsecase.MarkEquipmentDone(bookingID, technicianID, req.EquipmentID, req.Done); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Status equipment diperbarui", nil)
 }
 
 func (h *BookingHandler) AssignTechnician(c *gin.Context) {

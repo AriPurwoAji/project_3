@@ -25,6 +25,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   String _serviceType = 'inspeksi';
   String _urgencyLevel = 'standard';
   String? _selectedEquipmentId;
+  String? _selectedEquipmentId2;
   String? _selectedRefId;
   String _companyId   = '';
   String _companyCity = '';
@@ -32,7 +33,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   List<dynamic> _availableRefs = [];
   bool _loading          = false;
   bool _loadingEquipment = true;
-  bool _loadingRefs      = false;
+  final bool _loadingRefs = false;
   DateTime? _scheduledAt;
 
   static const _jabodetabekKeywords = [
@@ -44,6 +45,9 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
     final city = _companyCity.toUpperCase();
     return _jabodetabekKeywords.any((k) => city.contains(k));
   }
+
+  // Daftar item inspeksi/maintenance
+  final List<TextEditingController> _itemCtrls = [];
 
   // Lokasi
   String   _address   = '';
@@ -65,7 +69,19 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   @override
   void dispose() {
     _descCtrl.dispose();
+    for (final c in _itemCtrls) {
+      c.dispose();
+    }
     super.dispose();
+  }
+
+  void _addItemField() {
+    setState(() => _itemCtrls.add(TextEditingController()));
+  }
+
+  void _removeItemField(int index) {
+    _itemCtrls[index].dispose();
+    setState(() => _itemCtrls.removeAt(index));
   }
 
   Future<void> _loadData() async {
@@ -123,9 +139,16 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
 
     setState(() => _loading = true);
     try {
+      final itemTexts = _itemCtrls
+          .map((c) => c.text.trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+
       await ApiClient.instance.post('/bookings', data: {
         'company_id':    _companyId,
         'equipment_id':  _selectedEquipmentId,
+        if (_selectedEquipmentId2 != null)
+          'equipment_id_2': _selectedEquipmentId2,
         'service_type':  _serviceType,
         'urgency_level': _urgencyLevel,
         'description':   _descCtrl.text.trim(),
@@ -138,6 +161,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
           'scheduled_at': _scheduledAt!.toUtc().toIso8601String(),
         if (_serviceType == 'repair' && _selectedRefId != null)
           'reference_booking_id': _selectedRefId,
+        if (itemTexts.isNotEmpty) 'items': itemTexts,
       });
 
       if (!mounted) return;
@@ -310,7 +334,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                     const SizedBox(height: 16),
 
                     // Equipment dropdown
-                    const Text('Equipment',
+                    const Text('Equipment *',
                         style: TextStyle(
                             fontSize: 13,
                             color: AppTheme.textSecondary)),
@@ -364,6 +388,49 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                             onChanged: (val) =>
                                 setState(() => _selectedEquipmentId = val),
                           ),
+                    // Equipment ke-2 (opsional)
+                    if (_equipments.length > 1) ...[
+                      const SizedBox(height: 10),
+                      const Text('Equipment ke-2 (opsional)',
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textSecondary)),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedEquipmentId2,
+                        hint: const Text('Pilih equipment kedua (jika ada)'),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: AppTheme.border),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                        ),
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('— Tidak ada —',
+                                style:
+                                    TextStyle(color: AppTheme.textTertiary)),
+                          ),
+                          ..._equipments
+                              .where((e) => e['id'] != _selectedEquipmentId)
+                              .map<DropdownMenuItem<String>>((e) {
+                            return DropdownMenuItem<String>(
+                              value: e['id'],
+                              child: Text(
+                                '${e['name']} - ${e['brand'] ?? ''}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (val) =>
+                            setState(() => _selectedEquipmentId2 = val),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     // Description
@@ -381,6 +448,11 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                           ? 'Deskripsi wajib diisi'
                           : null,
                     ),
+                    // Daftar item — hanya inspeksi/maintenance
+                    if (_serviceType != 'repair') ...[
+                      const SizedBox(height: 16),
+                      _buildItemsSection(),
+                    ],
                     const SizedBox(height: 16),
 
                     // Lokasi site — search + GPS
@@ -458,6 +530,99 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildItemsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('Daftar item (opsional)',
+                style: TextStyle(
+                    fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryLight,
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Text(
+                '${_itemCtrls.length} item',
+                style: const TextStyle(
+                    fontSize: 10, color: AppTheme.primary),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Tambahkan daftar komponen atau tugas yang perlu dikerjakan.',
+          style: TextStyle(
+              fontSize: 11, color: AppTheme.textTertiary),
+        ),
+        const SizedBox(height: 10),
+        ...List.generate(_itemCtrls.length, (i) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  margin: const EdgeInsets.only(right: 8, top: 2),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.primaryLight,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${i + 1}',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TextFormField(
+                    controller: _itemCtrls[i],
+                    decoration: InputDecoration(
+                      hintText: 'Contoh: Periksa selang hidrolik utama',
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.close,
+                            size: 16, color: AppTheme.textTertiary),
+                        onPressed: () => _removeItemField(i),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        if (_itemCtrls.length < 10)
+          TextButton.icon(
+            onPressed: _addItemField,
+            icon: const Icon(Icons.add_circle_outline, size: 16),
+            label: const Text('Tambah item'),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.primary,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+      ],
     );
   }
 

@@ -73,6 +73,7 @@ func (u *bookingUsecase) CreateBooking(userID, companyID string, req domain.Crea
 	if req.EquipmentID != "" {
 		booking.EquipmentID = &req.EquipmentID
 	}
+	booking.EquipmentID2 = req.EquipmentID2
 
 	if req.ScheduledAt != nil {
 		// parse jika ada
@@ -80,6 +81,11 @@ func (u *bookingUsecase) CreateBooking(userID, companyID string, req domain.Crea
 
 	if err := u.bookingRepo.Create(booking); err != nil {
 		return nil, errors.New("gagal membuat booking: " + err.Error())
+	}
+
+	// Buat booking items jika ada (inspeksi/maintenance)
+	if len(req.Items) > 0 {
+		_ = u.bookingRepo.CreateBookingItems(booking.ID, req.Items)
 	}
 
 	// Ambil booking lengkap (dengan company name) untuk isi notifikasi
@@ -111,7 +117,15 @@ func (u *bookingUsecase) GetAllBookings(filters map[string]string) ([]domain.Boo
 }
 
 func (u *bookingUsecase) GetBookingByID(id string) (*domain.Booking, error) {
-	return u.bookingRepo.FindByID(id)
+	booking, err := u.bookingRepo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+	items, err := u.bookingRepo.GetBookingItems(id)
+	if err == nil {
+		booking.Items = items
+	}
+	return booking, nil
 }
 
 func (u *bookingUsecase) GetOpenBookings() ([]domain.Booking, error) {
@@ -122,7 +136,7 @@ func (u *bookingUsecase) GetMyJobs(technicianID string) ([]domain.Booking, error
 	return u.bookingRepo.FindByTechnicianID(technicianID)
 }
 
-func (u *bookingUsecase) ClaimBooking(bookingID, technicianID string) error {
+func (u *bookingUsecase) ClaimBooking(bookingID, technicianID string, workEquipmentID *string) error {
 	booking, err := u.bookingRepo.FindByID(bookingID)
 	if err != nil {
 		return errors.New("booking tidak ditemukan")
@@ -130,14 +144,16 @@ func (u *bookingUsecase) ClaimBooking(bookingID, technicianID string) error {
 	if booking.Status != "open" {
 		return errors.New("job sudah tidak tersedia")
 	}
-	if err := u.bookingRepo.ClaimBooking(bookingID, technicianID); err != nil {
+	// Validasi: jika booking punya 2 equipment, work_equipment_id wajib diisi
+	if booking.EquipmentID2 != nil && (workEquipmentID == nil || *workEquipmentID == "") {
+		return errors.New("pilih equipment yang dikerjakan terlebih dahulu")
+	}
+	if err := u.bookingRepo.ClaimBooking(bookingID, technicianID, workEquipmentID); err != nil {
 		return err
 	}
-	// Notify client
 	u.notify(booking.CreatedBy, &bookingID, "job_claimed",
 		"Teknisi ditemukan",
 		"Job Anda sudah diambil dan sedang diproses oleh teknisi.")
-	// Notify teknisi (konfirmasi klaim berhasil)
 	u.notify(technicianID, &bookingID, "job_claimed",
 		"Job berhasil diambil",
 		"Kamu telah mengambil job "+booking.ServiceType+" di "+booking.SiteCity+". Segera proses!")
@@ -210,6 +226,43 @@ func (u *bookingUsecase) CancelBooking(bookingID, userID, role string) error {
 		return errors.New("kamu tidak berhak membatalkan booking ini")
 	}
 	return u.bookingRepo.CancelBooking(bookingID)
+}
+
+func (u *bookingUsecase) GetBookingItems(bookingID string) ([]domain.BookingItem, error) {
+	return u.bookingRepo.GetBookingItems(bookingID)
+}
+
+func (u *bookingUsecase) ToggleBookingItem(bookingID, itemID, technicianID string, isDone bool) error {
+	booking, err := u.bookingRepo.FindByID(bookingID)
+	if err != nil {
+		return errors.New("booking tidak ditemukan")
+	}
+	if booking.TechnicianID == nil || *booking.TechnicianID != technicianID {
+		return errors.New("kamu bukan teknisi yang mengerjakan job ini")
+	}
+	return u.bookingRepo.ToggleBookingItem(itemID, isDone)
+}
+
+func (u *bookingUsecase) MarkEquipmentDone(bookingID, technicianID, equipmentID string, done bool) error {
+	booking, err := u.bookingRepo.FindByID(bookingID)
+	if err != nil {
+		return errors.New("booking tidak ditemukan")
+	}
+	if booking.TechnicianID == nil || *booking.TechnicianID != technicianID {
+		return errors.New("kamu bukan teknisi yang mengerjakan job ini")
+	}
+	// Pastikan equipment_id yang ditandai memang bagian dari booking ini
+	validEquip := false
+	if booking.EquipmentID != nil && *booking.EquipmentID == equipmentID {
+		validEquip = true
+	}
+	if booking.EquipmentID2 != nil && *booking.EquipmentID2 == equipmentID {
+		validEquip = true
+	}
+	if !validEquip {
+		return errors.New("equipment tidak terdaftar dalam booking ini")
+	}
+	return u.bookingRepo.MarkEquipmentDone(bookingID, equipmentID, done)
 }
 
 func (u *bookingUsecase) AssignTechnician(bookingID, technicianID string) error {

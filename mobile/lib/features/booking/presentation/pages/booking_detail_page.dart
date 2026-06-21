@@ -334,6 +334,19 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       ],
                       const SizedBox(height: 16),
                       _buildEquipmentCard(),
+                      // Checklist equipment — teknisi, job aktif, ada 2 equipment
+                      if (_userRole == AppConstants.roleTeknisi &&
+                          (_booking!['equipment_id_2'] as String?) != null &&
+                          const {'in_progress', 'on_the_way', 'on_site', 'waiting_confirmation'}
+                              .contains(_booking!['status'])) ...[
+                        const SizedBox(height: 16),
+                        _buildEquipmentChecklist(),
+                      ],
+                      // Daftar item booking (inspeksi/maintenance)
+                      if ((_booking!['items'] as List?)?.isNotEmpty == true) ...[
+                        const SizedBox(height: 16),
+                        _buildBookingItemsCard(),
+                      ],
                       // Foto kerusakan — untuk client/manager (teknisi sudah ada di referensi card)
                       if (_userRole != AppConstants.roleTeknisi &&
                           (_booking!['photo_urls'] as List?)?.isNotEmpty == true) ...[
@@ -868,11 +881,276 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     );
   }
 
+  // ─── BOOKING ITEMS CARD ──────────────────────────────────────────────────
+
+  Future<void> _toggleBookingItem(String itemId, bool currentDone) async {
+    try {
+      await ApiClient.instance.patch(
+        '/bookings/${widget.bookingId}/items/$itemId',
+        data: {'is_done': !currentDone},
+      );
+      final res = await ApiClient.instance.get('/bookings/${widget.bookingId}');
+      if (!mounted) return;
+      setState(() {
+        _booking = Map<String, dynamic>.from(res.data['data'] ?? {});
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal memperbarui item'),
+          backgroundColor: AppTheme.danger,
+        ),
+      );
+    }
+  }
+
+  Widget _buildBookingItemsCard() {
+    final items     = (_booking!['items'] as List?) ?? [];
+    final doneCount = items.where((it) => it['is_done'] == true).length;
+    final total     = items.length;
+    final isTeknisi = _userRole == AppConstants.roleTeknisi;
+    final isActive  = const {
+      'in_progress', 'on_the_way', 'on_site', 'waiting_confirmation'
+    }.contains(_booking!['status']);
+    final canToggle = isTeknisi && isActive;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('Daftar Item',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Text(
+                '$doneCount/$total selesai',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: doneCount == total
+                      ? AppTheme.secondary
+                      : AppTheme.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          if (canToggle) ...[
+            const SizedBox(height: 2),
+            const Text(
+              'Tap item untuk tandai selesai',
+              style: TextStyle(
+                  fontSize: 11, color: AppTheme.textTertiary),
+            ),
+          ],
+          const Divider(height: 14),
+          ...items.asMap().entries.map((entry) {
+            final idx  = entry.key;
+            final item = entry.value as Map;
+            final done = item['is_done'] == true;
+            final id   = item['id'] as String;
+            final desc = item['description'] as String? ?? '';
+
+            return InkWell(
+              onTap: canToggle ? () => _toggleBookingItem(id, done) : null,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      done
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      size: 18,
+                      color: done
+                          ? AppTheme.secondary
+                          : AppTheme.textTertiary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${idx + 1}. $desc',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: done
+                              ? AppTheme.textTertiary
+                              : AppTheme.textPrimary,
+                          decoration: done
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ─── EQUIPMENT CHECKLIST ─────────────────────────────────────────────────
+
+  Future<void> _toggleEquipmentDone(String equipmentId, bool currentDone) async {
+    final newDone = !currentDone;
+    try {
+      await ApiClient.instance.patch(
+        '/bookings/${widget.bookingId}/equipment-done',
+        data: {'equipment_id': equipmentId, 'done': newDone},
+      );
+      // Refresh booking data agar done_equipment_ids terupdate
+      final res = await ApiClient.instance.get('/bookings/${widget.bookingId}');
+      if (!mounted) return;
+      setState(() {
+        _booking = Map<String, dynamic>.from(res.data['data'] ?? {});
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal memperbarui status equipment'),
+          backgroundColor: AppTheme.danger,
+        ),
+      );
+    }
+  }
+
+  Widget _buildEquipmentChecklist() {
+    final b             = _booking!;
+    final doneIds       = List<String>.from(b['done_equipment_ids'] ?? []);
+    final equip1Id      = b['equipment_id']   as String? ?? '';
+    final equip2Id      = b['equipment_id_2'] as String? ?? '';
+    final equip1Name    = b['equipment_name']   as String? ?? 'Equipment 1';
+    final equip2Name    = b['equipment_name_2'] as String? ?? 'Equipment 2';
+    final workEquipId   = b['work_equipment_id'] as String?;
+
+    Widget checkItem(String id, String name) {
+      final isDone = doneIds.contains(id);
+      final isFirst = id == workEquipId;
+      return InkWell(
+        onTap: () => _toggleEquipmentDone(id, isDone),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Icon(
+                isDone
+                    ? Icons.check_circle
+                    : Icons.radio_button_unchecked,
+                color: isDone ? AppTheme.secondary : AppTheme.textTertiary,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        decoration:
+                            isDone ? TextDecoration.lineThrough : null,
+                        color: isDone
+                            ? AppTheme.textTertiary
+                            : AppTheme.textPrimary,
+                      ),
+                    ),
+                    if (isFirst)
+                      const Text(
+                        'Dikerjakan pertama',
+                        style: TextStyle(
+                            fontSize: 11, color: AppTheme.primary),
+                      ),
+                  ],
+                ),
+              ),
+              if (isDone)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondaryLight,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: const Text('Selesai',
+                      style: TextStyle(
+                          fontSize: 10, color: AppTheme.secondary)),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final totalDone = doneIds.length;
+    final total = equip2Id.isNotEmpty ? 2 : 1;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('Checklist Equipment',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Text(
+                '$totalDone/$total selesai',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: totalDone == total
+                      ? AppTheme.secondary
+                      : AppTheme.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Tap equipment untuk tandai sudah dikerjakan',
+            style: TextStyle(fontSize: 11, color: AppTheme.textTertiary),
+          ),
+          const Divider(height: 16),
+          if (equip1Id.isNotEmpty) checkItem(equip1Id, equip1Name),
+          if (equip2Id.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            checkItem(equip2Id, equip2Name),
+          ],
+        ],
+      ),
+    );
+  }
+
   // ─── EQUIPMENT CARD ───────────────────────────────────────────────────────
 
   Widget _buildEquipmentCard() {
-    final b = _booking!;
-    final equipName = b['equipment_name'] ?? '-';
+    final b         = _booking!;
+    final equipName  = b['equipment_name']    as String? ?? '-';
+    final equipName2 = b['equipment_name_2']  as String?;
+    final workEquip  = b['work_equipment_name'] as String?;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -888,7 +1166,11 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
               style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
-          _infoRow('Nama', equipName),
+          _infoRow('Equipment 1', equipName),
+          if (equipName2 != null && equipName2.isNotEmpty)
+            _infoRow('Equipment 2', equipName2),
+          if (workEquip != null && workEquip.isNotEmpty)
+            _infoRow('Dikerjakan pertama', workEquip),
           if ((b['description'] ?? '').isNotEmpty)
             _infoRow('Deskripsi', b['description'] ?? ''),
           _infoRow('Lokasi', '${b['site_address'] ?? '-'}, ${b['site_city'] ?? ''}'),
