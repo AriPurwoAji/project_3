@@ -232,11 +232,10 @@ func (u *authUsecase) ActivateUser(userID string) error {
 func (u *authUsecase) ForgotPassword(req domain.ForgotPasswordRequest) error {
 	user, _, err := u.userRepo.FindByEmail(req.Email)
 	if err != nil {
-		// Jangan expose apakah email terdaftar atau tidak (keamanan)
-		return nil
+		return errors.New("email tidak terdaftar")
 	}
 	if !user.IsActive {
-		return nil
+		return errors.New("akun belum diaktifkan oleh manager")
 	}
 
 	// Generate 6-digit OTP via crypto/rand

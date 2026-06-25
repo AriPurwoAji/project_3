@@ -52,3 +52,31 @@ func (h *ReportHandler) GetMyReports(c *gin.Context) {
 	}
 	response.Success(c, 200, "Success", reports)
 }
+
+func (h *ReportHandler) GetAllReportsByBookingID(c *gin.Context) {
+	bookingID := c.Param("booking_id")
+	reports, err := h.reportUsecase.GetAllReportsByBookingID(bookingID)
+	if err != nil {
+		response.Error(c, 404, err.Error())
+		return
+	}
+	response.Success(c, 200, "Success", reports)
+}
+
+func (h *ReportHandler) UpdateReport(c *gin.Context) {
+	reportID     := c.Param("report_id")
+	technicianID := c.GetString("user_id")
+
+	var req domain.UpdateReportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Request tidak valid: "+err.Error())
+		return
+	}
+
+	report, err := h.reportUsecase.UpdateReport(reportID, technicianID, req)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Laporan berhasil diperbarui", report)
+}

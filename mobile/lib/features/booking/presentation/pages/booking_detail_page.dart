@@ -31,6 +31,8 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   String _userId      = '';
   bool   _cancelling  = false;
   bool   _confirming  = false;
+  bool   _rejecting   = false;
+  List<dynamic> _allReports  = [];
 
   @override
   void initState() {
@@ -49,8 +51,10 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         _booking = booking;
         _loading = false;
       });
-      if (booking['status'] == 'done' || booking['status'] == 'waiting_confirmation') {
+      if (const {'done', 'waiting_confirmation', 'needs_revision'}
+          .contains(booking['status'])) {
         _loadReport();
+        _loadAllReports();
       }
     } catch (e) {
       if (mounted) {
@@ -157,14 +161,93 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
 
   Future<void> _loadReport() async {
     try {
-      final res = await ApiClient.instance
-          .get('/reports/${widget.bookingId}');
+      final res = await ApiClient.instance.get('/reports/${widget.bookingId}');
       if (mounted) {
         setState(() {
           _report = Map<String, dynamic>.from(res.data['data'] ?? {});
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _loadAllReports() async {
+    try {
+      final res = await ApiClient.instance.get('/reports/${widget.bookingId}/all');
+      if (mounted) {
+        setState(() {
+          _allReports = List<dynamic>.from(res.data['data'] ?? []);
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _rejectJob() async {
+    final reasonCtrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tolak Laporan'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Berikan alasan penolakan agar teknisi dapat memperbaiki laporan:',
+                style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Contoh: Deskripsi pekerjaan kurang lengkap...',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final r = reasonCtrl.text.trim();
+              if (r.isEmpty) return;
+              Navigator.pop(ctx, r);
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.danger, foregroundColor: Colors.white),
+            child: const Text('Tolak Laporan'),
+          ),
+        ],
+      ),
+    );
+    reasonCtrl.dispose();
+    if (reason == null || !mounted) return;
+    setState(() => _rejecting = true);
+    try {
+      await ApiClient.instance.post(
+        '/bookings/${widget.bookingId}/reject',
+        data: {'reason': reason},
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Laporan ditolak. Teknisi akan segera diberitahu.'),
+          backgroundColor: AppTheme.warning,
+        ));
+        _loadBooking();
+      }
+    } catch (e) {
+      if (mounted) {
+        final msg = e is DioException
+            ? e.response?.data['message'] ?? 'Gagal menolak laporan'
+            : 'Gagal menolak laporan';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } finally {
+      if (mounted) setState(() => _rejecting = false);
+    }
   }
 
   bool _downloadingPdf = false;
@@ -203,6 +286,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       case 'on_the_way':           return AppTheme.warning;
       case 'on_site':              return AppTheme.primary;
       case 'waiting_confirmation': return AppTheme.warning;
+      case 'needs_revision':       return AppTheme.danger;
       case 'done':                 return AppTheme.secondary;
       case 'cancelled':            return AppTheme.danger;
       default:                     return AppTheme.textTertiary;
@@ -216,6 +300,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       case 'on_the_way':           return 'On The Way';
       case 'on_site':              return 'On Site';
       case 'waiting_confirmation': return 'Menunggu Konfirmasi';
+      case 'needs_revision':       return 'Perlu Perbaikan';
       case 'done':                 return 'Selesai';
       case 'cancelled':            return 'Dibatalkan';
       default:                     return s;
@@ -250,6 +335,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       case 'on_the_way':           return 2;
       case 'on_site':              return 2;
       case 'waiting_confirmation': return 3;
+      case 'needs_revision':       return 3;
       case 'done':                 return 4;
       case 'cancelled':            return 4;
       default:                     return 0;
@@ -308,12 +394,17 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                         const SizedBox(height: 12),
                         _buildCancelButton(),
                       ],
-                      // Tombol konfirmasi untuk client / manager
+                      // Tombol konfirmasi + tolak untuk client / manager
                       if (_booking!['status'] == 'waiting_confirmation' &&
                           (_userRole == AppConstants.roleClient ||
                               _userRole == AppConstants.roleManager)) ...[
                         const SizedBox(height: 16),
                         _buildConfirmButton(),
+                      ],
+                      // Status needs_revision: teknisi perlu perbaiki laporan
+                      if (_booking!['status'] == 'needs_revision') ...[
+                        const SizedBox(height: 16),
+                        _buildNeedsRevisionBanner(),
                       ],
                       // Info menunggu konfirmasi untuk teknisi
                       if (_booking!['status'] == 'waiting_confirmation' &&
@@ -650,7 +741,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     );
   }
 
-  // ─── CONFIRM BUTTON (client/manager) ─────────────────────────────────────
+  // ─── CONFIRM + REJECT BUTTON (client/manager) ────────────────────────────
 
   Widget _buildConfirmButton() {
     return Container(
@@ -679,30 +770,120 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Silakan periksa laporan di bawah, lalu konfirmasi hasilnya.',
+            'Silakan periksa laporan di bawah, lalu konfirmasi atau tolak hasilnya.',
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: _confirming ? null : _confirmJob,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.secondary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            icon: _confirming
-                ? const SizedBox(
-                    height: 16, width: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.check_circle_outline, size: 18),
-            label: Text(
-              _confirming ? 'Memproses...' : 'Konfirmasi Hasil Kerja',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: (_confirming || _rejecting) ? null : _rejectJob,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.danger,
+                    side: const BorderSide(color: AppTheme.danger),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: _rejecting
+                      ? const SizedBox(height: 16, width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.danger))
+                      : const Icon(Icons.close, size: 18),
+                  label: Text(_rejecting ? '...' : 'Tolak',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: (_confirming || _rejecting) ? null : _confirmJob,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.secondary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: _confirming
+                      ? const SizedBox(height: 16, width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check_circle_outline, size: 18),
+                  label: Text(
+                    _confirming ? 'Memproses...' : 'Konfirmasi',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
           ),
+        ],
+      ),
+    );
+  }
+
+  // ─── NEEDS REVISION BANNER ────────────────────────────────────────────────
+
+  Widget _buildNeedsRevisionBanner() {
+    // Ambil alasan penolakan dari laporan (jika ada)
+    final rejectionReason = _allReports.isNotEmpty
+        ? (_allReports.first['rejection_reason'] as String?) ?? ''
+        : (_report?['rejection_reason'] as String?) ?? '';
+
+    final isTeknisi = _userRole == AppConstants.roleTeknisi;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.dangerLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.danger.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.cancel_outlined, size: 18, color: AppTheme.danger),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Laporan Ditolak — Perlu Perbaikan',
+                  style: TextStyle(fontSize: 13, color: AppTheme.danger,
+                      fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          if (rejectionReason.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('Alasan: $rejectionReason',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ],
+          if (isTeknisi && _report != null) ...[
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () => context.push(
+                '/report/edit/${_report!['id']}',
+                extra: {'report': _report, 'booking': _booking},
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.danger,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Perbaiki Laporan',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+          ],
+          if (!isTeknisi) ...[
+            const SizedBox(height: 8),
+            const Text('Menunggu teknisi memperbaiki laporan...',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ],
         ],
       ),
     );

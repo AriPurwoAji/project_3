@@ -24,15 +24,16 @@ func (r *reportRepository) Create(report *domain.HydraulicReport) error {
 
 	query := `
 		INSERT INTO hydraulic_reports
-			(booking_id, technician_id, pressure_before_bar, pressure_after_bar,
+			(booking_id, technician_id, equipment_id,
+			 pressure_before_bar, pressure_after_bar,
 			 oil_condition, oil_level, leak_location, leak_severity,
 			 parts_replaced, photo_urls, work_description, recommendations,
-			 maintenance_checklist)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+			 maintenance_checklist, status)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'submitted')
 		RETURNING id, created_at, updated_at
 	`
 	return r.db.QueryRow(context.Background(), query,
-		report.BookingID, report.TechnicianID,
+		report.BookingID, report.TechnicianID, report.EquipmentID,
 		report.PressureBeforeBar, report.PressureAfterBar,
 		report.OilCondition, report.OilLevel,
 		report.LeakLocation, report.LeakSeverity,
@@ -66,39 +67,91 @@ func (r *reportRepository) CreateInspectionItems(items []domain.InspectionItem) 
 func (r *reportRepository) FindByBookingID(bookingID string) (*domain.HydraulicReport, error) {
 	query := `
 		SELECT r.id, r.booking_id, r.technician_id,
+			   COALESCE(r.equipment_id::text,'') as equipment_id,
+			   COALESCE(r.status,'submitted') as status,
+			   r.rejection_reason,
 			   r.pressure_before_bar, r.pressure_after_bar,
 			   r.oil_condition, r.oil_level, r.leak_location, r.leak_severity,
 			   r.parts_replaced, r.photo_urls, r.pdf_url,
 			   r.work_description, r.recommendations, r.maintenance_checklist,
 			   r.created_at, r.updated_at,
-			   COALESCE(u.full_name, '') as technician_name
+			   COALESCE(u.full_name, '') as technician_name,
+			   COALESCE(e.name, '') as equipment_name
 		FROM hydraulic_reports r
 		LEFT JOIN users u ON r.technician_id = u.id
+		LEFT JOIN hydraulic_equipment e ON r.equipment_id = e.id
 		WHERE r.booking_id = $1
+		ORDER BY r.created_at ASC
+		LIMIT 1
 	`
 	report, err := r.scanReport(query, bookingID)
 	if err != nil {
 		return nil, errors.New("laporan tidak ditemukan")
 	}
 
-	// Load inspection items
 	items, _ := r.findInspectionItems(report.ID)
 	report.InspectionItems = items
 
 	return report, nil
 }
 
-func (r *reportRepository) FindByID(id string) (*domain.HydraulicReport, error) {
+func (r *reportRepository) FindAllByBookingID(bookingID string) ([]domain.HydraulicReport, error) {
 	query := `
 		SELECT r.id, r.booking_id, r.technician_id,
+			   COALESCE(r.equipment_id::text,'') as equipment_id,
+			   COALESCE(r.status,'submitted') as status,
+			   r.rejection_reason,
 			   r.pressure_before_bar, r.pressure_after_bar,
 			   r.oil_condition, r.oil_level, r.leak_location, r.leak_severity,
 			   r.parts_replaced, r.photo_urls, r.pdf_url,
 			   r.work_description, r.recommendations, r.maintenance_checklist,
 			   r.created_at, r.updated_at,
-			   COALESCE(u.full_name, '') as technician_name
+			   COALESCE(u.full_name, '') as technician_name,
+			   COALESCE(e.name, '') as equipment_name
 		FROM hydraulic_reports r
 		LEFT JOIN users u ON r.technician_id = u.id
+		LEFT JOIN hydraulic_equipment e ON r.equipment_id = e.id
+		WHERE r.booking_id = $1
+		ORDER BY r.created_at ASC
+	`
+	rows, err := r.db.Query(context.Background(), query, bookingID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reports []domain.HydraulicReport
+	for rows.Next() {
+		report := &domain.HydraulicReport{}
+		if err := r.scanReportRow(rows, report); err != nil {
+			continue
+		}
+		items, _ := r.findInspectionItems(report.ID)
+		report.InspectionItems = items
+		reports = append(reports, *report)
+	}
+	if reports == nil {
+		reports = []domain.HydraulicReport{}
+	}
+	return reports, nil
+}
+
+func (r *reportRepository) FindByID(id string) (*domain.HydraulicReport, error) {
+	query := `
+		SELECT r.id, r.booking_id, r.technician_id,
+			   COALESCE(r.equipment_id::text,'') as equipment_id,
+			   COALESCE(r.status,'submitted') as status,
+			   r.rejection_reason,
+			   r.pressure_before_bar, r.pressure_after_bar,
+			   r.oil_condition, r.oil_level, r.leak_location, r.leak_severity,
+			   r.parts_replaced, r.photo_urls, r.pdf_url,
+			   r.work_description, r.recommendations, r.maintenance_checklist,
+			   r.created_at, r.updated_at,
+			   COALESCE(u.full_name, '') as technician_name,
+			   COALESCE(e.name, '') as equipment_name
+		FROM hydraulic_reports r
+		LEFT JOIN users u ON r.technician_id = u.id
+		LEFT JOIN hydraulic_equipment e ON r.equipment_id = e.id
 		WHERE r.id = $1
 	`
 	report, err := r.scanReport(query, id)
@@ -115,14 +168,19 @@ func (r *reportRepository) FindByID(id string) (*domain.HydraulicReport, error) 
 func (r *reportRepository) FindByTechnicianID(technicianID string) ([]domain.HydraulicReport, error) {
 	query := `
 		SELECT r.id, r.booking_id, r.technician_id,
+			   COALESCE(r.equipment_id::text,'') as equipment_id,
+			   COALESCE(r.status,'submitted') as status,
+			   r.rejection_reason,
 			   r.pressure_before_bar, r.pressure_after_bar,
 			   r.oil_condition, r.oil_level, r.leak_location, r.leak_severity,
 			   r.parts_replaced, r.photo_urls, r.pdf_url,
 			   r.work_description, r.recommendations, r.maintenance_checklist,
 			   r.created_at, r.updated_at,
-			   COALESCE(u.full_name, '') as technician_name
+			   COALESCE(u.full_name, '') as technician_name,
+			   COALESCE(e.name, '') as equipment_name
 		FROM hydraulic_reports r
 		LEFT JOIN users u ON r.technician_id = u.id
+		LEFT JOIN hydraulic_equipment e ON r.equipment_id = e.id
 		WHERE r.technician_id = $1
 		ORDER BY r.created_at DESC
 	`
@@ -149,6 +207,58 @@ func (r *reportRepository) UpdatePDFUrl(reportID, pdfURL string) error {
 	query := `UPDATE hydraulic_reports SET pdf_url = $1, updated_at = NOW() WHERE id = $2`
 	_, err := r.db.Exec(context.Background(), query, pdfURL, reportID)
 	return err
+}
+
+func (r *reportRepository) UpdateReport(reportID string, req domain.UpdateReportRequest) error {
+	partsJSON, _       := json.Marshal(req.PartsReplaced)
+	photosJSON, _      := json.Marshal(req.PhotoURLs)
+	maintenanceJSON, _ := json.Marshal(req.MaintenanceChecklist)
+
+	query := `
+		UPDATE hydraulic_reports SET
+			work_description   = $1,
+			recommendations    = $2,
+			pressure_before_bar = $3,
+			pressure_after_bar  = $4,
+			oil_condition      = $5,
+			oil_level          = $6,
+			leak_location      = $7,
+			leak_severity      = $8,
+			parts_replaced     = $9,
+			photo_urls         = $10,
+			maintenance_checklist = $11,
+			status             = 'submitted',
+			rejection_reason   = NULL,
+			updated_at         = NOW()
+		WHERE id = $12
+	`
+	_, err := r.db.Exec(context.Background(), query,
+		req.WorkDescription, req.Recommendations,
+		req.PressureBeforeBar, req.PressureAfterBar,
+		req.OilCondition, req.OilLevel,
+		req.LeakLocation, req.LeakSeverity,
+		partsJSON, photosJSON, maintenanceJSON,
+		reportID,
+	)
+	return err
+}
+
+func (r *reportRepository) RejectReports(bookingID, reason string) error {
+	query := `
+		UPDATE hydraulic_reports
+		SET status = 'rejected', rejection_reason = $1, updated_at = NOW()
+		WHERE booking_id = $2
+	`
+	_, err := r.db.Exec(context.Background(), query, reason, bookingID)
+	return err
+}
+
+func (r *reportRepository) CountByBookingID(bookingID string) (int, error) {
+	var count int
+	err := r.db.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM hydraulic_reports WHERE booking_id = $1 AND status = 'submitted'`,
+		bookingID).Scan(&count)
+	return count, err
 }
 
 func (r *reportRepository) findInspectionItems(reportID string) ([]domain.InspectionItem, error) {
@@ -193,18 +303,23 @@ func (r *reportRepository) scanReport(query, arg string) (*domain.HydraulicRepor
 
 func (r *reportRepository) scanReportRow(row interface{ Scan(...interface{}) error }, report *domain.HydraulicReport) error {
 	var partsJSON, photosJSON, maintenanceJSON []byte
+	var equipIDStr string
 	err := row.Scan(
 		&report.ID, &report.BookingID, &report.TechnicianID,
+		&equipIDStr, &report.Status, &report.RejectionReason,
 		&report.PressureBeforeBar, &report.PressureAfterBar,
 		&report.OilCondition, &report.OilLevel,
 		&report.LeakLocation, &report.LeakSeverity,
 		&partsJSON, &photosJSON, &report.PDFUrl,
 		&report.WorkDescription, &report.Recommendations, &maintenanceJSON,
 		&report.CreatedAt, &report.UpdatedAt,
-		&report.TechnicianName,
+		&report.TechnicianName, &report.EquipmentName,
 	)
 	if err != nil {
 		return err
+	}
+	if equipIDStr != "" {
+		report.EquipmentID = &equipIDStr
 	}
 	if partsJSON != nil {
 		json.Unmarshal(partsJSON, &report.PartsReplaced)

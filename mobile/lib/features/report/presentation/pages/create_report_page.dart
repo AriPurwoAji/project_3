@@ -30,6 +30,10 @@ class _CreateReportPageState extends State<CreateReportPage> {
   String? _oilLevel;
   String? _leakSeverity;
 
+  // Equipment selection for multi-equipment bookings
+  String? _selectedEquipmentId;
+  String? _selectedEquipmentName;
+
   final List<Map<String, dynamic>> _inspectionItems = [];
 
   final List<Map<String, dynamic>> _maintenanceChecklist = [
@@ -50,6 +54,22 @@ class _CreateReportPageState extends State<CreateReportPage> {
   String get _serviceType   => widget.booking['service_type'] ?? '';
   bool   get _isInspeksi    => _serviceType == 'inspeksi';
   bool   get _isMaintenance => _serviceType == 'maintenance';
+  bool   get _hasEquip2     => (widget.booking['equipment_id_2'] as String?)?.isNotEmpty == true;
+
+  @override
+  void initState() {
+    super.initState();
+    // _force_equipment_id diisi saat navigasi dari popup "laporan equipment kedua"
+    final forced = widget.booking['_force_equipment_id'] as String?;
+    if (forced != null) {
+      _selectedEquipmentId   = forced;
+      _selectedEquipmentName = widget.booking['_force_equipment_name'] as String?;
+    } else if (!_hasEquip2) {
+      _selectedEquipmentId   = widget.booking['equipment_id']   as String?;
+      _selectedEquipmentName = widget.booking['equipment_name'] as String?;
+    }
+    // else: 2 equipment, user pilih lewat dropdown
+  }
 
   @override
   void dispose() {
@@ -62,6 +82,13 @@ class _CreateReportPageState extends State<CreateReportPage> {
   }
 
   Future<void> _submit() async {
+    if (_hasEquip2 && _selectedEquipmentId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Pilih equipment yang dilaporkan terlebih dahulu'),
+        backgroundColor: AppTheme.danger,
+      ));
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     if (_isInspeksi && _inspectionItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -71,7 +98,6 @@ class _CreateReportPageState extends State<CreateReportPage> {
       return;
     }
 
-    // Block submit if any photo is still uploading
     if (_photos.any((p) => p.url == null)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Tunggu hingga semua foto selesai diupload'),
@@ -97,6 +123,9 @@ class _CreateReportPageState extends State<CreateReportPage> {
       'maintenance_checklist': _isMaintenance ? _maintenanceChecklist : [],
     };
 
+    if (_selectedEquipmentId != null) {
+      data['equipment_id'] = _selectedEquipmentId;
+    }
     if (_pressBeforeCtrl.text.isNotEmpty) {
       data['pressure_before_bar'] = int.tryParse(_pressBeforeCtrl.text);
     }
@@ -114,12 +143,62 @@ class _CreateReportPageState extends State<CreateReportPage> {
         data: data,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Laporan berhasil dikirim! Booking selesai.'),
-        backgroundColor: AppTheme.secondary,
-      ));
+
       PageCache.remove('my_jobs');
       PageCache.remove('laporan');
+
+      // Cek apakah ada equipment kedua yang belum dilaporkan
+      if (_hasEquip2) {
+        final submittedId = _selectedEquipmentId;
+        final equip1Id   = widget.booking['equipment_id']   as String?;
+        final equip2Id   = widget.booking['equipment_id_2'] as String?;
+        final equip2Name = widget.booking['equipment_name_2'] as String? ?? 'Equipment 2';
+
+        // Equipment yang belum dilaporkan
+        final otherId   = submittedId == equip1Id ? equip2Id : equip1Id;
+        final otherName = submittedId == equip1Id
+            ? equip2Name
+            : (widget.booking['equipment_name'] as String? ?? 'Equipment 1');
+
+        if (otherId != null) {
+          final goNext = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Laporan Pertama Berhasil!'),
+              content: Text(
+                'Laporan untuk $_selectedEquipmentName berhasil dikirim.\n\n'
+                '$otherName belum ada laporan. Buat laporan sekarang?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Nanti'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Buat Sekarang'),
+                ),
+              ],
+            ),
+          );
+          if (!mounted) return;
+          if (goNext == true) {
+            // Navigasi ke form laporan lagi untuk equipment yang tersisa
+            final nextBooking = Map<String, dynamic>.from(widget.booking)
+              ..['_force_equipment_id']   = otherId
+              ..['_force_equipment_name'] = otherName;
+            context.go('/report/create', extra: nextBooking);
+            return;
+          }
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Laporan berhasil dikirim!'),
+        backgroundColor: AppTheme.secondary,
+      ));
       context.go('/job-board');
     } catch (e) {
       String msg = 'Gagal mengirim laporan';
@@ -153,6 +232,10 @@ class _CreateReportPageState extends State<CreateReportPage> {
           padding: const EdgeInsets.all(16),
           children: [
             _bookingSummaryCard(),
+            if (_hasEquip2) ...[
+              const SizedBox(height: 12),
+              _equipmentSelectorCard(),
+            ],
             const SizedBox(height: 16),
             _sectionCard(
               icon: Icons.description_outlined,
@@ -207,6 +290,87 @@ class _CreateReportPageState extends State<CreateReportPage> {
   }
 
   // ─── SECTION WIDGETS ──────────────────────────────────────────────────────
+
+  Widget _equipmentSelectorCard() {
+    final equip1Id   = widget.booking['equipment_id']   as String? ?? '';
+    final equip1Name = widget.booking['equipment_name'] as String? ?? 'Equipment 1';
+    final equip2Id   = widget.booking['equipment_id_2'] as String? ?? '';
+    final equip2Name = widget.booking['equipment_name_2'] as String? ?? 'Equipment 2';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _selectedEquipmentId == null ? AppTheme.danger : AppTheme.primary,
+          width: _selectedEquipmentId == null ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.build_outlined, size: 15,
+                  color: _selectedEquipmentId == null ? AppTheme.danger : AppTheme.primary),
+              const SizedBox(width: 6),
+              const Text('Laporan untuk Equipment *',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _equipChoiceTile(equip1Id, equip1Name, Icons.engineering_outlined),
+          const SizedBox(height: 8),
+          _equipChoiceTile(equip2Id, equip2Name, Icons.settings_outlined),
+          if (_selectedEquipmentId == null) ...[
+            const SizedBox(height: 8),
+            const Text('Pilih equipment yang akan dilaporkan',
+                style: TextStyle(fontSize: 12, color: AppTheme.danger)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _equipChoiceTile(String id, String name, IconData icon) {
+    final selected = _selectedEquipmentId == id;
+    return InkWell(
+      onTap: () => setState(() {
+        _selectedEquipmentId   = id;
+        _selectedEquipmentName = name;
+      }),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.primaryLight : AppTheme.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? AppTheme.primary : AppTheme.border,
+            width: selected ? 1.5 : 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18,
+                color: selected ? AppTheme.primary : AppTheme.textTertiary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                    color: selected ? AppTheme.primary : AppTheme.textPrimary,
+                  )),
+            ),
+            if (selected)
+              const Icon(Icons.check_circle, size: 16, color: AppTheme.primary),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _bookingSummaryCard() {
     return Container(
@@ -648,21 +812,8 @@ class _CreateReportPageState extends State<CreateReportPage> {
                         children: [
                           _badge(_itemTypeLabel(item['item_type'] ?? ''),
                               typeColor.withValues(alpha: 0.12), typeColor),
-                          const SizedBox(width: 6),
-                          if ((item['item_code'] ?? '').isNotEmpty)
-                            Text(item['item_code'],
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500)),
                         ],
                       ),
-                      if ((item['location_desc'] ?? '').isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        Text(item['location_desc'],
-                            style: const TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textSecondary)),
-                      ],
                       const SizedBox(height: 4),
                       Row(
                         children: [
@@ -1046,8 +1197,6 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
   String _condition      = 'good';
   String _recommendation = 'no_action';
 
-  final _codeCtrl     = TextEditingController();
-  final _locationCtrl = TextEditingController();
   final _notesCtrl    = TextEditingController();
 
   // Hose specs
@@ -1075,7 +1224,7 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
 
   @override
   void dispose() {
-    _codeCtrl.dispose(); _locationCtrl.dispose(); _notesCtrl.dispose();
+    _notesCtrl.dispose();
     _hoseLengthCtrl.dispose(); _hoseDiamCtrl.dispose();
     _hosePressCtrl.dispose(); _hoseMaterialCtrl.dispose(); _hoseQtyCtrl.dispose();
     _cylBoreCtrl.dispose(); _cylStrokeCtrl.dispose(); _cylPressCtrl.dispose();
@@ -1129,8 +1278,8 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
     if (!_formKey.currentState!.validate()) return;
     Navigator.of(context).pop({
       'item_type':      _itemType,
-      'item_code':      _codeCtrl.text.trim(),
-      'location_desc':  _locationCtrl.text.trim(),
+      'item_code':      '',
+      'location_desc':  '',
       'condition':      _condition,
       'recommendation': _recommendation,
       'notes':          _notesCtrl.text.trim(),
@@ -1190,13 +1339,6 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
                 ],
                 onChanged: (v) => setState(() => _itemType = v!),
               ),
-              const SizedBox(height: 12),
-
-              Row(children: [
-                Expanded(child: _field('Kode Item', _codeCtrl, hint: 'H-001')),
-                const SizedBox(width: 12),
-                Expanded(child: _field('Lokasi', _locationCtrl, hint: 'Mesin utama')),
-              ]),
               const SizedBox(height: 12),
 
               Row(children: [

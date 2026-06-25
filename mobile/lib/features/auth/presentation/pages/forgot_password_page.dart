@@ -51,10 +51,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         _loading = false;
       });
       _snack('Kode OTP dikirim ke $email');
-    } catch (e) {
+    } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _snack('Gagal mengirim OTP', isError: true);
+      final msg = e.response?.data['message'] ?? 'Gagal mengirim OTP';
+      _snack(msg, isError: true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _snack('Terjadi kesalahan, coba lagi', isError: true);
     }
   }
 

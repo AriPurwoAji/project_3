@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/AriPurwoAji/project_3/backend/internal/domain"
@@ -211,6 +212,33 @@ func (u *bookingUsecase) ConfirmJob(bookingID, userID, role string) error {
 	u.notify(booking.CreatedBy, &bookingID, "job_done",
 		"Konfirmasi berhasil ✅",
 		"Terima kasih! Hasil kerja teknisi telah kamu konfirmasi. Job dinyatakan selesai.")
+	return nil
+}
+
+func (u *bookingUsecase) RejectJob(bookingID, userID, role, reason string) error {
+	booking, err := u.bookingRepo.FindByID(bookingID)
+	if err != nil {
+		return errors.New("booking tidak ditemukan")
+	}
+	if booking.Status != "waiting_confirmation" {
+		return errors.New("booking belum dalam status menunggu konfirmasi")
+	}
+	if role != "manager" && booking.CreatedBy != userID {
+		return errors.New("kamu tidak berhak menolak booking ini")
+	}
+	if err := u.bookingRepo.RejectJob(bookingID); err != nil {
+		return err
+	}
+	// Notifikasi ke teknisi
+	if booking.TechnicianID != nil {
+		equipInfo := ""
+		if booking.EquipmentName != "" {
+			equipInfo = " untuk " + booking.EquipmentName
+		}
+		u.notify(*booking.TechnicianID, &bookingID, "job_rejected",
+			"Laporan ditolak — perlu perbaikan",
+			fmt.Sprintf("Laporan job%s milik %s ditolak. Alasan: %s. Segera perbaiki laporan.", equipInfo, booking.CompanyName, reason))
+	}
 	return nil
 }
 

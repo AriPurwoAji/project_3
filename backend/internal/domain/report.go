@@ -6,6 +6,9 @@ type HydraulicReport struct {
 	ID                string          `json:"id"`
 	BookingID         string          `json:"booking_id"`
 	TechnicianID      string          `json:"technician_id"`
+	EquipmentID       *string         `json:"equipment_id,omitempty"`
+	Status            string          `json:"status"` // submitted | rejected
+	RejectionReason   *string         `json:"rejection_reason,omitempty"`
 	PressureBeforeBar *int            `json:"pressure_before_bar,omitempty"`
 	PressureAfterBar  *int            `json:"pressure_after_bar,omitempty"`
 	OilCondition      *string         `json:"oil_condition,omitempty"`
@@ -24,6 +27,7 @@ type HydraulicReport struct {
 	// Relations
 	InspectionItems []InspectionItem `json:"inspection_items,omitempty"`
 	TechnicianName  string           `json:"technician_name,omitempty"`
+	EquipmentName   string           `json:"equipment_name,omitempty"`
 	BookingInfo     *Booking         `json:"booking_info,omitempty"`
 }
 
@@ -67,6 +71,7 @@ type MaintenanceChecklistItem struct {
 
 // Request structs
 type CreateReportRequest struct {
+	EquipmentID     *string        `json:"equipment_id"`
 	WorkDescription string         `json:"work_description" binding:"required"`
 	Recommendations string         `json:"recommendations"`
 	// Repair fields
@@ -81,6 +86,21 @@ type CreateReportRequest struct {
 	// Inspeksi fields
 	InspectionItems []CreateInspectionItemRequest `json:"inspection_items"`
 	// Maintenance fields
+	MaintenanceChecklist []MaintenanceChecklistItem `json:"maintenance_checklist"`
+}
+
+type UpdateReportRequest struct {
+	WorkDescription      string                     `json:"work_description" binding:"required"`
+	Recommendations      string                     `json:"recommendations"`
+	PressureBeforeBar    *int                       `json:"pressure_before_bar"`
+	PressureAfterBar     *int                       `json:"pressure_after_bar"`
+	OilCondition         *string                    `json:"oil_condition"`
+	OilLevel             *string                    `json:"oil_level"`
+	LeakLocation         *string                    `json:"leak_location"`
+	LeakSeverity         *string                    `json:"leak_severity"`
+	PartsReplaced        []PartReplaced             `json:"parts_replaced"`
+	PhotoURLs            []ReportPhoto              `json:"photo_urls"`
+	InspectionItems      []CreateInspectionItemRequest `json:"inspection_items"`
 	MaintenanceChecklist []MaintenanceChecklistItem `json:"maintenance_checklist"`
 }
 
@@ -99,15 +119,21 @@ type ReportRepository interface {
 	Create(report *HydraulicReport) error
 	CreateInspectionItems(items []InspectionItem) error
 	FindByBookingID(bookingID string) (*HydraulicReport, error)
+	FindAllByBookingID(bookingID string) ([]HydraulicReport, error)
 	FindByID(id string) (*HydraulicReport, error)
 	FindByTechnicianID(technicianID string) ([]HydraulicReport, error)
 	UpdatePDFUrl(reportID, pdfURL string) error
+	UpdateReport(reportID string, req UpdateReportRequest) error
+	RejectReports(bookingID, reason string) error
+	CountByBookingID(bookingID string) (int, error)
 }
 
 type ReportUsecase interface {
 	CreateReport(bookingID, technicianID string, req CreateReportRequest) (*HydraulicReport, error)
 	GetReportByBookingID(bookingID string) (*HydraulicReport, error)
+	GetAllReportsByBookingID(bookingID string) ([]HydraulicReport, error)
 	GetMyReports(technicianID string) ([]HydraulicReport, error)
+	UpdateReport(reportID, technicianID string, req UpdateReportRequest) (*HydraulicReport, error)
 }
 
 type PDFReportGenerator interface {

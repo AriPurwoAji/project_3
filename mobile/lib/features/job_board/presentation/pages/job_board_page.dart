@@ -164,65 +164,9 @@ class _JobBoardPageState extends State<JobBoardPage>
   }
 
   Future<void> _claimJob(dynamic job) async {
-    final String bookingID    = job['id'];
-    final String? equipName1  = job['equipment_name']   as String?;
-    final String? equipName2  = job['equipment_name_2'] as String?;
-    final String? equipID1    = job['equipment_id']     as String?;
-    final String? equipID2    = job['equipment_id_2']   as String?;
-
-    // Jika ada 2 equipment, tanyakan mana yang dikerjakan duluan
-    String? workEquipID;
-    if (equipID2 != null && equipID2.isNotEmpty) {
-      if (!mounted) return;
-      workEquipID = await showModalBottomSheet<String>(
-        context: context,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        builder: (ctx) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36, height: 4,
-                    decoration: BoxDecoration(
-                      color: AppTheme.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text('Kerjakan equipment mana dulu?',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                const Text(
-                  'Booking ini memiliki 2 equipment. Pilih yang dikerjakan pertama.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-                ),
-                const SizedBox(height: 16),
-                _equipPickTile(
-                  ctx, equipID1 ?? '', equipName1 ?? 'Equipment 1', Icons.engineering_outlined),
-                const SizedBox(height: 10),
-                _equipPickTile(
-                  ctx, equipID2, equipName2 ?? 'Equipment 2', Icons.settings_outlined),
-              ],
-            ),
-          ),
-        ),
-      );
-      if (workEquipID == null || !mounted) return; // user dismissed
-    }
-
+    final String bookingID = job['id'];
     try {
-      await ApiClient.instance.post(
-        '/bookings/$bookingID/claim',
-        data: workEquipID != null ? {'work_equipment_id': workEquipID} : null,
-      );
+      await ApiClient.instance.post('/bookings/$bookingID/claim');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Job berhasil diambil!'),
@@ -236,34 +180,6 @@ class _JobBoardPageState extends State<JobBoardPage>
         backgroundColor: AppTheme.danger,
       ));
     }
-  }
-
-  Widget _equipPickTile(
-      BuildContext ctx, String id, String name, IconData icon) {
-    return InkWell(
-      onTap: () => Navigator.of(ctx).pop(id),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.border),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: AppTheme.primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(name,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w500)),
-            ),
-            const Icon(Icons.chevron_right,
-                size: 18, color: AppTheme.textTertiary),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _updateStatus(dynamic job) async {

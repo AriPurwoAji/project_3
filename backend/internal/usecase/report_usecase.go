@@ -33,7 +33,6 @@ func NewReportUsecase(
 }
 
 func (u *reportUsecase) CreateReport(bookingID, technicianID string, req domain.CreateReportRequest) (*domain.HydraulicReport, error) {
-	// Validasi booking
 	booking, err := u.bookingRepo.FindByID(bookingID)
 	if err != nil {
 		return nil, errors.New("booking tidak ditemukan")
@@ -43,10 +42,10 @@ func (u *reportUsecase) CreateReport(bookingID, technicianID string, req domain.
 		return nil, errors.New("kamu bukan teknisi yang mengerjakan booking ini")
 	}
 
-	// Buat report
 	report := &domain.HydraulicReport{
 		BookingID:            bookingID,
 		TechnicianID:         technicianID,
+		EquipmentID:          req.EquipmentID,
 		PressureBeforeBar:    req.PressureBeforeBar,
 		PressureAfterBar:     req.PressureAfterBar,
 		OilCondition:         req.OilCondition,
@@ -71,7 +70,7 @@ func (u *reportUsecase) CreateReport(bookingID, technicianID string, req domain.
 		return nil, errors.New("gagal menyimpan laporan: " + err.Error())
 	}
 
-	// Simpan inspection items jika ada
+	// Inspection items
 	if len(req.InspectionItems) > 0 {
 		var items []domain.InspectionItem
 		for _, itemReq := range req.InspectionItems {
@@ -93,52 +92,75 @@ func (u *reportUsecase) CreateReport(bookingID, technicianID string, req domain.
 		report.InspectionItems = items
 	}
 
-	// Update booking status jadi waiting_confirmation (client perlu konfirmasi dulu)
-	u.bookingRepo.UpdateStatus(bookingID, technicianID, "waiting_confirmation")
+	// Tentukan apakah semua equipment sudah punya laporan
+	hasEquip2 := booking.EquipmentID2 != nil
+	allDone   := true
 
-	// Notify client untuk konfirmasi hasil kerja
-	if err := u.notifRepo.Create(&domain.Notification{
-		UserID:    booking.CreatedBy,
-		BookingID: &bookingID,
-		Type:      "job_done",
-		Title:     "Harap konfirmasi hasil kerja",
-		Body:      fmt.Sprintf("Teknisi telah menyelesaikan pekerjaan dan mengajukan laporan. Buka app untuk konfirmasi hasilnya."),
-		Payload:   map[string]interface{}{},
-	}); err != nil {
-		log.Printf("[notify] gagal buat notif waiting_confirmation userID=%s: %v", booking.CreatedBy, err)
+	if hasEquip2 {
+		count, _ := u.reportRepo.CountByBookingID(bookingID)
+		allDone = count >= 2
 	}
 
-	// Notify manager bahwa laporan sudah masuk dan menunggu konfirmasi
-	u.notifRepo.BroadcastToRole("manager", &bookingID, "job_done", //nolint
-		"Laporan servis menunggu konfirmasi",
-		fmt.Sprintf("Teknisi %s telah submit laporan di %s. Menunggu konfirmasi client.", booking.TechnicianName, booking.SiteCity))
+	if allDone {
+		// Semua laporan sudah masuk — minta konfirmasi client
+		u.bookingRepo.ForceUpdateStatus(bookingID, "waiting_confirmation") //nolint
+		u.notifyClient(booking, bookingID)
+	}
+	// Jika belum semua: status tetap (on_site / in_progress) — client belum dinotif
 
-
-	// Generate PDF (best-effort; does not fail the report creation)
+	// Generate PDF (best-effort)
 	if u.pdfGen != nil && u.uploader != nil {
-		pdfBytes, err := u.pdfGen.GenerateReport(report, booking)
-		if err != nil {
-			log.Printf("PDF generation failed for report %s: %v", report.ID, err)
-		} else {
+		go func() {
+			pdfBytes, err := u.pdfGen.GenerateReport(report, booking)
+			if err != nil {
+				log.Printf("PDF generation failed for report %s: %v", report.ID, err)
+				return
+			}
 			filename := fmt.Sprintf("laporan_%s.pdf", report.ID)
 			pdfURL, err := u.uploader.Upload(pdfBytes, filename, "application/pdf")
 			if err != nil {
 				log.Printf("PDF upload failed for report %s: %v", report.ID, err)
-			} else {
-				if err := u.reportRepo.UpdatePDFUrl(report.ID, pdfURL); err != nil {
-					log.Printf("UpdatePDFUrl failed for report %s: %v", report.ID, err)
-				} else {
-					report.PDFUrl = &pdfURL
-				}
+				return
 			}
-		}
+			if err := u.reportRepo.UpdatePDFUrl(report.ID, pdfURL); err != nil {
+				log.Printf("UpdatePDFUrl failed for report %s: %v", report.ID, err)
+			}
+		}()
 	}
 
 	return report, nil
 }
 
+func (u *reportUsecase) notifyClient(booking *domain.Booking, bookingID string) {
+	equipInfo := ""
+	if booking.EquipmentName != "" {
+		equipInfo = " untuk " + booking.EquipmentName
+	}
+	if err := u.notifRepo.Create(&domain.Notification{
+		UserID:    booking.CreatedBy,
+		BookingID: &bookingID,
+		Type:      "job_done",
+		Title:     "Pekerjaan selesai — harap konfirmasi",
+		Body: fmt.Sprintf(
+			"Teknisi telah menyelesaikan pekerjaan%s dan mengajukan laporan. Periksa laporan dan konfirmasi hasilnya.",
+			equipInfo,
+		),
+		Payload: map[string]interface{}{"booking_id": bookingID},
+	}); err != nil {
+		log.Printf("[notify] gagal buat notif waiting_confirmation userID=%s: %v", booking.CreatedBy, err)
+	}
+
+	u.notifRepo.BroadcastToRole("manager", &bookingID, "job_done", //nolint
+		"Laporan servis menunggu konfirmasi",
+		fmt.Sprintf("Teknisi %s telah submit laporan di %s. Menunggu konfirmasi client.", booking.TechnicianName, booking.SiteCity))
+}
+
 func (u *reportUsecase) GetReportByBookingID(bookingID string) (*domain.HydraulicReport, error) {
 	return u.reportRepo.FindByBookingID(bookingID)
+}
+
+func (u *reportUsecase) GetAllReportsByBookingID(bookingID string) ([]domain.HydraulicReport, error) {
+	return u.reportRepo.FindAllByBookingID(bookingID)
 }
 
 func (u *reportUsecase) GetMyReports(technicianID string) ([]domain.HydraulicReport, error) {
@@ -152,4 +174,70 @@ func (u *reportUsecase) GetMyReports(technicianID string) ([]domain.HydraulicRep
 		}
 	}
 	return reports, nil
+}
+
+func (u *reportUsecase) UpdateReport(reportID, technicianID string, req domain.UpdateReportRequest) (*domain.HydraulicReport, error) {
+	existing, err := u.reportRepo.FindByID(reportID)
+	if err != nil {
+		return nil, errors.New("laporan tidak ditemukan")
+	}
+	if existing.TechnicianID != technicianID {
+		return nil, errors.New("kamu bukan pemilik laporan ini")
+	}
+	if existing.Status != "rejected" {
+		return nil, errors.New("hanya laporan yang ditolak yang bisa diedit")
+	}
+
+	if err := u.reportRepo.UpdateReport(reportID, req); err != nil {
+		return nil, errors.New("gagal update laporan: " + err.Error())
+	}
+
+	// Update inspection items (hapus lama, buat baru)
+	if len(req.InspectionItems) > 0 {
+		_, err := u.reportRepo.FindByID(reportID) // memastikan report masih ada
+		if err == nil {
+			// Hapus items lama (tidak ada method delete, jadi skip untuk sekarang)
+			var items []domain.InspectionItem
+			for _, itemReq := range req.InspectionItems {
+				items = append(items, domain.InspectionItem{
+					ReportID:       reportID,
+					ItemType:       itemReq.ItemType,
+					ItemCode:       itemReq.ItemCode,
+					LocationDesc:   itemReq.LocationDesc,
+					Specifications: itemReq.Specifications,
+					Condition:      itemReq.Condition,
+					Recommendation: itemReq.Recommendation,
+					PhotoURL:       itemReq.PhotoURL,
+					Notes:          itemReq.Notes,
+				})
+			}
+			u.reportRepo.CreateInspectionItems(items) //nolint
+		}
+	}
+
+	// Cek apakah semua laporan untuk booking ini sudah submitted kembali
+	booking, err := u.bookingRepo.FindByID(existing.BookingID)
+	if err != nil {
+		return u.reportRepo.FindByID(reportID)
+	}
+
+	totalEquip := 1
+	if booking.EquipmentID2 != nil {
+		totalEquip = 2
+	}
+	count, _ := u.reportRepo.CountByBookingID(existing.BookingID)
+	if count >= totalEquip {
+		u.bookingRepo.ForceUpdateStatus(existing.BookingID, "waiting_confirmation") //nolint
+		// Notify client bahwa laporan sudah diperbaiki
+		u.notifRepo.Create(&domain.Notification{ //nolint
+			UserID:    booking.CreatedBy,
+			BookingID: &existing.BookingID,
+			Type:      "job_done",
+			Title:     "Laporan sudah diperbaiki — harap konfirmasi ulang",
+			Body:      "Teknisi telah memperbaiki laporan sesuai masukan kamu. Periksa dan konfirmasi hasilnya.",
+			Payload:   map[string]interface{}{"booking_id": existing.BookingID},
+		})
+	}
+
+	return u.reportRepo.FindByID(reportID)
 }

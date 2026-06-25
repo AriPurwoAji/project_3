@@ -62,6 +62,7 @@ func Setup(
 			booking.POST("/:id/assign", middleware.RoleMiddleware("manager"), bookingHandler.AssignTechnician)
 			booking.PATCH("/:id/cancel",  middleware.RoleMiddleware("client", "manager"), bookingHandler.CancelBooking)
 			booking.POST("/:id/confirm", middleware.RoleMiddleware("client", "manager"), bookingHandler.ConfirmJob)
+			booking.POST("/:id/reject",  middleware.RoleMiddleware("client", "manager"), bookingHandler.RejectJob)
 			booking.PATCH("/:id/equipment-done", middleware.RoleMiddleware("teknisi"), bookingHandler.MarkEquipmentDone)
 			booking.PATCH("/:id/items/:item_id", middleware.RoleMiddleware("teknisi"), bookingHandler.ToggleBookingItem)
 			booking.GET("/available-references", middleware.RoleMiddleware("client"), bookingHandler.GetAvailableReferences)
@@ -76,6 +77,8 @@ func Setup(
 		{
 			reports.POST("/:booking_id", middleware.RoleMiddleware("teknisi"), reportHandler.CreateReport)
 			reports.GET("/:booking_id", reportHandler.GetReportByBookingID)
+			reports.GET("/:booking_id/all", reportHandler.GetAllReportsByBookingID)
+			reports.PATCH("/by-id/:report_id", middleware.RoleMiddleware("teknisi"), reportHandler.UpdateReport)
 			reports.GET("/my-reports", middleware.RoleMiddleware("teknisi"), reportHandler.GetMyReports)
 		}
 

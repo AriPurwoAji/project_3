@@ -16,6 +16,7 @@ import '../../features/booking/presentation/pages/riwayat_page.dart';
 import '../../features/booking/presentation/pages/technician_list_page.dart';
 import '../../features/booking/presentation/pages/team_page.dart';
 import '../../features/report/presentation/pages/create_report_page.dart';
+import '../../features/report/presentation/pages/edit_report_page.dart';
 import '../../features/report/presentation/pages/laporan_page.dart';
 import '../../features/report/presentation/pages/report_detail_page.dart';
 import '../../features/notification/presentation/pages/notification_page.dart';
@@ -99,6 +100,16 @@ final appRouter = GoRouter(
       path: '/report/create',
       pageBuilder: (c, s) => _fade(s,
           CreateReportPage(booking: s.extra as Map<String, dynamic>)),
+    ),
+    GoRoute(
+      path: '/report/edit/:reportId',
+      pageBuilder: (c, s) {
+        final extra = s.extra as Map<String, dynamic>;
+        return _fade(s, EditReportPage(
+          report:  extra['report']  as Map<String, dynamic>,
+          booking: extra['booking'] as Map<String, dynamic>,
+        ));
+      },
     ),
     GoRoute(path: '/notifications',
         pageBuilder: (c, s) => _tab(s, const NotificationPage())),

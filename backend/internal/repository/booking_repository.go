@@ -219,6 +219,30 @@ func (r *bookingRepository) ConfirmJob(bookingID, userID string) error {
 	return nil
 }
 
+func (r *bookingRepository) ForceUpdateStatus(bookingID, status string) error {
+	_, err := r.db.Exec(context.Background(),
+		`UPDATE bookings SET status = $1, updated_at = NOW() WHERE id = $2`,
+		status, bookingID)
+	return err
+}
+
+func (r *bookingRepository) RejectJob(bookingID string) error {
+	query := `
+		UPDATE bookings
+		SET status = 'needs_revision', updated_at = NOW()
+		WHERE id = $1 AND status = 'waiting_confirmation' AND deleted_at IS NULL
+	`
+	result, err := r.db.Exec(context.Background(), query, bookingID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return errors.New("booking tidak dapat ditolak (status bukan waiting_confirmation atau tidak ditemukan)")
+	}
+	r.logStatus(bookingID, "", "waiting_confirmation", "needs_revision")
+	return nil
+}
+
 func (r *bookingRepository) AssignTechnician(bookingID, technicianID string) error {
 	query := `
 		UPDATE bookings 

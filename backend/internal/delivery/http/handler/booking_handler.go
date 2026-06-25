@@ -154,6 +154,24 @@ func (h *BookingHandler) ConfirmJob(c *gin.Context) {
 	response.Success(c, 200, "Hasil kerja berhasil dikonfirmasi", nil)
 }
 
+func (h *BookingHandler) RejectJob(c *gin.Context) {
+	bookingID := c.Param("id")
+	userID    := c.GetString("user_id")
+	role      := c.GetString("role")
+
+	var req domain.RejectBookingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Alasan penolakan wajib diisi")
+		return
+	}
+
+	if err := h.bookingUsecase.RejectJob(bookingID, userID, role, req.Reason); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Laporan ditolak, teknisi akan diberitahu", nil)
+}
+
 func (h *BookingHandler) GetAvailableReferences(c *gin.Context) {
 	companyID := c.Query("company_id")
 	if companyID == "" {

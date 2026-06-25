@@ -90,6 +90,10 @@ type MarkEquipmentDoneRequest struct {
 	Done        bool   `json:"done"`
 }
 
+type RejectBookingRequest struct {
+	Reason string `json:"reason" binding:"required"`
+}
+
 type ToggleBookingItemRequest struct {
 	IsDone bool `json:"is_done"`
 }
@@ -102,9 +106,11 @@ type BookingRepository interface {
 	FindOpenBookings() ([]Booking, error)
 	ClaimBooking(bookingID, technicianID string, workEquipmentID *string) error
 	UpdateStatus(bookingID, technicianID, status string) error
+	ForceUpdateStatus(bookingID, status string) error
 	AssignTechnician(bookingID, technicianID string) error
 	CancelBooking(bookingID string) error
 	ConfirmJob(bookingID, userID string) error
+	RejectJob(bookingID string) error
 	GetAvailableReferences(companyID string) ([]AvailableReference, error)
 	MarkEquipmentDone(bookingID, equipmentID string, done bool) error
 	CreateBookingItems(bookingID string, items []string) error
@@ -123,6 +129,7 @@ type BookingUsecase interface {
 	AssignTechnician(bookingID, technicianID string) error
 	CancelBooking(bookingID, userID, role string) error
 	ConfirmJob(bookingID, userID, role string) error
+	RejectJob(bookingID, userID, role, reason string) error
 	GetAvailableReferences(companyID string) ([]AvailableReference, error)
 	MarkEquipmentDone(bookingID, technicianID, equipmentID string, done bool) error
 	GetBookingItems(bookingID string) ([]BookingItem, error)
