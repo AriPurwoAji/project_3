@@ -257,7 +257,7 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai. Merge ke `develop
 
 ### Role & Akun
 - [x] **#1** Role `sales` disembunyikan dari seluruh UI/routes/form — **TIDAK dihapus dari DB**, backend middleware tetap mendukung akun sales lama
-- [ ] **#2** Fitur lupa password — reset via email (Resend API sudah tersedia, kerjakan paling akhir)
+- [x] **#2** Fitur lupa password — reset via email (Resend API sudah tersedia, kerjakan paling akhir)
 - [x] **#3** Akun baru tidak langsung bisa login — status `is_active=FALSE` saat register, login ditolak dengan pesan khusus; manager konfirmasi via tab "Menunggu" di TeamPage (`GET /users/pending` + `PATCH /users/:id/activate`), email notifikasi ke client saat diaktifkan
 
 ### Registrasi ✅
@@ -303,6 +303,7 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai. Merge ke `develop
 | 016 | ✅ Sudah di Supabase | Tambah kolom `equipment_id_2` + `work_equipment_id` ke tabel `bookings` |
 | 017 | ⚠️ **Belum dijalankan** | Tambah kolom `done_equipment_ids` ke tabel `bookings` |
 | 018 | ⚠️ **Belum dijalankan** | Buat tabel `booking_items` — sub-item/checklist per booking |
+| 019 | ⚠️ **Belum dijalankan** | Buat tabel `password_reset_tokens` — OTP reset password |
 
 SQL migration 013 (jalankan di Supabase SQL Editor):
 ```sql
@@ -348,4 +349,17 @@ CREATE TABLE IF NOT EXISTS booking_items (
     created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_booking_items_booking_id ON booking_items(booking_id);
+```
+
+SQL migration 019 (jalankan di Supabase SQL Editor):
+```sql
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token       VARCHAR(6) NOT NULL,
+    expires_at  TIMESTAMP WITH TIME ZONE NOT NULL,
+    used_at     TIMESTAMP WITH TIME ZONE,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_prt_user_id ON password_reset_tokens(user_id);
 ```

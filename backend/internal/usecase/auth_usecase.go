@@ -2,11 +2,13 @@ package usecase
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/AriPurwoAji/project_3/backend/internal/domain"
 	"github.com/AriPurwoAji/project_3/backend/internal/infrastructure/jwt"
@@ -224,6 +226,82 @@ func (u *authUsecase) ActivateUser(userID string) error {
 		}
 	}()
 
+	return nil
+}
+
+func (u *authUsecase) ForgotPassword(req domain.ForgotPasswordRequest) error {
+	user, _, err := u.userRepo.FindByEmail(req.Email)
+	if err != nil {
+		// Jangan expose apakah email terdaftar atau tidak (keamanan)
+		return nil
+	}
+	if !user.IsActive {
+		return nil
+	}
+
+	// Generate 6-digit OTP via crypto/rand
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return errors.New("gagal generate token")
+	}
+	n := binary.BigEndian.Uint32(b[:]) % 1_000_000
+	otp := fmt.Sprintf("%06d", n)
+
+	expiresAt := time.Now().Add(15 * time.Minute)
+	if err := u.userRepo.SavePasswordResetToken(user.ID, otp, expiresAt); err != nil {
+		return errors.New("gagal menyimpan token: " + err.Error())
+	}
+
+	go func() {
+		subject := "Reset Password HydroServ"
+		body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<body style="font-family:sans-serif;background:#f5f5f5;padding:24px">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:32px">
+    <h2 style="color:#1565C0;margin-top:0">HydroServ</h2>
+    <p>Halo <strong>%s</strong>,</p>
+    <p>Kamu meminta reset password. Masukkan kode berikut di aplikasi:</p>
+    <div style="text-align:center;margin:24px 0">
+      <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1565C0">%s</span>
+    </div>
+    <p style="color:#555">Kode ini berlaku selama <strong>15 menit</strong>.</p>
+    <p style="color:#888;font-size:12px">Jika kamu tidak meminta reset password, abaikan email ini.</p>
+  </div>
+</body>
+</html>`, user.FullName, otp)
+		if err := u.emailSender.SendHTML(user.Email, subject, body); err != nil {
+			log.Printf("[Email] gagal kirim OTP reset ke %s: %v", user.Email, err)
+		} else {
+			log.Printf("[Email] OTP reset terkirim ke %s", user.Email)
+		}
+	}()
+
+	return nil
+}
+
+func (u *authUsecase) ResetPassword(req domain.ResetPasswordRequest) error {
+	userID, expiresAt, usedAt, err := u.userRepo.GetPasswordResetToken(req.Email, req.Token)
+	if err != nil {
+		return errors.New("kode OTP tidak valid")
+	}
+	if usedAt != nil {
+		return errors.New("kode OTP sudah pernah digunakan")
+	}
+	if time.Now().After(*expiresAt) {
+		return errors.New("kode OTP sudah kadaluarsa, minta kode baru")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("gagal memproses password")
+	}
+
+	if err := u.userRepo.ChangePassword(userID, string(hash)); err != nil {
+		return errors.New("gagal update password: " + err.Error())
+	}
+
+	_ = u.userRepo.MarkResetTokenUsed(req.Email, req.Token)
 	return nil
 }
 

@@ -391,6 +391,19 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                       ),
 
+                      const SizedBox(height: 12),
+                      Center(
+                        child: GestureDetector(
+                          onTap: () => context.go('/forgot-password'),
+                          child: const Text(
+                            'Lupa Password?',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,

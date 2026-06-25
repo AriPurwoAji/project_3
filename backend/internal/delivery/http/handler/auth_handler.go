@@ -195,6 +195,30 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	c.Data(200, "text/html; charset=utf-8", verifyPage("Email berhasil diverifikasi! Silakan login di aplikasi HydroServ.", true))
 }
 
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var req domain.ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Request tidak valid: "+err.Error())
+		return
+	}
+	// Selalu 200 agar tidak expose apakah email terdaftar
+	_ = h.authUsecase.ForgotPassword(req)
+	response.Success(c, 200, "Jika email terdaftar, kode OTP akan dikirim dalam beberapa detik", nil)
+}
+
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req domain.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Request tidak valid: "+err.Error())
+		return
+	}
+	if err := h.authUsecase.ResetPassword(req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Password berhasil direset. Silakan login dengan password baru", nil)
+}
+
 func verifyPage(message string, success bool) []byte {
 	icon  := "✅"
 	color := "#2e7d32"

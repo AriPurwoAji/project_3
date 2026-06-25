@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/profile_page.dart';
+import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/job_board/presentation/pages/job_board_page.dart';
 import '../../features/job_board/presentation/pages/my_jobs_page.dart';
@@ -45,7 +46,7 @@ final appRouter = GoRouter(
     final token = await _storage.read(key: AppConstants.accessTokenKey);
     final isLoggedIn   = token != null;
     final loc          = state.matchedLocation;
-    final isPublicPage = loc == '/login' || loc == '/register';
+    final isPublicPage = loc == '/login' || loc == '/register' || loc == '/forgot-password';
 
     if (!isLoggedIn && !isPublicPage) return '/login';
     if (isLoggedIn && loc == '/login') {
@@ -59,6 +60,8 @@ final appRouter = GoRouter(
         pageBuilder: (c, s) => _fade(s, const LoginPage())),
     GoRoute(path: '/register',
         pageBuilder: (c, s) => _fade(s, const RegisterPage())),
+    GoRoute(path: '/forgot-password',
+        pageBuilder: (c, s) => _fade(s, const ForgotPasswordPage())),
 
     // ── Manager ──────────────────────────────────────────────────────────
     GoRoute(path: '/dashboard',

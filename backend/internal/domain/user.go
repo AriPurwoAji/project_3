@@ -94,10 +94,24 @@ type UserRepository interface {
 	// Pending account management
 	GetPendingUsers() ([]User, error)
 	ActivateUser(userID string) error
+	// Password reset
+	SavePasswordResetToken(userID, token string, expiresAt time.Time) error
+	GetPasswordResetToken(email, token string) (string, *time.Time, *time.Time, error) // userID, expiresAt, usedAt
+	MarkResetTokenUsed(email, token string) error
 }
 
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type ResetPasswordRequest struct {
+	Email       string `json:"email"        binding:"required,email"`
+	Token       string `json:"token"        binding:"required,len=6"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
 
 type AuthUsecase interface {
@@ -115,6 +129,8 @@ type AuthUsecase interface {
 	VerifyEmail(token string) error
 	GetPendingUsers() ([]User, error)
 	ActivateUser(userID string) error
+	ForgotPassword(req ForgotPasswordRequest) error
+	ResetPassword(req ResetPasswordRequest) error
 }
 
 // EmailSender abstraksi pengiriman email

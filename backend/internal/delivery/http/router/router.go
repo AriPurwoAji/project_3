@@ -43,6 +43,8 @@ func Setup(
 		auth.POST("/refresh", authHandler.RefreshToken)
 		auth.GET("/me", middleware.AuthMiddleware(), authHandler.GetProfile)
 		auth.GET("/verify-email", authHandler.VerifyEmail)
+		auth.POST("/forgot-password", authHandler.ForgotPassword)
+		auth.POST("/reset-password", authHandler.ResetPassword)
 	}
 
 	// Protected

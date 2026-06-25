@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/AriPurwoAji/project_3/backend/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -355,6 +356,46 @@ func (r *userRepository) ActivateUser(userID string) error {
 		return errors.New("user tidak ditemukan atau sudah aktif")
 	}
 	return nil
+}
+
+func (r *userRepository) SavePasswordResetToken(userID, token string, expiresAt time.Time) error {
+	_, err := r.db.Exec(context.Background(),
+		`INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+		userID, token, expiresAt,
+	)
+	return err
+}
+
+func (r *userRepository) GetPasswordResetToken(email, token string) (string, *time.Time, *time.Time, error) {
+	var userID string
+	var expiresAt time.Time
+	var usedAt *time.Time
+	err := r.db.QueryRow(context.Background(), `
+		SELECT prt.user_id, prt.expires_at, prt.used_at
+		FROM password_reset_tokens prt
+		JOIN users u ON u.id = prt.user_id
+		WHERE u.email = $1
+		  AND prt.token = $2
+		ORDER BY prt.created_at DESC
+		LIMIT 1
+	`, email, token).Scan(&userID, &expiresAt, &usedAt)
+	if err != nil {
+		return "", nil, nil, errors.New("token tidak valid")
+	}
+	return userID, &expiresAt, usedAt, nil
+}
+
+func (r *userRepository) MarkResetTokenUsed(email, token string) error {
+	_, err := r.db.Exec(context.Background(), `
+		UPDATE password_reset_tokens prt
+		SET used_at = NOW()
+		FROM users u
+		WHERE u.id = prt.user_id
+		  AND u.email = $1
+		  AND prt.token = $2
+		  AND prt.used_at IS NULL
+	`, email, token)
+	return err
 }
 
 func (r *userRepository) VerifyEmailToken(token string) error {
