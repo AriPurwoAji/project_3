@@ -54,14 +54,14 @@ class _MyJobsPageState extends State<MyJobsPage> {
 
   Future<void> _updateStatus(dynamic job) async {
     final status = job['status'] ?? '';
-    if (status == 'on_site') {
-      await context.push('/report/create',
-          extra: Map<String, dynamic>.from(job));
-      if (mounted) _loadData();
+
+    // on_site → buka sheet pilih laporan; needs_revision → perbaiki laporan
+    if (status == 'on_site' || status == 'needs_revision') {
+      await _showReportSheet(job);
       return;
     }
-    final nextStatus =
-        status == 'in_progress' ? 'on_the_way' : 'on_site';
+
+    final nextStatus = status == 'in_progress' ? 'on_the_way' : 'on_site';
     try {
       await ApiClient.instance.patch(
         '/bookings/${job['id']}/status',
@@ -82,6 +82,175 @@ class _MyJobsPageState extends State<MyJobsPage> {
     }
   }
 
+  /// Bottom sheet: pilih equipment & status laporan sebelum navigasi ke form
+  Future<void> _showReportSheet(dynamic job) async {
+    // Ambil daftar laporan yang sudah ada untuk booking ini
+    List<dynamic> reports = [];
+    try {
+      final res = await ApiClient.instance.get('/reports/${job['id']}/all');
+      reports = List<dynamic>.from(res.data['data'] ?? []);
+    } catch (_) {}
+    if (!mounted) return;
+
+    final equip1Id   = (job['equipment_id']   as String?) ?? '';
+    final equip1Name = (job['equipment_name'] as String?) ?? 'Equipment 1';
+    final equip2Id   = (job['equipment_id_2'] as String?) ?? '';
+    final equip2Name = (job['equipment_name_2'] as String?) ?? 'Equipment 2';
+    final hasEquip2  = equip2Id.isNotEmpty;
+
+    // Cari laporan berdasarkan equipment_id
+    Map<String, dynamic>? findReport(String equipId) {
+      if (equipId.isEmpty) return null;
+      for (final r in reports) {
+        if ((r['equipment_id'] as String?) == equipId) {
+          return Map<String, dynamic>.from(r);
+        }
+      }
+      // Single-equipment booking: laporan tidak punya equipment_id
+      return null;
+    }
+
+    // Untuk single equipment, langsung navigate tanpa sheet
+    if (!hasEquip2) {
+      // Coba cari laporan (bisa dengan equipment_id null/kosong)
+      final report = reports.isNotEmpty ? Map<String, dynamic>.from(reports.first) : null;
+      if (report == null) {
+        // Belum ada laporan → buat baru
+        if (mounted) {
+          await context.push('/report/create', extra: Map<String, dynamic>.from(job));
+        }
+      } else if ((report['status'] as String?) == 'rejected') {
+        // Laporan ditolak → edit
+        if (mounted) {
+          await context.push('/report/edit/${report['id']}',
+              extra: {'report': report, 'booking': Map<String, dynamic>.from(job)});
+        }
+      }
+      // submitted → tidak ada aksi (tombol sudah disabled di luar)
+      if (mounted) _loadData();
+      return;
+    }
+
+    // Multi-equipment → tampilkan sheet
+    final r1 = findReport(equip1Id);
+    final r2 = findReport(equip2Id);
+
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                    color: AppTheme.border,
+                    borderRadius: BorderRadius.circular(99)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 8, 8),
+              child: Row(children: [
+                const Text('Pilih Equipment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(ctx).pop()),
+              ]),
+            ),
+            const Divider(height: 1),
+            _equipSheetTile(ctx, job, equip1Id, equip1Name, r1),
+            _equipSheetTile(ctx, job, equip2Id, equip2Name, r2),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (mounted) _loadData();
+  }
+
+  Widget _equipSheetTile(BuildContext ctx, dynamic job, String equipId,
+      String equipName, Map<String, dynamic>? report) {
+    final status      = (report?['status'] as String?) ?? 'none';
+    final isSubmitted = status == 'submitted';
+    final isRejected  = status == 'rejected';
+
+    final subLabel = isSubmitted
+        ? 'Sudah dilaporkan ✓'
+        : isRejected
+            ? 'Ditolak — perlu perbaikan'
+            : 'Belum dilaporkan';
+    final subColor = isSubmitted
+        ? AppTheme.secondary
+        : isRejected
+            ? AppTheme.danger
+            : AppTheme.textTertiary;
+    final btnLabel = isSubmitted ? 'Terkirim' : isRejected ? 'Edit Laporan' : 'Buat Laporan';
+    final btnColor = isRejected ? AppTheme.danger : AppTheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isRejected ? AppTheme.dangerLight : AppTheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isRejected
+                ? AppTheme.danger.withValues(alpha: 0.3)
+                : isSubmitted
+                    ? AppTheme.secondary.withValues(alpha: 0.3)
+                    : AppTheme.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSubmitted ? Icons.check_circle : isRejected ? Icons.error_outline : Icons.build_outlined,
+              color: isSubmitted ? AppTheme.secondary : isRejected ? AppTheme.danger : AppTheme.textTertiary,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(equipName,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(subLabel, style: TextStyle(fontSize: 11, color: subColor)),
+              ]),
+            ),
+            if (!isSubmitted)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  if (isRejected) {
+                    context.push('/report/edit/${report!['id']}',
+                        extra: {'report': report, 'booking': Map<String, dynamic>.from(job)});
+                  } else {
+                    final extra = Map<String, dynamic>.from(job)
+                      ..['_force_equipment_id']   = equipId
+                      ..['_force_equipment_name'] = equipName;
+                    context.push('/report/create', extra: extra);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: btnColor,
+                  minimumSize: const Size(0, 34),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Text(btnLabel, style: const TextStyle(fontSize: 12)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ─── HELPERS ───────────────────────────────────────────────────────────
 
   Color _statusColor(String s) {
@@ -90,6 +259,7 @@ class _MyJobsPageState extends State<MyJobsPage> {
       case 'on_the_way':           return AppTheme.warning;
       case 'on_site':              return AppTheme.primary;
       case 'waiting_confirmation': return AppTheme.warning;
+      case 'needs_revision':       return AppTheme.danger;
       default:                     return AppTheme.textTertiary;
     }
   }
@@ -100,6 +270,7 @@ class _MyJobsPageState extends State<MyJobsPage> {
       case 'on_the_way':           return 'On The Way';
       case 'on_site':              return 'On Site';
       case 'waiting_confirmation': return 'Menunggu Konfirmasi';
+      case 'needs_revision':       return 'Perlu Perbaikan';
       default:                     return s;
     }
   }
@@ -109,6 +280,7 @@ class _MyJobsPageState extends State<MyJobsPage> {
       case 'in_progress':          return 'Berangkat';
       case 'on_the_way':           return 'Tiba di Lokasi';
       case 'on_site':              return 'Submit Laporan';
+      case 'needs_revision':       return 'Perbaiki Laporan';
       case 'waiting_confirmation': return 'Menunggu Konfirmasi Client';
       default:                     return 'Update Status';
     }
@@ -291,9 +463,11 @@ class _MyJobsPageState extends State<MyJobsPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: status == 'on_site'
                         ? AppTheme.secondary
-                        : status == 'waiting_confirmation'
-                            ? AppTheme.textTertiary
-                            : AppTheme.primary,
+                        : status == 'needs_revision'
+                            ? AppTheme.danger
+                            : status == 'waiting_confirmation'
+                                ? AppTheme.textTertiary
+                                : AppTheme.primary,
                     minimumSize: const Size(0, 38),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),

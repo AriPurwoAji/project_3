@@ -201,9 +201,11 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		response.Error(c, 400, "Request tidak valid: "+err.Error())
 		return
 	}
-	// Selalu 200 agar tidak expose apakah email terdaftar
-	_ = h.authUsecase.ForgotPassword(req)
-	response.Success(c, 200, "Jika email terdaftar, kode OTP akan dikirim dalam beberapa detik", nil)
+	if err := h.authUsecase.ForgotPassword(req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, 200, "Kode OTP berhasil dikirim ke email kamu", nil)
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {

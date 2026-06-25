@@ -51,7 +51,8 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         _booking = booking;
         _loading = false;
       });
-      if (const {'done', 'waiting_confirmation', 'needs_revision'}
+      // Load laporan untuk semua status aktif (termasuk on_site agar teknisi tahu progres)
+      if (const {'on_site', 'done', 'waiting_confirmation', 'needs_revision'}
           .contains(booking['status'])) {
         _loadReport();
         _loadAllReports();
@@ -147,13 +148,12 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         _loadBooking();
       }
     } catch (e) {
-      if (mounted) {
-        final msg = e is DioException
-            ? e.response?.data['message'] ?? 'Gagal konfirmasi'
-            : 'Gagal konfirmasi';
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(msg)));
-      }
+      if (!mounted) return;
+      final msg = e is DioException
+          ? (e.response?.data?['message'] as String?) ?? 'Gagal konfirmasi'
+          : 'Gagal konfirmasi';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppTheme.danger));
     } finally {
       if (mounted) setState(() => _confirming = false);
     }
@@ -182,69 +182,75 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   }
 
   Future<void> _rejectJob() async {
-    final reasonCtrl = TextEditingController();
-    final reason = await showDialog<String>(
+    String reasonInput = '';
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Tolak Laporan'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Berikan alasan penolakan agar teknisi dapat memperbaiki laporan:',
-                style: TextStyle(fontSize: 13)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Contoh: Deskripsi pekerjaan kurang lengkap...',
-                border: OutlineInputBorder(),
+      barrierDismissible: false,
+      builder: (ctx) {
+        final ctrl = TextEditingController();
+        return AlertDialog(
+          title: const Text('Tolak Laporan'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Berikan alasan penolakan agar teknisi dapat memperbaiki laporan:',
+                style: TextStyle(fontSize: 13),
               ),
-              autofocus: true,
+              const SizedBox(height: 12),
+              StatefulBuilder(
+                builder: (_, ss) => TextField(
+                  controller: ctrl,
+                  maxLines: 3,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Contoh: Deskripsi pekerjaan kurang lengkap...',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final r = ctrl.text.trim();
+                if (r.isEmpty) return;
+                reasonInput = r;
+                Navigator.of(ctx).pop(true);
+              },
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.danger, foregroundColor: Colors.white),
+              child: const Text('Tolak Laporan'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final r = reasonCtrl.text.trim();
-              if (r.isEmpty) return;
-              Navigator.pop(ctx, r);
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.danger, foregroundColor: Colors.white),
-            child: const Text('Tolak Laporan'),
-          ),
-        ],
-      ),
+        );
+      },
     );
-    reasonCtrl.dispose();
-    if (reason == null || !mounted) return;
+    if (confirmed != true || reasonInput.isEmpty || !mounted) return;
     setState(() => _rejecting = true);
     try {
       await ApiClient.instance.post(
         '/bookings/${widget.bookingId}/reject',
-        data: {'reason': reason},
+        data: {'reason': reasonInput},
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Laporan ditolak. Teknisi akan segera diberitahu.'),
-          backgroundColor: AppTheme.warning,
-        ));
-        _loadBooking();
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Laporan ditolak. Teknisi akan segera diberitahu.'),
+        backgroundColor: AppTheme.warning,
+      ));
+      _loadBooking();
     } catch (e) {
-      if (mounted) {
-        final msg = e is DioException
-            ? e.response?.data['message'] ?? 'Gagal menolak laporan'
-            : 'Gagal menolak laporan';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-      }
+      if (!mounted) return;
+      final msg = e is DioException
+          ? (e.response?.data?['message'] as String?) ?? 'Gagal menolak laporan'
+          : 'Gagal menolak laporan';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppTheme.danger));
     } finally {
       if (mounted) setState(() => _rejecting = false);
     }
@@ -444,7 +450,11 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                         const SizedBox(height: 16),
                         _buildBookingPhotosCard(),
                       ],
-                      if (_report != null) ...[
+                      // Tampilkan semua laporan (multi-equipment support)
+                      if (_allReports.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        _buildAllReportsCard(),
+                      ] else if (_report != null) ...[
                         const SizedBox(height: 16),
                         _buildReportCard(),
                       ],
@@ -826,12 +836,18 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   // ─── NEEDS REVISION BANNER ────────────────────────────────────────────────
 
   Widget _buildNeedsRevisionBanner() {
-    // Ambil alasan penolakan dari laporan (jika ada)
-    final rejectionReason = _allReports.isNotEmpty
-        ? (_allReports.first['rejection_reason'] as String?) ?? ''
-        : (_report?['rejection_reason'] as String?) ?? '';
-
     final isTeknisi = _userRole == AppConstants.roleTeknisi;
+
+    // Cari semua laporan yang di-reject (bisa lebih dari 1 jika multi-equipment)
+    final rejectedReports = _allReports
+        .where((r) => (r['status'] as String?) == 'rejected')
+        .toList();
+
+    // Fallback ke _report jika _allReports belum dimuat
+    final fallback = _report != null && (_report!['status'] as String?) == 'rejected'
+        ? [_report!]
+        : <Map<String, dynamic>>[];
+    final toShow = rejectedReports.isNotEmpty ? rejectedReports : fallback;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -856,33 +872,49 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
               ),
             ],
           ),
-          if (rejectionReason.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('Alasan: $rejectionReason',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          ],
-          if (isTeknisi && _report != null) ...[
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: () => context.push(
-                '/report/edit/${_report!['id']}',
-                extra: {'report': _report, 'booking': _booking},
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.danger,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: const Icon(Icons.edit_outlined, size: 16),
-              label: const Text('Perbaiki Laporan',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            ),
-          ],
           if (!isTeknisi) ...[
             const SizedBox(height: 8),
             const Text('Menunggu teknisi memperbaiki laporan...',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ],
+          if (isTeknisi) ...[
+            const SizedBox(height: 8),
+            ...toShow.map((r) {
+              final reason    = (r['rejection_reason'] as String?) ?? '';
+              final equipName = (r['equipment_name'] as String?) ?? '';
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (equipName.isNotEmpty)
+                    Text('Equipment: $equipName',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                            color: AppTheme.danger)),
+                  if (reason.isNotEmpty)
+                    Text('Alasan: $reason',
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => context.push(
+                      '/report/edit/${r['id']}',
+                      extra: {'report': r, 'booking': _booking},
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.danger,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 40),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: Text(
+                      equipName.isNotEmpty ? 'Perbaiki Laporan — $equipName' : 'Perbaiki Laporan',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
+              );
+            }),
           ],
         ],
       ),
@@ -1450,6 +1482,103 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
           ),
         ],
       ),
+    );
+  }
+
+  // ─── ALL REPORTS CARD (multi-equipment) ─────────────────────────────────
+
+  Widget _buildAllReportsCard() {
+    return Column(
+      children: _allReports.asMap().entries.map((entry) {
+        final i      = entry.key;
+        final r      = entry.value as Map<String, dynamic>;
+        final pdfUrl = r['pdf_url'] as String?;
+        final workDesc   = (r['work_description'] as String?) ?? '-';
+        final equipName  = (r['equipment_name']   as String?) ?? '';
+        final status     = (r['status']           as String?) ?? 'submitted';
+        final isRejected = status == 'rejected';
+
+        return Container(
+          margin: i > 0 ? const EdgeInsets.only(top: 10) : EdgeInsets.zero,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isRejected ? AppTheme.dangerLight : AppTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isRejected
+                  ? AppTheme.danger.withValues(alpha: 0.4)
+                  : AppTheme.border,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.assignment_outlined, size: 15, color: AppTheme.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      equipName.isNotEmpty ? 'Laporan — $equipName' : 'Laporan servis',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isRejected
+                          ? AppTheme.danger.withValues(alpha: 0.12)
+                          : AppTheme.secondaryLight,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      isRejected ? 'Ditolak' : 'Terkirim',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: isRejected ? AppTheme.danger : AppTheme.secondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(workDesc,
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => context.push('/report/${widget.bookingId}'),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.open_in_new, size: 13, color: AppTheme.primary),
+                      SizedBox(width: 4),
+                      Text('Lihat Detail',
+                          style: TextStyle(fontSize: 12, color: AppTheme.primary,
+                              fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
+                  if (pdfUrl != null) ...[
+                    const SizedBox(width: 16),
+                    GestureDetector(
+                      onTap: _downloadingPdf ? null : () => _sharePdf(pdfUrl),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.share_outlined, size: 13, color: AppTheme.primary),
+                        SizedBox(width: 4),
+                        Text('Bagikan PDF',
+                            style: TextStyle(fontSize: 12, color: AppTheme.primary,
+                                fontWeight: FontWeight.w500)),
+                      ]),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 

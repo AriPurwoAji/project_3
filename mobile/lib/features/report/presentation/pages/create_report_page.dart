@@ -196,8 +196,9 @@ class _CreateReportPageState extends State<CreateReportPage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Laporan berhasil dikirim!'),
+        content: Text('Semua laporan terkirim! Menunggu konfirmasi dari client.'),
         backgroundColor: AppTheme.secondary,
+        duration: Duration(seconds: 4),
       ));
       context.go('/job-board');
     } catch (e) {
