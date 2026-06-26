@@ -854,6 +854,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
+          isExpanded: true,
           initialValue: _selectedRefId,
           hint: const Text('Pilih riwayat inspeksi/maintenance'),
           decoration: InputDecoration(
