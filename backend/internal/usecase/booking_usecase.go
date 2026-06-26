@@ -145,10 +145,6 @@ func (u *bookingUsecase) ClaimBooking(bookingID, technicianID string, workEquipm
 	if booking.Status != "open" {
 		return errors.New("job sudah tidak tersedia")
 	}
-	// Validasi: jika booking punya 2 equipment, work_equipment_id wajib diisi
-	if booking.EquipmentID2 != nil && (workEquipmentID == nil || *workEquipmentID == "") {
-		return errors.New("pilih equipment yang dikerjakan terlebih dahulu")
-	}
 	if err := u.bookingRepo.ClaimBooking(bookingID, technicianID, workEquipmentID); err != nil {
 		return err
 	}
