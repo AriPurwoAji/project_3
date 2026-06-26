@@ -165,7 +165,7 @@ func (h *BookingHandler) RejectJob(c *gin.Context) {
 		return
 	}
 
-	if err := h.bookingUsecase.RejectJob(bookingID, userID, role, req.Reason); err != nil {
+	if err := h.bookingUsecase.RejectJob(bookingID, userID, role, req.Reason, req.ReportID); err != nil {
 		response.Error(c, 400, err.Error())
 		return
 	}

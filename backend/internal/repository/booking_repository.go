@@ -226,13 +226,12 @@ func (r *bookingRepository) ForceUpdateStatus(bookingID, status string) error {
 	return err
 }
 
-func (r *bookingRepository) RejectJob(bookingID string) error {
-	query := `
+func (r *bookingRepository) RejectJob(bookingID string, reportID *string, reason string) error {
+	result, err := r.db.Exec(context.Background(), `
 		UPDATE bookings
 		SET status = 'needs_revision', updated_at = NOW()
 		WHERE id = $1 AND status = 'waiting_confirmation' AND deleted_at IS NULL
-	`
-	result, err := r.db.Exec(context.Background(), query, bookingID)
+	`, bookingID)
 	if err != nil {
 		return err
 	}
@@ -240,7 +239,18 @@ func (r *bookingRepository) RejectJob(bookingID string) error {
 		return errors.New("booking tidak dapat ditolak (status bukan waiting_confirmation atau tidak ditemukan)")
 	}
 	r.logStatus(bookingID, "", "waiting_confirmation", "needs_revision")
-	return nil
+
+	// Update status laporan ke 'rejected' dan simpan alasan penolakan
+	if reportID != nil && *reportID != "" {
+		_, err = r.db.Exec(context.Background(),
+			`UPDATE hydraulic_reports SET status='rejected', rejection_reason=$1 WHERE id=$2`,
+			reason, *reportID)
+	} else {
+		_, err = r.db.Exec(context.Background(),
+			`UPDATE hydraulic_reports SET status='rejected', rejection_reason=$1 WHERE booking_id=$2 AND status='submitted'`,
+			reason, bookingID)
+	}
+	return err
 }
 
 func (r *bookingRepository) AssignTechnician(bookingID, technicianID string) error {

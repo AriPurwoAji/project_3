@@ -91,7 +91,8 @@ type MarkEquipmentDoneRequest struct {
 }
 
 type RejectBookingRequest struct {
-	Reason string `json:"reason" binding:"required"`
+	Reason   string  `json:"reason"    binding:"required"`
+	ReportID *string `json:"report_id"` // opsional: tolak laporan tertentu saja
 }
 
 type ToggleBookingItemRequest struct {
@@ -110,7 +111,7 @@ type BookingRepository interface {
 	AssignTechnician(bookingID, technicianID string) error
 	CancelBooking(bookingID string) error
 	ConfirmJob(bookingID, userID string) error
-	RejectJob(bookingID string) error
+	RejectJob(bookingID string, reportID *string, reason string) error
 	GetAvailableReferences(companyID string) ([]AvailableReference, error)
 	MarkEquipmentDone(bookingID, equipmentID string, done bool) error
 	CreateBookingItems(bookingID string, items []string) error
@@ -129,7 +130,7 @@ type BookingUsecase interface {
 	AssignTechnician(bookingID, technicianID string) error
 	CancelBooking(bookingID, userID, role string) error
 	ConfirmJob(bookingID, userID, role string) error
-	RejectJob(bookingID, userID, role, reason string) error
+	RejectJob(bookingID, userID, role, reason string, reportID *string) error
 	GetAvailableReferences(companyID string) ([]AvailableReference, error)
 	MarkEquipmentDone(bookingID, technicianID, equipmentID string, done bool) error
 	GetBookingItems(bookingID string) ([]BookingItem, error)

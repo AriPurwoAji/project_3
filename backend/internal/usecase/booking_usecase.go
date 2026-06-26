@@ -211,7 +211,7 @@ func (u *bookingUsecase) ConfirmJob(bookingID, userID, role string) error {
 	return nil
 }
 
-func (u *bookingUsecase) RejectJob(bookingID, userID, role, reason string) error {
+func (u *bookingUsecase) RejectJob(bookingID, userID, role, reason string, reportID *string) error {
 	booking, err := u.bookingRepo.FindByID(bookingID)
 	if err != nil {
 		return errors.New("booking tidak ditemukan")
@@ -222,7 +222,7 @@ func (u *bookingUsecase) RejectJob(bookingID, userID, role, reason string) error
 	if role != "manager" && booking.CreatedBy != userID {
 		return errors.New("kamu tidak berhak menolak booking ini")
 	}
-	if err := u.bookingRepo.RejectJob(bookingID); err != nil {
+	if err := u.bookingRepo.RejectJob(bookingID, reportID, reason); err != nil {
 		return err
 	}
 	// Notifikasi ke teknisi

@@ -181,7 +181,8 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     } catch (_) {}
   }
 
-  Future<void> _rejectJob() async {
+  Future<void> _rejectJob({String? reportId, String? equipName}) async {
+    final title = equipName != null ? 'Tolak Laporan — $equipName' : 'Tolak Semua Laporan';
     String reasonInput = '';
     final confirmed = await showDialog<bool>(
       context: context,
@@ -189,7 +190,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       builder: (ctx) {
         final ctrl = TextEditingController();
         return AlertDialog(
-          title: const Text('Tolak Laporan'),
+          title: Text(title),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,9 +235,11 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     if (confirmed != true || reasonInput.isEmpty || !mounted) return;
     setState(() => _rejecting = true);
     try {
+      final body = <String, dynamic>{'reason': reasonInput};
+      if (reportId != null) body['report_id'] = reportId;
       await ApiClient.instance.post(
         '/bookings/${widget.bookingId}/reject',
-        data: {'reason': reasonInput},
+        data: body,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -788,7 +791,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: (_confirming || _rejecting) ? null : _rejectJob,
+                  onPressed: (_confirming || _rejecting) ? null : () => _rejectJob(),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.danger,
                     side: const BorderSide(color: AppTheme.danger),
@@ -800,8 +803,10 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       ? const SizedBox(height: 16, width: 16,
                           child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.danger))
                       : const Icon(Icons.close, size: 18),
-                  label: Text(_rejecting ? '...' : 'Tolak',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  label: Text(
+                    _rejecting ? '...' : (_allReports.length > 1 ? 'Tolak Semua' : 'Tolak'),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -821,7 +826,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.check_circle_outline, size: 18),
                   label: Text(
-                    _confirming ? 'Memproses...' : 'Konfirmasi',
+                    _confirming ? 'Memproses...' : (_allReports.length > 1 ? 'Konfirmasi Semua' : 'Konfirmasi'),
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -1488,14 +1493,18 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   // ─── ALL REPORTS CARD (multi-equipment) ─────────────────────────────────
 
   Widget _buildAllReportsCard() {
+    final canActPerReport = _booking!['status'] == 'waiting_confirmation' &&
+        (_userRole == AppConstants.roleClient || _userRole == AppConstants.roleManager);
+
     return Column(
       children: _allReports.asMap().entries.map((entry) {
-        final i      = entry.key;
-        final r      = entry.value as Map<String, dynamic>;
-        final pdfUrl = r['pdf_url'] as String?;
-        final workDesc   = (r['work_description'] as String?) ?? '-';
-        final equipName  = (r['equipment_name']   as String?) ?? '';
-        final status     = (r['status']           as String?) ?? 'submitted';
+        final i         = entry.key;
+        final r         = entry.value as Map<String, dynamic>;
+        final reportId  = r['id'] as String?;
+        final pdfUrl    = r['pdf_url'] as String?;
+        final workDesc  = (r['work_description'] as String?) ?? '-';
+        final equipName = (r['equipment_name']   as String?) ?? '';
+        final status    = (r['status']           as String?) ?? 'submitted';
         final isRejected = status == 'rejected';
 
         return Container(
@@ -1575,6 +1584,50 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                   ],
                 ],
               ),
+              // Tombol aksi per-laporan untuk client/manager saat waiting_confirmation
+              if (canActPerReport && !isRejected) ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: (_confirming || _rejecting)
+                            ? null
+                            : () => _rejectJob(
+                                  reportId: reportId,
+                                  equipName: equipName.isNotEmpty ? equipName : null,
+                                ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.danger,
+                          side: const BorderSide(color: AppTheme.danger),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('Tolak',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: (_confirming || _rejecting) ? null : _confirmJob,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.secondary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('Terima',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         );

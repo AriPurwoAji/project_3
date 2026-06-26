@@ -82,13 +82,6 @@ class _CreateReportPageState extends State<CreateReportPage> {
   }
 
   Future<void> _submit() async {
-    if (_hasEquip2 && _selectedEquipmentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Pilih equipment yang dilaporkan terlebih dahulu'),
-        backgroundColor: AppTheme.danger,
-      ));
-      return;
-    }
     if (!_formKey.currentState!.validate()) return;
     if (_isInspeksi && _inspectionItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -147,58 +140,21 @@ class _CreateReportPageState extends State<CreateReportPage> {
       PageCache.remove('my_jobs');
       PageCache.remove('laporan');
 
-      // Cek apakah ada equipment kedua yang belum dilaporkan
-      if (_hasEquip2) {
-        final submittedId = _selectedEquipmentId;
-        final equip1Id   = widget.booking['equipment_id']   as String?;
-        final equip2Id   = widget.booking['equipment_id_2'] as String?;
-        final equip2Name = widget.booking['equipment_name_2'] as String? ?? 'Equipment 2';
-
-        // Equipment yang belum dilaporkan
-        final otherId   = submittedId == equip1Id ? equip2Id : equip1Id;
-        final otherName = submittedId == equip1Id
-            ? equip2Name
-            : (widget.booking['equipment_name'] as String? ?? 'Equipment 1');
-
-        if (otherId != null) {
-          final goNext = await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Laporan Pertama Berhasil!'),
-              content: Text(
-                'Laporan untuk $_selectedEquipmentName berhasil dikirim.\n\n'
-                '$otherName belum ada laporan. Buat laporan sekarang?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('Nanti'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: const Text('Buat Sekarang'),
-                ),
-              ],
-            ),
+      // Auto-mark equipment ini sebagai selesai di checklist
+      if (_selectedEquipmentId != null) {
+        try {
+          await ApiClient.instance.patch(
+            '/bookings/${widget.booking['id']}/equipment-done',
+            data: {'equipment_id': _selectedEquipmentId, 'done': true},
           );
-          if (!mounted) return;
-          if (goNext == true) {
-            // Navigasi ke form laporan lagi untuk equipment yang tersisa
-            final nextBooking = Map<String, dynamic>.from(widget.booking)
-              ..['_force_equipment_id']   = otherId
-              ..['_force_equipment_name'] = otherName;
-            context.go('/report/create', extra: nextBooking);
-            return;
-          }
-        }
+        } catch (_) {} // abaikan jika migration 017 belum dijalankan
       }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Semua laporan terkirim! Menunggu konfirmasi dari client.'),
+        content: Text('Laporan berhasil dikirim!'),
         backgroundColor: AppTheme.secondary,
-        duration: Duration(seconds: 4),
+        duration: Duration(seconds: 3),
       ));
       context.go('/job-board');
     } catch (e) {
@@ -233,10 +189,6 @@ class _CreateReportPageState extends State<CreateReportPage> {
           padding: const EdgeInsets.all(16),
           children: [
             _bookingSummaryCard(),
-            if (_hasEquip2) ...[
-              const SizedBox(height: 12),
-              _equipmentSelectorCard(),
-            ],
             const SizedBox(height: 16),
             _sectionCard(
               icon: Icons.description_outlined,
@@ -292,86 +244,6 @@ class _CreateReportPageState extends State<CreateReportPage> {
 
   // ─── SECTION WIDGETS ──────────────────────────────────────────────────────
 
-  Widget _equipmentSelectorCard() {
-    final equip1Id   = widget.booking['equipment_id']   as String? ?? '';
-    final equip1Name = widget.booking['equipment_name'] as String? ?? 'Equipment 1';
-    final equip2Id   = widget.booking['equipment_id_2'] as String? ?? '';
-    final equip2Name = widget.booking['equipment_name_2'] as String? ?? 'Equipment 2';
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _selectedEquipmentId == null ? AppTheme.danger : AppTheme.primary,
-          width: _selectedEquipmentId == null ? 1.5 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.build_outlined, size: 15,
-                  color: _selectedEquipmentId == null ? AppTheme.danger : AppTheme.primary),
-              const SizedBox(width: 6),
-              const Text('Laporan untuk Equipment *',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _equipChoiceTile(equip1Id, equip1Name, Icons.engineering_outlined),
-          const SizedBox(height: 8),
-          _equipChoiceTile(equip2Id, equip2Name, Icons.settings_outlined),
-          if (_selectedEquipmentId == null) ...[
-            const SizedBox(height: 8),
-            const Text('Pilih equipment yang akan dilaporkan',
-                style: TextStyle(fontSize: 12, color: AppTheme.danger)),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _equipChoiceTile(String id, String name, IconData icon) {
-    final selected = _selectedEquipmentId == id;
-    return InkWell(
-      onTap: () => setState(() {
-        _selectedEquipmentId   = id;
-        _selectedEquipmentName = name;
-      }),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.primaryLight : AppTheme.surface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? AppTheme.primary : AppTheme.border,
-            width: selected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18,
-                color: selected ? AppTheme.primary : AppTheme.textTertiary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(name,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                    color: selected ? AppTheme.primary : AppTheme.textPrimary,
-                  )),
-            ),
-            if (selected)
-              const Icon(Icons.check_circle, size: 16, color: AppTheme.primary),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _bookingSummaryCard() {
     return Container(
@@ -411,7 +283,7 @@ class _CreateReportPageState extends State<CreateReportPage> {
               style: const TextStyle(
                   fontSize: 15, fontWeight: FontWeight.w500)),
           const SizedBox(height: 2),
-          Text(widget.booking['equipment_name'] ?? '-',
+          Text(_selectedEquipmentName ?? widget.booking['equipment_name'] ?? '-',
               style: const TextStyle(
                   fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 4),
