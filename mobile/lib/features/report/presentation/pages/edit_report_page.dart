@@ -121,7 +121,7 @@ class _EditReportPageState extends State<EditReportPage> {
       context.pop();
     } catch (e) {
       String msg = 'Gagal memperbaiki laporan';
-      if (e is DioException) msg = e.response?.data['message'] ?? msg;
+      if (e is DioException) msg = (e.response?.data as Map?)?['message'] as String? ?? msg;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: AppTheme.danger));
@@ -830,7 +830,10 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    return Container(
+    final maxH   = MediaQuery.sizeOf(context).height * 0.92;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxH),
+      child: Container(
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -895,6 +898,7 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

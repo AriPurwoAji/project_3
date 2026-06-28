@@ -161,7 +161,7 @@ class _CreateReportPageState extends State<CreateReportPage> {
     } catch (e) {
       String msg = 'Gagal mengirim laporan';
       if (e is DioException) {
-        msg = e.response?.data['message'] ?? msg;
+        msg = (e.response?.data as Map?)?['message'] as String? ?? msg;
         debugPrint('Report error: ${e.response?.data}');
       }
       if (!mounted) return;

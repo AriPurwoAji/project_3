@@ -60,11 +60,15 @@ func (r *userRepository) FindByID(id string) (*domain.User, error) {
 	query := `
 		SELECT u.id, u.email, u.full_name, u.phone, u.role,
 		       u.fcm_token, u.is_active, u.created_at, u.updated_at,
-		       COALESCE(u.avatar_url, '')      AS avatar_url,
-		       COALESCE(u.company_id::text, '') AS company_id,
-		       COALESCE(c.name, '')            AS company_name,
-		       COALESCE(c.industry, '')        AS company_industry,
-		       COALESCE(c.city, '')            AS company_city
+		       COALESCE(u.avatar_url, '')        AS avatar_url,
+		       COALESCE(u.company_id::text, '')  AS company_id,
+		       COALESCE(c.name, '')              AS company_name,
+		       COALESCE(c.industry, '')          AS company_industry,
+		       COALESCE(c.city, '')              AS company_city,
+		       COALESCE(c.province, '')          AS company_province,
+		       COALESCE(c.kecamatan, '')         AS company_kecamatan,
+		       COALESCE(c.kelurahan, '')         AS company_kelurahan,
+		       COALESCE(c.address, '')           AS company_address
 		FROM users u
 		LEFT JOIN companies c ON u.company_id = c.id
 		WHERE u.id = $1 AND u.deleted_at IS NULL
@@ -79,6 +83,8 @@ func (r *userRepository) FindByID(id string) (*domain.User, error) {
 		&user.AvatarURL,
 		&user.CompanyID, &user.CompanyName,
 		&user.CompanyIndustry, &user.CompanyCity,
+		&user.CompanyProvince, &user.CompanyKecamatan,
+		&user.CompanyKelurahan, &user.CompanyAddress,
 	)
 	if err != nil {
 		return nil, errors.New("user not found")
@@ -100,29 +106,35 @@ func (r *userRepository) FindPasswordHashByID(id string) (string, error) {
 	return hash, err
 }
 
-func (r *userRepository) UpdateProfile(userID, fullName, phone, avatarURL, companyName, companyIndustry, companyCity string) error {
+func (r *userRepository) UpdateProfile(userID string, req domain.UpdateProfileRequest) error {
 	ctx := context.Background()
 
 	_, err := r.db.Exec(ctx,
 		`UPDATE users SET full_name = $1, phone = NULLIF($2,''),
 		 avatar_url = CASE WHEN $3 = '' THEN avatar_url ELSE $3 END,
 		 updated_at = NOW() WHERE id = $4`,
-		fullName, phone, avatarURL, userID,
+		req.FullName, req.Phone, req.AvatarURL, userID,
 	)
 	if err != nil {
 		return err
 	}
 
 	// Update info perusahaan jika ada data yang dikirim
-	if companyName != "" || companyIndustry != "" || companyCity != "" {
+	if req.CompanyName != "" || req.CompanyIndustry != "" || req.CompanyCity != "" ||
+		req.CompanyProvince != "" || req.CompanyKecamatan != "" || req.CompanyKelurahan != "" || req.CompanyAddress != "" {
 		r.db.Exec(ctx, `
 			UPDATE companies SET
-				name     = CASE WHEN $1 = '' THEN name     ELSE $1 END,
-				industry = CASE WHEN $2 = '' THEN industry ELSE $2 END,
-				city     = CASE WHEN $3 = '' THEN city     ELSE $3 END,
+				name      = CASE WHEN $1 = '' THEN name      ELSE $1 END,
+				industry  = CASE WHEN $2 = '' THEN industry  ELSE $2 END,
+				city      = CASE WHEN $3 = '' THEN city      ELSE $3 END,
+				province  = CASE WHEN $4 = '' THEN province  ELSE $4 END,
+				kecamatan = CASE WHEN $5 = '' THEN kecamatan ELSE $5 END,
+				kelurahan = CASE WHEN $6 = '' THEN kelurahan ELSE $6 END,
+				address   = CASE WHEN $7 = '' THEN address   ELSE $7 END,
 				updated_at = NOW()
-			WHERE id = (SELECT company_id FROM users WHERE id = $4 AND company_id IS NOT NULL)
-		`, companyName, companyIndustry, companyCity, userID)
+			WHERE id = (SELECT company_id FROM users WHERE id = $8 AND company_id IS NOT NULL)
+		`, req.CompanyName, req.CompanyIndustry, req.CompanyCity,
+			req.CompanyProvince, req.CompanyKecamatan, req.CompanyKelurahan, req.CompanyAddress, userID)
 	}
 	return nil
 }

@@ -8,6 +8,14 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/bottom_nav.dart';
 
+class _WilayahItem {
+  final String id;
+  final String name;
+  const _WilayahItem({required this.id, required this.name});
+  factory _WilayahItem.fromJson(Map<String, dynamic> j) =>
+      _WilayahItem(id: j['id'] as String, name: j['name'] as String);
+}
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -25,6 +33,10 @@ class _ProfilePageState extends State<ProfilePage> {
   String _companyName      = '';
   String _companyIndustry  = '';
   String _companyCity      = '';
+  String _companyProvince  = '';
+  String _companyKecamatan = '';
+  String _companyKelurahan = '';
+  String _companyAddress   = '';
   String _companyId        = '';
   String _avatarUrl        = '';
   bool   _uploadingAvatar  = false;
@@ -71,11 +83,15 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       final me   = await ApiClient.instance.get('/auth/me');
       final data = me.data['data'] as Map<String, dynamic>? ?? {};
-      _email           = data['email']            ?? '';
-      _phone           = data['phone']            ?? '';
-      _avatarUrl       = data['avatar_url']       ?? '';
-      _companyIndustry = data['company_industry'] ?? '';
-      _companyCity     = data['company_city']     ?? '';
+      _email            = data['email']             ?? '';
+      _phone            = data['phone']             ?? '';
+      _avatarUrl        = data['avatar_url']        ?? '';
+      _companyIndustry  = data['company_industry']  ?? '';
+      _companyCity      = data['company_city']      ?? '';
+      _companyProvince  = data['company_province']  ?? '';
+      _companyKecamatan = data['company_kecamatan'] ?? '';
+      _companyKelurahan = data['company_kelurahan'] ?? '';
+      _companyAddress   = data['company_address']   ?? '';
     } catch (_) {}
 
     if (_isClient && companyId.isNotEmpty) {
@@ -176,132 +192,26 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // ─── EDIT PROFILE ─────────────────────────────────────────────────────────
 
-  static const _industries = [
-    'Minyak & Gas', 'Pembangkit Listrik', 'Manufaktur', 'Transportasi',
-    'Konstruksi', 'Pertambangan', 'Kimia & Petrokimia',
-    'Perkebunan & Agribisnis', 'Energi Terbarukan', 'Lainnya',
-  ];
-
-  void _showEditProfileSheet() {
-    final nameCtrl    = TextEditingController(text: _name);
-    final phoneCtrl   = TextEditingController(text: _phone);
-    final companyCtrl = TextEditingController(text: _companyName);
-    final cityCtrl    = TextEditingController(text: _companyCity);
-    String industry   = _companyIndustry;
-    bool saving       = false;
-
-    showModalBottomSheet(
+  Future<void> _showEditProfileSheet() async {
+    final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => SingleChildScrollView(
-          padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _sheetHandle(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text('Edit Profil',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 16),
-                    _sheetField('Nama Lengkap', nameCtrl),
-                    const SizedBox(height: 12),
-                    _sheetField('No. HP', phoneCtrl,
-                        keyboardType: TextInputType.phone),
-
-                    // ── Info perusahaan (client & sales saja) ──────
-                    if (_isClient) ...[
-                      const SizedBox(height: 20),
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      const Text('Info Perusahaan',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600,
-                              color: AppTheme.textSecondary)),
-                      const SizedBox(height: 12),
-                      _sheetField('Nama Perusahaan', companyCtrl),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: industry.isEmpty ? null : industry,
-                        hint: const Text('Pilih industri'),
-                        decoration: InputDecoration(
-                          labelText: 'Industri',
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 14),
-                        ),
-                        items: _industries
-                            .map((i) => DropdownMenuItem(
-                                value: i, child: Text(i)))
-                            .toList(),
-                        onChanged: (v) =>
-                            setSt(() => industry = v ?? industry),
-                      ),
-                      const SizedBox(height: 12),
-                      _sheetField('Kota / Kabupaten', cityCtrl),
-                    ],
-
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: saving
-                          ? null
-                          : () async {
-                              setSt(() => saving = true);
-                              try {
-                                await ApiClient.instance.patch(
-                                    '/auth/profile',
-                                    data: {
-                                      'full_name': nameCtrl.text.trim(),
-                                      'phone':     phoneCtrl.text.trim(),
-                                      if (_isClient) ...{
-                                        'company_name':     companyCtrl.text.trim(),
-                                        'company_industry': industry,
-                                        'company_city':     cityCtrl.text.trim(),
-                                      },
-                                    });
-                                await _storage.write(
-                                    key: AppConstants.userNameKey,
-                                    value: nameCtrl.text.trim());
-                                if (ctx.mounted) Navigator.pop(ctx);
-                                _loadData();
-                              } catch (_) {
-                                setSt(() => saving = false);
-                              }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.white,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                      child: saving
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
-                          : const Text('Simpan'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditProfileSheet(
+        name:             _name,
+        phone:            _phone,
+        companyName:      _companyName,
+        companyIndustry:  _companyIndustry,
+        companyCity:      _companyCity,
+        companyProvince:  _companyProvince,
+        companyKecamatan: _companyKecamatan,
+        companyKelurahan: _companyKelurahan,
+        companyAddress:   _companyAddress,
+        isClient:         _isClient,
+        storage:          _storage,
       ),
     );
+    if (result == true && mounted) _loadData();
   }
 
   // ─── CHANGE PASSWORD ──────────────────────────────────────────────────────
@@ -1103,4 +1013,429 @@ class _ProfilePageState extends State<ProfilePage> {
 
   String _capitalize(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+}
+
+// ─── Edit Profile Sheet ───────────────────────────────────────────────────────
+
+class _EditProfileSheet extends StatefulWidget {
+  final String name, phone, companyName, companyIndustry;
+  final String companyCity, companyProvince, companyKecamatan, companyKelurahan, companyAddress;
+  final bool isClient;
+  final FlutterSecureStorage storage;
+
+  const _EditProfileSheet({
+    required this.name,
+    required this.phone,
+    required this.companyName,
+    required this.companyIndustry,
+    required this.companyCity,
+    required this.companyProvince,
+    required this.companyKecamatan,
+    required this.companyKelurahan,
+    required this.companyAddress,
+    required this.isClient,
+    required this.storage,
+  });
+
+  @override
+  State<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+class _EditProfileSheetState extends State<_EditProfileSheet> {
+  final _nameCtrl        = TextEditingController();
+  final _phoneCtrl       = TextEditingController();
+  final _companyCtrl     = TextEditingController();
+  final _alamatCtrl      = TextEditingController();
+  final _otherIndCtrl    = TextEditingController();
+
+  String _industry = '';
+  bool   _saving   = false;
+
+  // Cascade state
+  String? _provinceId, _provinceName;
+  String? _kotaId,     _kotaName;
+  String? _kecamatanId, _kecamatanName;
+  String? _desaId,     _desaName;
+  List<_WilayahItem> _kotaList      = [];
+  List<_WilayahItem> _kecamatanList = [];
+  List<_WilayahItem> _desaList      = [];
+  bool    _loadingKota      = false;
+  bool    _loadingKecamatan = false;
+  bool    _loadingDesa      = false;
+
+  final _wilayahDio = Dio(BaseOptions(
+    baseUrl: 'https://emsifa.github.io/api-wilayah-indonesia/api/',
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+  ));
+
+  static const _industries = [
+    'Minyak & Gas', 'Pembangkit Listrik', 'Manufaktur', 'Transportasi',
+    'Konstruksi', 'Pertambangan', 'Kimia & Petrokimia',
+    'Perkebunan & Agribisnis', 'Energi Terbarukan', 'Lainnya',
+  ];
+
+  static const _provinces = <Map<String, String>>[
+    {'id': '11', 'name': 'ACEH'},
+    {'id': '12', 'name': 'SUMATERA UTARA'},
+    {'id': '13', 'name': 'SUMATERA BARAT'},
+    {'id': '14', 'name': 'RIAU'},
+    {'id': '15', 'name': 'JAMBI'},
+    {'id': '16', 'name': 'SUMATERA SELATAN'},
+    {'id': '17', 'name': 'BENGKULU'},
+    {'id': '18', 'name': 'LAMPUNG'},
+    {'id': '19', 'name': 'KEPULAUAN BANGKA BELITUNG'},
+    {'id': '21', 'name': 'KEPULAUAN RIAU'},
+    {'id': '31', 'name': 'DKI JAKARTA'},
+    {'id': '32', 'name': 'JAWA BARAT'},
+    {'id': '33', 'name': 'JAWA TENGAH'},
+    {'id': '34', 'name': 'DI YOGYAKARTA'},
+    {'id': '35', 'name': 'JAWA TIMUR'},
+    {'id': '36', 'name': 'BANTEN'},
+    {'id': '51', 'name': 'BALI'},
+    {'id': '52', 'name': 'NUSA TENGGARA BARAT'},
+    {'id': '53', 'name': 'NUSA TENGGARA TIMUR'},
+    {'id': '61', 'name': 'KALIMANTAN BARAT'},
+    {'id': '62', 'name': 'KALIMANTAN TENGAH'},
+    {'id': '63', 'name': 'KALIMANTAN SELATAN'},
+    {'id': '64', 'name': 'KALIMANTAN TIMUR'},
+    {'id': '65', 'name': 'KALIMANTAN UTARA'},
+    {'id': '71', 'name': 'SULAWESI UTARA'},
+    {'id': '72', 'name': 'SULAWESI TENGAH'},
+    {'id': '73', 'name': 'SULAWESI SELATAN'},
+    {'id': '74', 'name': 'SULAWESI TENGGARA'},
+    {'id': '75', 'name': 'GORONTALO'},
+    {'id': '76', 'name': 'SULAWESI BARAT'},
+    {'id': '81', 'name': 'MALUKU'},
+    {'id': '82', 'name': 'MALUKU UTARA'},
+    {'id': '91', 'name': 'PAPUA BARAT'},
+    {'id': '92', 'name': 'PAPUA'},
+    {'id': '94', 'name': 'PAPUA SELATAN'},
+    {'id': '95', 'name': 'PAPUA TENGAH'},
+    {'id': '96', 'name': 'PAPUA PEGUNUNGAN'},
+    {'id': '97', 'name': 'PAPUA BARAT DAYA'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl.text    = widget.name;
+    _phoneCtrl.text   = widget.phone;
+    _companyCtrl.text = widget.companyName;
+    _alamatCtrl.text  = widget.companyAddress;
+    _industry         = widget.companyIndustry;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose(); _phoneCtrl.dispose();
+    _companyCtrl.dispose(); _alamatCtrl.dispose(); _otherIndCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadKota(String provinceId) async {
+    setState(() { _loadingKota = true; _kotaList = []; _kotaId = null; _kotaName = null;
+      _kecamatanList = []; _kecamatanId = null; _kecamatanName = null;
+      _desaList = []; _desaId = null; _desaName = null; });
+    try {
+      final res  = await _wilayahDio.get('regencies/$provinceId.json');
+      final list = (res.data as List).map((e) => _WilayahItem.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      setState(() { _kotaList = list; _loadingKota = false; });
+    } catch (_) { setState(() => _loadingKota = false); }
+  }
+
+  Future<void> _loadKecamatan(String kotaId) async {
+    setState(() { _loadingKecamatan = true; _kecamatanList = []; _kecamatanId = null; _kecamatanName = null;
+      _desaList = []; _desaId = null; _desaName = null; });
+    try {
+      final res  = await _wilayahDio.get('districts/$kotaId.json');
+      final list = (res.data as List).map((e) => _WilayahItem.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      setState(() { _kecamatanList = list; _loadingKecamatan = false; });
+    } catch (_) { setState(() => _loadingKecamatan = false); }
+  }
+
+  Future<void> _loadDesa(String kecamatanId) async {
+    setState(() { _loadingDesa = true; _desaList = []; _desaId = null; _desaName = null; });
+    try {
+      final res  = await _wilayahDio.get('villages/$kecamatanId.json');
+      final list = (res.data as List).map((e) => _WilayahItem.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      setState(() { _desaList = list; _loadingDesa = false; });
+    } catch (_) { setState(() => _loadingDesa = false); }
+  }
+
+  bool get _isOther => _industry == 'Lainnya';
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.trim().isEmpty) return;
+    // Jika user mulai pilih lokasi baru, harus lengkap
+    if (_provinceId != null && (_kotaId == null || _kecamatanId == null || _desaId == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Lengkapi pilihan lokasi (kota, kecamatan, desa)'),
+        backgroundColor: AppTheme.warning,
+      ));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final industryVal = _isOther ? _otherIndCtrl.text.trim() : _industry;
+      // Gunakan nilai baru jika dipilih, jika tidak gunakan nilai lama
+      final province   = _provinceName   ?? widget.companyProvince;
+      final city       = _kotaName       ?? widget.companyCity;
+      final kecamatan  = _kecamatanName  ?? widget.companyKecamatan;
+      final kelurahan  = _desaName       ?? widget.companyKelurahan;
+
+      await ApiClient.instance.patch('/auth/profile', data: {
+        'full_name':          _nameCtrl.text.trim(),
+        'phone':              _phoneCtrl.text.trim(),
+        if (widget.isClient) ...{
+          'company_name':     _companyCtrl.text.trim(),
+          'company_industry': industryVal,
+          'company_city':     city,
+          'company_province': province,
+          'company_kecamatan': kecamatan,
+          'company_kelurahan': kelurahan,
+          'company_address':  _alamatCtrl.text.trim(),
+        },
+      });
+      await widget.storage.write(key: AppConstants.userNameKey, value: _nameCtrl.text.trim());
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      final msg = (e is DioException)
+          ? ((e.response?.data as Map?)?['message'] as String? ?? 'Gagal menyimpan')
+          : 'Gagal menyimpan';
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: AppTheme.danger));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final maxH   = MediaQuery.sizeOf(context).height * 0.92;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxH),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Container(width: 36, height: 4,
+                  decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(99))),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 24 + bottom),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('Edit Profil', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 16),
+                    _field('Nama Lengkap', _nameCtrl),
+                    const SizedBox(height: 12),
+                    _field('No. HP', _phoneCtrl, keyboardType: TextInputType.phone),
+
+                    if (widget.isClient) ...[
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      const Text('Info Perusahaan',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                      const SizedBox(height: 12),
+                      _field('Nama Perusahaan', _companyCtrl),
+                      const SizedBox(height: 12),
+
+                      // Industri
+                      DropdownButtonFormField<String>(
+                        initialValue: _industry.isEmpty ? null : _industry,
+                        hint: const Text('Pilih industri'),
+                        decoration: _dropDeco('Industri'),
+                        items: _industries.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
+                        onChanged: (v) => setState(() => _industry = v ?? _industry),
+                      ),
+                      if (_isOther) ...[
+                        const SizedBox(height: 10),
+                        _field('Jenis industri lainnya', _otherIndCtrl),
+                      ],
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      const Text('Lokasi Perusahaan',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                      const SizedBox(height: 4),
+
+                      // Tampilkan lokasi saat ini jika ada
+                      if (widget.companyProvince.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(children: [
+                            const Icon(Icons.location_on_outlined, size: 14, color: AppTheme.primary),
+                            const SizedBox(width: 6),
+                            Expanded(child: Text(
+                              'Saat ini: ${widget.companyProvince}, ${widget.companyCity}',
+                              style: const TextStyle(fontSize: 11, color: AppTheme.primary),
+                            )),
+                          ]),
+                        ),
+                      ],
+
+                      // Provinsi
+                      _lbl('Provinsi'),
+                      DropdownButtonFormField<String>(
+                        initialValue: _provinceId,
+                        hint: const Text('Pilih provinsi (opsional)'),
+                        isExpanded: true,
+                        decoration: _dropDeco(null, icon: Icons.map_outlined),
+                        items: _provinces.map((p) => DropdownMenuItem<String>(
+                          value: p['id'],
+                          child: Text(p['name']!, style: const TextStyle(fontSize: 14)),
+                        )).toList(),
+                        onChanged: (id) {
+                          if (id == null) return;
+                          final name = _provinces.firstWhere((p) => p['id'] == id)['name']!;
+                          setState(() { _provinceId = id; _provinceName = name; });
+                          _loadKota(id);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Kota
+                      _lbl('Kota / Kabupaten'),
+                      if (_loadingKota)
+                        _loadingBox()
+                      else
+                        DropdownButtonFormField<String>(
+                          initialValue: _kotaId,
+                          hint: Text(_provinceId == null ? 'Pilih provinsi dulu' : 'Pilih kota/kabupaten'),
+                          isExpanded: true,
+                          decoration: _dropDeco(null, icon: Icons.location_city_outlined),
+                          items: _kotaList.map((k) => DropdownMenuItem<String>(
+                            value: k.id, child: Text(k.name, style: const TextStyle(fontSize: 14)),
+                          )).toList(),
+                          onChanged: _provinceId == null ? null : (id) {
+                            if (id == null) return;
+                            final name = _kotaList.firstWhere((k) => k.id == id).name;
+                            setState(() { _kotaId = id; _kotaName = name; });
+                            _loadKecamatan(id);
+                          },
+                        ),
+                      const SizedBox(height: 12),
+
+                      // Kecamatan
+                      _lbl('Kecamatan'),
+                      if (_loadingKecamatan)
+                        _loadingBox()
+                      else
+                        DropdownButtonFormField<String>(
+                          initialValue: _kecamatanId,
+                          hint: Text(_kotaId == null ? 'Pilih kota dulu' : 'Pilih kecamatan'),
+                          isExpanded: true,
+                          decoration: _dropDeco(null, icon: Icons.place_outlined),
+                          items: _kecamatanList.map((k) => DropdownMenuItem<String>(
+                            value: k.id, child: Text(k.name, style: const TextStyle(fontSize: 14)),
+                          )).toList(),
+                          onChanged: _kotaId == null ? null : (id) {
+                            if (id == null) return;
+                            final name = _kecamatanList.firstWhere((k) => k.id == id).name;
+                            setState(() { _kecamatanId = id; _kecamatanName = name; });
+                            _loadDesa(id);
+                          },
+                        ),
+                      const SizedBox(height: 12),
+
+                      // Desa
+                      _lbl('Desa / Kelurahan'),
+                      if (_loadingDesa)
+                        _loadingBox()
+                      else
+                        DropdownButtonFormField<String>(
+                          initialValue: _desaId,
+                          hint: Text(_kecamatanId == null ? 'Pilih kecamatan dulu' : 'Pilih desa/kelurahan'),
+                          isExpanded: true,
+                          decoration: _dropDeco(null, icon: Icons.home_outlined),
+                          items: _desaList.map((d) => DropdownMenuItem<String>(
+                            value: d.id, child: Text(d.name, style: const TextStyle(fontSize: 14)),
+                          )).toList(),
+                          onChanged: _kecamatanId == null ? null : (id) {
+                            if (id == null) return;
+                            final name = _desaList.firstWhere((d) => d.id == id).name;
+                            setState(() { _desaId = id; _desaName = name; });
+                          },
+                        ),
+                      const SizedBox(height: 12),
+
+                      // Alamat detail
+                      _lbl('Alamat Detail'),
+                      _field('Nama jalan, nomor, RT/RW, dll', _alamatCtrl),
+                    ],
+
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _saving ? null : _save,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: _saving
+                          ? const SizedBox(height: 18, width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Simpan'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _field(String hint, TextEditingController ctrl, {TextInputType keyboardType = TextInputType.text}) =>
+      TextField(
+        controller: ctrl,
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+          hintText: hint,
+          filled: true, fillColor: AppTheme.background,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.border)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+      );
+
+  Widget _lbl(String t) => Padding(padding: const EdgeInsets.only(bottom: 6),
+      child: Text(t, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)));
+
+  InputDecoration _dropDeco(String? label, {IconData? icon}) => InputDecoration(
+    labelText: label,
+    prefixIcon: icon != null ? Icon(icon, size: 18, color: AppTheme.textTertiary) : null,
+    filled: true, fillColor: AppTheme.surface,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.border)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.border)),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+  );
+
+  Widget _loadingBox() => Container(
+    height: 52,
+    decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.border)),
+    child: const Center(child: SizedBox(width: 18, height: 18,
+        child: CircularProgressIndicator(strokeWidth: 2))),
+  );
 }

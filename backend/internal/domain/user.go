@@ -14,6 +14,10 @@ type User struct {
 	CompanyName      string     `json:"company_name,omitempty"`
 	CompanyIndustry  string     `json:"company_industry,omitempty"`
 	CompanyCity      string     `json:"company_city,omitempty"`
+	CompanyProvince  string     `json:"company_province,omitempty"`
+	CompanyKecamatan string     `json:"company_kecamatan,omitempty"`
+	CompanyKelurahan string     `json:"company_kelurahan,omitempty"`
+	CompanyAddress   string     `json:"company_address,omitempty"`
 	AvatarURL        string     `json:"avatar_url,omitempty"`
 	FCMToken         string     `json:"fcm_token"`
 	IsActive         bool       `json:"is_active"`
@@ -29,12 +33,16 @@ type LoginRequest struct {
 }
 
 type UpdateProfileRequest struct {
-	FullName        string `json:"full_name" binding:"required"`
-	Phone           string `json:"phone"`
-	AvatarURL       string `json:"avatar_url"`
-	CompanyName     string `json:"company_name"`
-	CompanyIndustry string `json:"company_industry"`
-	CompanyCity     string `json:"company_city"`
+	FullName           string `json:"full_name" binding:"required"`
+	Phone              string `json:"phone"`
+	AvatarURL          string `json:"avatar_url"`
+	CompanyName        string `json:"company_name"`
+	CompanyIndustry    string `json:"company_industry"`
+	CompanyCity        string `json:"company_city"`
+	CompanyProvince    string `json:"company_province"`
+	CompanyKecamatan   string `json:"company_kecamatan"`
+	CompanyKelurahan   string `json:"company_kelurahan"`
+	CompanyAddress     string `json:"company_address"`
 }
 
 type ChangePasswordRequest struct {
@@ -80,7 +88,7 @@ type UserRepository interface {
 	FindByID(id string) (*User, error)
 	FindPasswordHashByID(id string) (string, error)
 	UpdateFCMToken(id, token string) error
-	UpdateProfile(userID, fullName, phone, avatarURL, companyName, companyIndustry, companyCity string) error
+	UpdateProfile(userID string, req UpdateProfileRequest) error
 	ChangePassword(userID, newHash string) error
 	FindAllByRole(role string) ([]User, error)
 	Register(req RegisterRequest) (*User, error)
