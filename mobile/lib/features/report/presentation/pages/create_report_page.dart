@@ -139,6 +139,7 @@ class _CreateReportPageState extends State<CreateReportPage> {
 
       PageCache.remove('my_jobs');
       PageCache.remove('laporan');
+      PageCache.remove('job_board');
 
       // Auto-mark equipment ini sebagai selesai di checklist
       if (_selectedEquipmentId != null) {
@@ -156,7 +157,7 @@ class _CreateReportPageState extends State<CreateReportPage> {
         backgroundColor: AppTheme.secondary,
         duration: Duration(seconds: 3),
       ));
-      context.go('/job-board');
+      context.pop();
     } catch (e) {
       String msg = 'Gagal mengirim laporan';
       if (e is DioException) {

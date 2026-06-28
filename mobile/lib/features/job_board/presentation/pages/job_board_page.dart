@@ -173,7 +173,9 @@ class _JobBoardPageState extends State<JobBoardPage>
         content: Text('Job berhasil diambil!'),
         backgroundColor: AppTheme.secondary,
       ));
-      _loadData();
+      PageCache.remove('job_board');
+      await _loadData();
+      if (mounted) _tabController.animateTo(1);
     } catch (e) {
       if (!mounted) return;
       final msg = (e is DioException)
@@ -203,6 +205,7 @@ class _JobBoardPageState extends State<JobBoardPage>
         content: Text('Status diupdate ke $nextStatus'),
         backgroundColor: AppTheme.secondary,
       ));
+      PageCache.remove('job_board');
       _loadData();
     } catch (e) {
       if (!mounted) return;
@@ -250,7 +253,10 @@ class _JobBoardPageState extends State<JobBoardPage>
               extra: {'report': report, 'booking': Map<String, dynamic>.from(job)});
         }
       }
-      if (mounted) _loadData();
+      if (mounted) {
+        PageCache.remove('job_board');
+        _loadData();
+      }
       return;
     }
 
@@ -347,16 +353,20 @@ class _JobBoardPageState extends State<JobBoardPage>
             ),
             if (!isSubmitted)
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.of(ctx).pop();
                   if (isRejected) {
-                    context.push('/report/edit/${report!['id']}',
+                    await context.push('/report/edit/${report!['id']}',
                         extra: {'report': report, 'booking': Map<String, dynamic>.from(job)});
                   } else {
                     final extra = Map<String, dynamic>.from(job)
                       ..['_force_equipment_id']   = equipId
                       ..['_force_equipment_name'] = equipName;
-                    context.push('/report/create', extra: extra);
+                    await context.push('/report/create', extra: extra);
+                  }
+                  if (context.mounted) {
+                    PageCache.remove('job_board');
+                    _loadData();
                   }
                 },
                 style: ElevatedButton.styleFrom(

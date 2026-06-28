@@ -204,10 +204,10 @@ API_BASE_URL=https://project3-production-c96b.up.railway.app/api/v1
 
 ## Branch Workflow
 
-- `develop_trial` → branch kerja, push setiap fitur selesai untuk review
-- `develop` → branch utama, merge dari `develop_trial` setelah review
-- Railway auto-deploy dari `develop`
-- **Jangan push langsung ke `develop`** — kerjakan di `develop_trial` dulu
+- `develop_trial` → branch kerja sekaligus branch Railway (auto-deploy langsung dari sini)
+- `develop` → branch utama, merge dari `develop_trial` setelah review (tidak terhubung Railway)
+- Railway auto-deploy dari `develop_trial`
+- Push ke `develop_trial` = langsung deploy ke production Railway
 
 ---
 
@@ -301,9 +301,9 @@ Kerjakan di branch `develop_trial`. Tandai `[x]` saat selesai. Merge ke `develop
 | 014 | ✅ Sudah di Supabase | Tambah kolom `description` ke tabel `hydraulic_equipment` |
 | 015 | ✅ Sudah di Supabase | Tambah kolom `reference_booking_id` ke tabel `bookings` |
 | 016 | ✅ Sudah di Supabase | Tambah kolom `equipment_id_2` + `work_equipment_id` ke tabel `bookings` |
-| 017 | ⚠️ **Belum dijalankan** | Tambah kolom `done_equipment_ids` ke tabel `bookings` |
-| 018 | ⚠️ **Belum dijalankan** | Buat tabel `booking_items` — sub-item/checklist per booking |
-| 019 | ⚠️ **Belum dijalankan** | Buat tabel `password_reset_tokens` — OTP reset password |
+| 017 | ✅ Sudah di Supabase | Tambah kolom `done_equipment_ids` ke tabel `bookings` |
+| 018 | ✅ Sudah di Supabase | Buat tabel `booking_items` — sub-item/checklist per booking |
+| 019 | ✅ Sudah di Supabase | Buat tabel `password_reset_tokens` — OTP reset password |
 
 SQL migration 013 (jalankan di Supabase SQL Editor):
 ```sql
