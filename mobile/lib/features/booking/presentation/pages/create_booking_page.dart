@@ -11,7 +11,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/location_search_field.dart';
 
 class CreateBookingPage extends StatefulWidget {
-  const CreateBookingPage({super.key});
+  final String initialUrgency;
+  const CreateBookingPage({super.key, this.initialUrgency = 'standard'});
 
   @override
   State<CreateBookingPage> createState() => _CreateBookingPageState();
@@ -63,6 +64,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   @override
   void initState() {
     super.initState();
+    _urgencyLevel = widget.initialUrgency;
     _loadData();
   }
 
@@ -85,17 +87,21 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
   }
 
   Future<void> _loadData() async {
-    _companyId   = await _storage.read(key: AppConstants.companyIdKey)   ?? '';
-    _companyCity = await _storage.read(key: AppConstants.companyCityKey) ?? '';
+    _companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
     try {
       final futures = <Future>[
         ApiClient.instance.get(
           _companyId.isNotEmpty ? '/equipment?company_id=$_companyId' : '/equipment'),
         if (_companyId.isNotEmpty)
           ApiClient.instance.get('/bookings/available-references?company_id=$_companyId'),
+        ApiClient.instance.get('/auth/me'),
       ];
       final results = await Future.wait(futures);
+      final meData    = (results.last.data['data'] as Map<String, dynamic>?) ?? {};
+      final freshCity = (meData['company_city'] ?? '') as String;
+      await _storage.write(key: AppConstants.companyCityKey, value: freshCity);
       setState(() {
+        _companyCity      = freshCity;
         _equipments       = List<dynamic>.from(results[0].data['data'] ?? []);
         _availableRefs    = _companyId.isNotEmpty
             ? List<dynamic>.from(results[1].data['data'] ?? [])
@@ -103,7 +109,8 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
         _loadingEquipment = false;
       });
     } catch (e) {
-      setState(() => _loadingEquipment = false);
+      _companyCity = await _storage.read(key: AppConstants.companyCityKey) ?? '';
+      if (mounted) setState(() => _loadingEquipment = false);
     }
   }
 

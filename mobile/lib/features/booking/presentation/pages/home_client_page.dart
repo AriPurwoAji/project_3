@@ -19,8 +19,17 @@ class _HomeClientPageState extends State<HomeClientPage> {
 
   String _name        = '';
   String _companyName = '';
+  String _companyCity = '';
   bool   _loading     = true;
   int    _unreadCount = 0;
+
+  static const _jabodetabekKeywords = ['JAKARTA', 'BOGOR', 'DEPOK', 'TANGERANG', 'BEKASI'];
+
+  bool get _isJabodetabek {
+    if (_companyCity.isEmpty) return true;
+    final upper = _companyCity.toUpperCase();
+    return _jabodetabekKeywords.any((k) => upper.contains(k));
+  }
 
   Map<String, dynamic>? _activeBooking;
   List<dynamic>         _recentDone = [];
@@ -35,6 +44,7 @@ class _HomeClientPageState extends State<HomeClientPage> {
       _unreadCount   = cached['unread'] as int;
       _name          = cached['name']    as String;
       _companyName   = cached['company'] as String;
+      _companyCity   = cached['city']    as String? ?? '';
       _loading       = false;
       // Refresh diam-diam di background
       _loadData(silent: true);
@@ -46,6 +56,7 @@ class _HomeClientPageState extends State<HomeClientPage> {
   Future<void> _loadData({bool silent = false}) async {
     _name        = await _storage.read(key: AppConstants.userNameKey)    ?? '';
     _companyName = await _storage.read(key: AppConstants.companyNameKey) ?? '';
+    _companyCity = await _storage.read(key: AppConstants.companyCityKey) ?? '';
     final companyId = await _storage.read(key: AppConstants.companyIdKey) ?? '';
 
     if (!silent && mounted) setState(() => _loading = true);
@@ -79,6 +90,7 @@ class _HomeClientPageState extends State<HomeClientPage> {
         'unread':  unread,
         'name':    _name,
         'company': _companyName,
+        'city':    _companyCity,
       });
 
       if (mounted) {
@@ -326,10 +338,11 @@ class _HomeClientPageState extends State<HomeClientPage> {
             Expanded(child: _quickCard(
               icon: Icons.warning_amber_rounded,
               label: 'Emergency',
-              sublabel: 'Respon < 4 jam',
+              sublabel: _isJabodetabek ? 'Respon < 4 jam' : 'Tidak tersedia di area Anda',
               color: AppTheme.danger,
               bg: AppTheme.dangerLight,
               urgency: 'emergency',
+              disabled: !_isJabodetabek,
             )),
             const SizedBox(width: 12),
             Expanded(child: _quickCard(
@@ -353,30 +366,34 @@ class _HomeClientPageState extends State<HomeClientPage> {
     required Color color,
     required Color bg,
     required String urgency,
+    bool disabled = false,
   }) {
-    return GestureDetector(
-      onTap: () => context.go('/booking/create'),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 8),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: color)),
-            Text(sublabel,
-                style: const TextStyle(
-                    fontSize: 11, color: AppTheme.textSecondary)),
-          ],
+    return Opacity(
+      opacity: disabled ? 0.45 : 1.0,
+      child: GestureDetector(
+        onTap: disabled ? null : () => context.go('/booking/create', extra: urgency),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 8),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: color)),
+              Text(sublabel,
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTheme.textSecondary)),
+            ],
+          ),
         ),
       ),
     );

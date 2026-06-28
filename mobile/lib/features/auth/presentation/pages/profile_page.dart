@@ -1198,6 +1198,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         },
       });
       await widget.storage.write(key: AppConstants.userNameKey, value: _nameCtrl.text.trim());
+      if (widget.isClient) {
+        await widget.storage.write(key: AppConstants.companyCityKey, value: city);
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       final msg = (e is DioException)
@@ -1215,25 +1218,27 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final maxH   = MediaQuery.sizeOf(context).height * 0.92;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxH),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Container(width: 36, height: 4,
-                  decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(99))),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 24 + bottom),
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxH),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Container(width: 36, height: 4,
+                    decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(99))),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -1403,7 +1408,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _field(String hint, TextEditingController ctrl, {TextInputType keyboardType = TextInputType.text}) =>

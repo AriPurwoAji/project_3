@@ -831,14 +831,16 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final maxH   = MediaQuery.sizeOf(context).height * 0.92;
-    return ConstrainedBox(
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxH),
       child: Container(
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       child: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -900,7 +902,8 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
         ),
       ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _hoseSpecs() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

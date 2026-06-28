@@ -90,7 +90,9 @@ final appRouter = GoRouter(
     GoRoute(path: '/bookings',
         pageBuilder: (c, s) => _tab(s, const BookingListPage())),
     GoRoute(path: '/booking/create',
-        pageBuilder: (c, s) => _fade(s, const CreateBookingPage())),
+        pageBuilder: (c, s) => _fade(s, CreateBookingPage(
+          initialUrgency: s.extra as String? ?? 'standard',
+        ))),
     GoRoute(
       path: '/booking/:id',
       pageBuilder: (c, s) => _fade(s,
