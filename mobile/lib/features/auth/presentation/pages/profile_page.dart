@@ -1216,13 +1216,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    final maxH   = MediaQuery.sizeOf(context).height * 0.92;
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxH),
-        child: Container(
+    final maxH = MediaQuery.sizeOf(context).height * 0.92;
+    return _SheetKeyboardWrapper(
+      maxHeight: maxH,
+      child: Container(
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1408,8 +1405,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           ],
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _field(String hint, TextEditingController ctrl, {TextInputType keyboardType = TextInputType.text}) =>
@@ -1444,4 +1440,23 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     child: const Center(child: SizedBox(width: 18, height: 18,
         child: CircularProgressIndicator(strokeWidth: 2))),
   );
+}
+
+// Only this widget rebuilds when the keyboard moves — the heavy child tree is not touched.
+class _SheetKeyboardWrapper extends StatelessWidget {
+  final double maxHeight;
+  final Widget child;
+  const _SheetKeyboardWrapper({required this.maxHeight, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: child,
+      ),
+    );
+  }
 }

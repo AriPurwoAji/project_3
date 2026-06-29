@@ -829,12 +829,9 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    final maxH   = MediaQuery.sizeOf(context).height * 0.92;
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxH),
+    final maxH = MediaQuery.sizeOf(context).height * 0.92;
+    return _IsolatedKeyboardPadding(
+      maxHeight: maxH,
       child: Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -902,22 +899,21 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
         ),
       ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _hoseSpecs() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     _sub('Spesifikasi Selang'),
     Row(children: [
-      Expanded(child: _field('Panjang (m)', _hoseLengthCtrl, hint: '1.5', isDecimal: true)),
+      Expanded(child: _field('Panjang (m)', _hoseLengthCtrl, isDecimal: true)),
       const SizedBox(width: 10),
-      Expanded(child: _field('Diameter (inch)', _hoseDiamCtrl, hint: '1/2"')),
+      Expanded(child: _field('Diameter (inch)', _hoseDiamCtrl)),
       const SizedBox(width: 10),
       Expanded(child: _numField('Tekanan (bar)', _hosePressCtrl)),
     ]),
     const SizedBox(height: 10),
     Row(children: [
-      Expanded(child: _field('Material', _hoseMaterialCtrl, hint: 'Rubber')),
+      Expanded(child: _field('Material', _hoseMaterialCtrl)),
       const SizedBox(width: 10),
       Expanded(child: _numField('Qty', _hoseQtyCtrl)),
     ]),
@@ -955,17 +951,17 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
   Widget _pumpSpecs() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     _sub('Spesifikasi Pompa'),
     Row(children: [
-      Expanded(child: _field('Tipe Pompa', _pumpTypeCtrl, hint: 'Gear pump')),
+      Expanded(child: _field('Tipe Pompa', _pumpTypeCtrl)),
       const SizedBox(width: 10),
-      Expanded(child: _field('Flow (lpm)', _pumpFlowCtrl, hint: '20', isDecimal: true)),
+      Expanded(child: _field('Flow (lpm)', _pumpFlowCtrl, isDecimal: true)),
       const SizedBox(width: 10),
       Expanded(child: _numField('Tekanan (bar)', _pumpPressCtrl)),
     ]),
     const SizedBox(height: 10),
     Row(children: [
-      Expanded(child: _field('Noise level', _pumpNoiseCtrl, hint: 'Normal')),
+      Expanded(child: _field('Noise level', _pumpNoiseCtrl)),
       const SizedBox(width: 10),
-      Expanded(child: _field('Suhu (°C)', _pumpTempCtrl, hint: '40', isDecimal: true)),
+      Expanded(child: _field('Suhu (°C)', _pumpTempCtrl, isDecimal: true)),
     ]),
     const SizedBox(height: 12),
   ]);
@@ -998,21 +994,18 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
         onChanged: onChange,
       );
 
-  Widget _field(String label, TextEditingController ctrl, {String hint = '', bool isDecimal = false}) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _lbl(label),
-        TextFormField(controller: ctrl,
-            keyboardType: isDecimal ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-            decoration: InputDecoration(hintText: hint)),
-      ]);
+  Widget _field(String label, TextEditingController ctrl, {bool isDecimal = false}) =>
+      TextFormField(
+          controller: ctrl,
+          keyboardType: isDecimal ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+          decoration: InputDecoration(labelText: label));
 
   Widget _numField(String label, TextEditingController ctrl) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _lbl(label),
-        TextFormField(controller: ctrl, keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(hintText: '0')),
-      ]);
+      TextFormField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: InputDecoration(labelText: label));
 
   Widget _drop2(String label, String initialVal, Map<String, String> items, ValueChanged<String?> onChanged) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1035,4 +1028,23 @@ class _AddInspectionItemSheetState extends State<_AddInspectionItemSheet> {
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.border)),
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
   );
+}
+
+// Only this widget rebuilds when the keyboard moves — the heavy child tree is not touched.
+class _IsolatedKeyboardPadding extends StatelessWidget {
+  final double maxHeight;
+  final Widget child;
+  const _IsolatedKeyboardPadding({required this.maxHeight, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: child,
+      ),
+    );
+  }
 }
