@@ -862,6 +862,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           isExpanded: true,
+          itemHeight: null,
           initialValue: _selectedRefId,
           hint: const Text('Pilih riwayat inspeksi/maintenance'),
           decoration: InputDecoration(
@@ -878,18 +879,21 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
             final equip = ref['equipment_name'] as String? ?? '';
             return DropdownMenuItem<String>(
               value: ref['id'] as String,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(label,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13)),
-                  if (equip.isNotEmpty)
-                    Text(equip,
-                        style: const TextStyle(
-                            fontSize: 11, color: AppTheme.textSecondary)),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(label,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13)),
+                    if (equip.isNotEmpty)
+                      Text(equip,
+                          style: const TextStyle(
+                              fontSize: 11, color: AppTheme.textSecondary)),
+                  ],
+                ),
               ),
             );
           }).toList(),

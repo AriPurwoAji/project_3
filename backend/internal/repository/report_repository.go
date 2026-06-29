@@ -166,23 +166,30 @@ func (r *reportRepository) FindByID(id string) (*domain.HydraulicReport, error) 
 }
 
 func (r *reportRepository) FindByTechnicianID(technicianID string) ([]domain.HydraulicReport, error) {
+	// DISTINCT ON booking_id: tampilkan 1 laporan per booking (yang terbaru, bukan rejected)
+	// Booking dengan 2 equipment tetap muncul sekali (laporan equipment terakhir)
 	query := `
-		SELECT r.id, r.booking_id, r.technician_id,
-			   COALESCE(r.equipment_id::text,'') as equipment_id,
-			   COALESCE(r.status,'submitted') as status,
-			   r.rejection_reason,
-			   r.pressure_before_bar, r.pressure_after_bar,
-			   r.oil_condition, r.oil_level, r.leak_location, r.leak_severity,
-			   r.parts_replaced, r.photo_urls, r.pdf_url,
-			   r.work_description, r.recommendations, r.maintenance_checklist,
-			   r.created_at, r.updated_at,
+		WITH latest AS (
+			SELECT DISTINCT ON (booking_id) *
+			FROM hydraulic_reports
+			WHERE technician_id = $1 AND status != 'rejected'
+			ORDER BY booking_id, created_at DESC
+		)
+		SELECT l.id, l.booking_id, l.technician_id,
+			   COALESCE(l.equipment_id::text,'') as equipment_id,
+			   COALESCE(l.status,'submitted') as status,
+			   l.rejection_reason,
+			   l.pressure_before_bar, l.pressure_after_bar,
+			   l.oil_condition, l.oil_level, l.leak_location, l.leak_severity,
+			   l.parts_replaced, l.photo_urls, l.pdf_url,
+			   l.work_description, l.recommendations, l.maintenance_checklist,
+			   l.created_at, l.updated_at,
 			   COALESCE(u.full_name, '') as technician_name,
 			   COALESCE(e.name, '') as equipment_name
-		FROM hydraulic_reports r
-		LEFT JOIN users u ON r.technician_id = u.id
-		LEFT JOIN hydraulic_equipment e ON r.equipment_id = e.id
-		WHERE r.technician_id = $1
-		ORDER BY r.created_at DESC
+		FROM latest l
+		LEFT JOIN users u ON l.technician_id = u.id
+		LEFT JOIN hydraulic_equipment e ON l.equipment_id = e.id
+		ORDER BY l.created_at DESC
 	`
 	rows, err := r.db.Query(context.Background(), query, technicianID)
 	if err != nil {
