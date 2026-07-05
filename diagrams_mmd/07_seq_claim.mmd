@@ -1,0 +1,31 @@
+sequenceDiagram
+    actor T as Teknisi
+    participant App as Mobile App
+    participant API as Backend API
+    participant DB as Database
+    participant FCM as Firebase FCM
+
+    T->>App: Buka tab Job Board
+    App->>API: GET /api/v1/bookings/open
+    API->>DB: SELECT bookings WHERE status = open
+    DB-->>API: List booking terbuka
+    API-->>App: 200 OK
+    App-->>T: Tampilkan daftar job tersedia
+
+    T->>App: Pilih booking lalu tap Claim
+    App->>API: POST /api/v1/bookings/{id}/claim
+
+    API->>DB: SELECT status FROM bookings WHERE id = ?
+    DB-->>API: Status booking saat ini
+
+    alt Booking masih OPEN
+        API->>DB: UPDATE status = in_progress, technician_id, claimed_at
+        DB-->>API: Berhasil
+        API->>FCM: Push notifikasi ke Manager dan Client
+        FCM-->>API: OK
+        API-->>App: 200 OK Booking berhasil diklaim
+        App-->>T: Navigasi ke halaman My Jobs
+    else Booking sudah diklaim teknisi lain
+        API-->>App: 409 Conflict
+        App-->>T: Tampilkan pesan error
+    end

@@ -1,0 +1,36 @@
+flowchart TD
+    Start([Mulai]) --> B1
+
+    B1["Client / Sales\nMembuat Booking\nservice_type · urgency · lokasi · deskripsi"]
+    B1 --> B2["Booking Tersimpan\nStatus: OPEN"]
+
+    B2 -->|"Dibatalkan\nsebelum diklaim"| Cancel["Status: CANCELLED"]
+    Cancel --> End([Selesai])
+
+    B2 --> B3["Booking Tampil\ndi Job Board Teknisi"]
+
+    B3 --> D1{Bagaimana\nteknisi ditugaskan?}
+    D1 -->|"Teknisi\nClaim Sendiri"| B4["Verifikasi:\nApakah Booking\nmasih OPEN?"]
+    D1 -->|"Manager\nAssign Langsung"| B5
+
+    B4 --> D2{Berhasil?}
+    D2 -->|"Tidak"| E1["Tampilkan Pesan Error"]
+    E1 --> B3
+    D2 -->|Ya| B5
+
+    B5["Status: IN_PROGRESS\nTechnician ID Dicatat\nNotifikasi ke Client & Manager"]
+
+    B5 --> B6["Teknisi Menuju Lokasi\nStatus: ON_THE_WAY"]
+    B6 --> B7["Teknisi Tiba di Lokasi\nStatus: ON_SITE"]
+    B7 --> B8["Pekerjaan Servis\nDilaksanakan di Lapangan"]
+    B8 --> B9["Pekerjaan Selesai\nStatus: DONE\nNotifikasi ke Client & Manager"]
+
+    B9 --> B10["Teknisi Membuat\nLaporan Servis\ntekanan · oli · kebocoran · suku cadang · foto"]
+
+    B10 --> D3{Service Type\n= inspeksi?}
+    D3 -->|Ya| B11["Tambahkan Inspection Items\nper Komponen\nhose / cylinder / pump"]
+    D3 -->|Tidak| B12
+    B11 --> B12
+
+    B12["Laporan Disimpan\nPDF Digenerate Otomatis"]
+    B12 --> End

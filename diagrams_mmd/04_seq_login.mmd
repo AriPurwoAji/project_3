@@ -1,0 +1,24 @@
+sequenceDiagram
+    actor U as Pengguna
+    participant App as Mobile App
+    participant API as Backend API
+    participant DB as Database
+    participant SS as Secure Storage
+
+    U->>App: Masukkan email & password lalu tap Login
+    App->>API: POST /api/v1/auth/login
+    API->>DB: SELECT user WHERE email = ?
+    DB-->>API: Data user
+
+    alt Kredensial valid dan akun terverifikasi
+        API->>API: Generate JWT access_token + refresh_token
+        API-->>App: 200 OK dengan token dan role
+        App->>SS: Simpan token dan user_role
+        App-->>U: Redirect ke halaman home sesuai role
+    else Email atau password salah
+        API-->>App: 401 Unauthorized
+        App-->>U: Tampilkan pesan error
+    else Akun belum diverifikasi
+        API-->>App: 403 Forbidden
+        App-->>U: Tampilkan pesan cek email
+    end

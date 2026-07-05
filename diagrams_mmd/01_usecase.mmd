@@ -1,0 +1,52 @@
+graph LR
+    subgraph AKTOR[" "]
+        direction TB
+        subgraph ATAS[" "]
+            direction LR
+            C(["👤 Client"])
+            M(["👤 Manager"])
+        end
+        subgraph BAWAH[" "]
+            direction LR
+            S(["👤 Sales"])
+            T(["👤 Teknisi"])
+        end
+    end
+
+    subgraph SYS["Sistem HydroServ"]
+        UC1(["Registrasi"]) ~~~ UC2(["Login"]) ~~~ UC3(["Edit Profil"])
+        UC4(["Kelola Equipment"]) ~~~ UC5(["Buat Booking"]) ~~~ UC6(["Lihat Daftar Booking"]) ~~~ UC7(["Batalkan Booking"])
+        UC8(["Lihat Job Board"]) ~~~ UC9(["Claim Booking"]) ~~~ UC10(["Update Status Pekerjaan"])
+        UC11(["Buat Laporan Servis"]) ~~~ UC12(["Lihat Laporan Servis"]) ~~~ UC13(["Unduh PDF Laporan"])
+        UC14(["Assign Teknisi"]) ~~~ UC15(["Dashboard Monitoring"]) ~~~ UC16(["Kelola Pengguna"]) ~~~ UC17(["Terima Notifikasi"])
+    end
+
+    C --- UC1
+    C --- UC2
+    C --- UC3
+    C --- UC4
+    C --- UC5
+    C --- UC6
+    C --- UC7
+    C --- UC17
+
+    S --- UC2
+    S --- UC6
+    S --- UC17
+
+    T --- UC2
+    T --- UC8
+    T --- UC9
+    T --- UC10
+    T --- UC11
+    T --- UC12
+    T --- UC13
+    T --- UC17
+
+    M --- UC2
+    M --- UC6
+    M --- UC14
+    M --- UC12
+    M --- UC15
+    M --- UC16
+    M --- UC17

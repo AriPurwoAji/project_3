@@ -1,0 +1,26 @@
+sequenceDiagram
+    actor M as Manager
+    participant App as Mobile App
+    participant API as Backend API
+    participant DB as Database
+
+    M->>App: Buka tab Dashboard
+
+    par Load statistik ringkasan
+        App->>API: GET /api/v1/dashboard/summary
+        API->>DB: SELECT COUNT booking per status
+        DB-->>API: Data summary
+        API-->>App: total, open, in_progress, done
+    and Load performa teknisi
+        App->>API: GET /api/v1/dashboard/technician-performance
+        API->>DB: SELECT technician_id COUNT done GROUP BY technician
+        DB-->>API: Data performa
+        API-->>App: List teknisi dan jumlah selesai
+    and Load tren booking
+        App->>API: GET /api/v1/dashboard/booking-trends
+        API->>DB: SELECT DATE created_at COUNT GROUP BY DATE
+        DB-->>API: Data tren
+        API-->>App: List tanggal dan jumlah
+    end
+
+    App-->>M: Render kartu statistik, grafik performa, grafik tren

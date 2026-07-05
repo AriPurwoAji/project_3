@@ -1,0 +1,31 @@
+sequenceDiagram
+    actor T as Teknisi
+    participant App as Mobile App
+    participant API as Backend API
+    participant DB as Database
+    participant FCM as Firebase FCM
+
+    T->>App: Buka detail booking dari My Jobs
+    App->>API: GET /api/v1/bookings/{id}
+    API->>DB: SELECT booking beserta relasi
+    DB-->>API: Detail booking
+    API-->>App: 200 OK
+    App-->>T: Tampilkan detail dan tombol update status
+
+    T->>App: Tap tombol update status on_the_way / on_site / done
+    App->>API: PATCH /api/v1/bookings/{id}/status
+
+    API->>DB: Verifikasi technician_id
+    DB-->>API: Konfirmasi teknisi
+
+    alt Teknisi adalah yang ditugaskan
+        API->>DB: UPDATE status dan updated_at
+        DB-->>API: OK
+        API->>FCM: Push notifikasi ke Client dan Manager
+        FCM-->>API: OK
+        API-->>App: 200 OK
+        App-->>T: Tampilkan status terbaru
+    else Bukan teknisi yang ditugaskan
+        API-->>App: 403 Forbidden
+        App-->>T: Tampilkan pesan error
+    end

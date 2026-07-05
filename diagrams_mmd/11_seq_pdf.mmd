@@ -1,0 +1,20 @@
+sequenceDiagram
+    actor U as Pengguna Teknisi atau Manager
+    participant App as Mobile App
+    participant API as Backend API
+    participant DB as Database
+    participant PDF as PDF Generator
+    participant Share as share_plus Plugin
+
+    U->>App: Buka detail laporan lalu tap Unduh PDF
+    App->>API: GET /api/v1/reports/{id}/pdf
+
+    API->>DB: SELECT report, booking, inspection_items, photo_urls
+    DB-->>API: Data laporan lengkap
+
+    API->>PDF: GenerateReport dengan data lengkap
+    PDF-->>API: PDF bytes
+
+    API-->>App: 200 OK application/pdf
+    App->>Share: Buka share sheet dengan file PDF
+    Share-->>U: Pilihan simpan ke perangkat atau bagikan via WhatsApp atau Email

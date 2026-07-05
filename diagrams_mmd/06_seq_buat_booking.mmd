@@ -1,0 +1,31 @@
+sequenceDiagram
+    actor C as Client
+    participant App as Mobile App
+    participant API as Backend API
+    participant DB as Database
+    participant Storage as Supabase Storage
+    participant FCM as Firebase FCM
+
+    C->>App: Buka halaman Buat Booking
+    App->>API: GET /api/v1/equipment?company_id
+    API->>DB: SELECT equipment WHERE company_id = ?
+    DB-->>API: List equipment
+    API-->>App: 200 OK
+    App-->>C: Tampilkan form booking
+
+    C->>App: Isi form service_type, urgency, deskripsi, lokasi
+
+    opt Ada foto yang diupload
+        App->>Storage: Upload foto
+        Storage-->>App: URL foto
+    end
+
+    App->>API: POST /api/v1/bookings
+    API->>DB: INSERT INTO bookings status open
+    DB-->>API: booking_id
+
+    API->>FCM: Push notifikasi ke Manager
+    FCM-->>API: OK
+
+    API-->>App: 201 Created
+    App-->>C: Konfirmasi booking berhasil dibuat

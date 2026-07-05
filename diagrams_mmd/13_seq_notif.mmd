@@ -1,0 +1,30 @@
+sequenceDiagram
+    participant API as Backend API
+    participant DB as Database
+    participant FCM as Firebase FCM
+    participant Device as Android Device
+    actor U as Pengguna Target
+    participant App as Mobile App
+
+    note over API: Dipicu saat booking baru, status berubah, assign, atau selesai
+
+    API->>DB: INSERT INTO notifications
+    DB-->>API: notification_id
+
+    API->>DB: SELECT fcm_token FROM users WHERE id = target
+    DB-->>API: fcm_token
+
+    API->>FCM: POST FCM v1 HTTP API dengan token dan payload
+    FCM-->>API: 200 OK message_id
+
+    FCM->>Device: Deliver push notification
+
+    alt Aplikasi sedang terbuka foreground
+        Device->>App: onMessage callback
+        App-->>U: Tampilkan snackbar dan update badge
+    else Aplikasi di background atau tertutup
+        Device-->>U: Tampilkan notifikasi di system tray
+        U->>Device: Tap notifikasi
+        Device->>App: onMessageOpenedApp callback
+        App-->>U: Navigasi ke detail booking terkait
+    end

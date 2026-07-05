@@ -1,0 +1,33 @@
+sequenceDiagram
+    actor M as Manager
+    participant App as Mobile App
+    participant API as Backend API
+    participant DB as Database
+    participant FCM as Firebase FCM
+
+    M->>App: Buka daftar booking status open
+    App->>API: GET /api/v1/bookings?status=open
+    API->>DB: SELECT bookings WHERE status = open
+    DB-->>API: List booking
+    API-->>App: 200 OK
+    App-->>M: Tampilkan daftar booking
+
+    M->>App: Pilih booking lalu tap Assign Teknisi
+    App->>API: GET /api/v1/users?role=teknisi
+    API->>DB: SELECT users WHERE role = teknisi
+    DB-->>API: List teknisi
+    API-->>App: 200 OK
+    App-->>M: Tampilkan pilihan teknisi
+
+    M->>App: Pilih teknisi lalu konfirmasi
+    App->>API: POST /api/v1/bookings/{id}/assign
+    API->>DB: UPDATE technician_id dan status = in_progress
+    DB-->>API: OK
+
+    API->>FCM: Notifikasi ke Teknisi ditugaskan
+    FCM-->>API: OK
+    API->>FCM: Notifikasi ke Client teknisi disiapkan
+    FCM-->>API: OK
+
+    API-->>App: 200 OK
+    App-->>M: Konfirmasi assign berhasil

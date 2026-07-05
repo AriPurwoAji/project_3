@@ -1,0 +1,33 @@
+sequenceDiagram
+    actor T as Teknisi
+    participant App as Mobile App
+    participant API as Backend API
+    participant DB as Database
+    participant Storage as Supabase Storage
+
+    T->>App: Buka form Buat Laporan dari booking DONE
+    App-->>T: Tampilkan form laporan teknis
+
+    T->>App: Isi data teknis tekanan, oli, kebocoran, catatan, suku cadang
+
+    opt Upload foto before after damage
+        T->>App: Pilih foto
+        App->>Storage: Upload foto
+        Storage-->>App: URL foto
+    end
+
+    App->>API: POST /api/v1/reports
+    API->>DB: INSERT INTO hydraulic_reports
+    DB-->>API: report_id
+
+    alt Service type = inspeksi
+        loop Setiap komponen hose cylinder pump
+            T->>App: Tambah inspection item
+            App->>API: POST /api/v1/reports/{id}/inspection-items
+            API->>DB: INSERT INTO inspection_items
+            DB-->>API: OK
+        end
+    end
+
+    API-->>App: 201 Created
+    App-->>T: Laporan berhasil disimpan

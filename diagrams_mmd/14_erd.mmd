@@ -1,0 +1,106 @@
+erDiagram
+    USERS {
+        uuid id PK
+        string name
+        string email
+        string password_hash
+        string role
+        boolean is_verified
+        uuid company_id FK
+        string profile_photo_url
+        string fcm_token
+        timestamp created_at
+    }
+
+    COMPANIES {
+        uuid id PK
+        string name
+        string industry
+        string address
+        string city
+        string phone
+        timestamp created_at
+    }
+
+    HYDRAULIC_EQUIPMENT {
+        uuid id PK
+        uuid company_id FK
+        string name
+        string type
+        string brand
+        string model
+        string serial_number
+        int rated_pressure_bar
+        string location_detail
+        boolean is_active
+        timestamp created_at
+    }
+
+    BOOKINGS {
+        uuid id PK
+        uuid company_id FK
+        uuid created_by FK
+        uuid technician_id FK
+        uuid equipment_id FK
+        string service_type
+        string urgency_level
+        string status
+        text description
+        text site_address
+        string site_city
+        float latitude
+        float longitude
+        jsonb photo_urls
+        timestamp scheduled_at
+        timestamp claimed_at
+        timestamp completed_at
+        timestamp created_at
+    }
+
+    HYDRAULIC_REPORTS {
+        uuid id PK
+        uuid booking_id FK
+        uuid technician_id FK
+        int system_pressure_bar
+        int actual_pressure_bar
+        string oil_condition
+        string oil_brand
+        float oil_volume_liter
+        boolean leak_found
+        text leak_location
+        text repair_notes
+        text recommendation
+        timestamp created_at
+    }
+
+    INSPECTION_ITEMS {
+        uuid id PK
+        uuid report_id FK
+        string component_type
+        string component_name
+        string condition
+        text recommendation
+        jsonb specifications
+    }
+
+    NOTIFICATIONS {
+        uuid id PK
+        uuid user_id FK
+        uuid booking_id FK
+        string title
+        text message
+        string type
+        boolean is_read
+        timestamp created_at
+    }
+
+    COMPANIES ||--o{ USERS : "memiliki"
+    COMPANIES ||--o{ HYDRAULIC_EQUIPMENT : "memiliki"
+    COMPANIES ||--o{ BOOKINGS : "mengajukan"
+    USERS ||--o{ BOOKINGS : "membuat"
+    USERS ||--o{ BOOKINGS : "mengerjakan"
+    HYDRAULIC_EQUIPMENT ||--o{ BOOKINGS : "direferensikan"
+    BOOKINGS ||--o| HYDRAULIC_REPORTS : "memiliki"
+    HYDRAULIC_REPORTS ||--o{ INSPECTION_ITEMS : "memiliki"
+    BOOKINGS ||--o{ NOTIFICATIONS : "memicu"
+    USERS ||--o{ NOTIFICATIONS : "menerima"

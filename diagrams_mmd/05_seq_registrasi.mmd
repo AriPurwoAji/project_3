@@ -1,0 +1,24 @@
+sequenceDiagram
+    actor U as Pengguna Baru
+    participant App as Mobile App
+    participant API as Backend API
+    participant DB as Database
+    participant Email as Resend Email
+
+    U->>App: Isi form registrasi nama, email, password, role, perusahaan
+    App->>API: POST /api/v1/auth/register
+    API->>DB: Cek email sudah terdaftar?
+    DB-->>API: count = 0
+
+    API->>DB: INSERT INTO companies
+    DB-->>API: company_id
+    API->>DB: INSERT INTO users
+    DB-->>API: user_id
+
+    API->>Email: Kirim email verifikasi
+    Email-->>API: Accepted
+
+    API-->>App: 201 Created
+    App-->>U: Tampilkan pesan cek email untuk verifikasi
+
+    note over U,Email: User klik link verifikasi di email, akun aktif
