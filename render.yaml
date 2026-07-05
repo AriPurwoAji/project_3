@@ -1,10 +1,11 @@
 services:
   - type: web
     name: hydroserv-backend
-    env: docker
+    env: go
     plan: free
     rootDir: backend
-    dockerfilePath: ./Dockerfile
+    buildCommand: "go build -o app ./cmd/api/main.go"
+    startCommand: "./app"
     healthCheckPath: /ping
     autoDeploy: true
     envVars:
