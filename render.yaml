@@ -1,7 +1,7 @@
 services:
   - type: web
     name: hydroserv-backend
-    env: go
+    runtime: go
     plan: free
     rootDir: backend
     buildCommand: "go build -o app ./cmd/api/main.go"
@@ -10,30 +10,46 @@ services:
     autoDeploy: true
     envVars:
       - key: APP_PORT
-        value: 10000
+        value: 8080
+      - key: APP_ENV
+        value: production
       - key: JWT_SECRET
-        generateValue: true
+        value: hydraulic_service_jwt_secret_key_2026_very_long
+      - key: JWT_EXPIRES_IN
+        value: 720h
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 8760h
       - key: DB_HOST
-        value: ""
+        value: aws-1-ap-southeast-1.pooler.supabase.com
       - key: DB_PORT
         value: "5432"
       - key: DB_NAME
-        value: ""
+        value: postgres
       - key: DB_USER
-        value: ""
+        value: postgres.hfqmxvgxidxrjjjewqro
       - key: DB_PASSWORD
-        value: ""
+        value: @Ari_Rian123
       - key: SUPABASE_URL
-        value: ""
+        value: https://hfqmxvgxidxrjjjewqro.supabase.co
       - key: SUPABASE_SERVICE_KEY
-        value: ""
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmcW14dmd4aWR4cmpqamV3cXJvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODkxNjMxNywiZXhwIjoyMDk0NDkyMzE3fQ.oWr_erVCDnOILFMkfcAsXSvZvcdH0Lbku941mRx2RDI
       - key: SUPABASE_STORAGE_BUCKET
-        value: ""
-      - key: RESEND_API_KEY
-        value: ""
-      - key: SMTP_FROM
-        value: "noreply@hydroserv.my.id"
+        value: hydraulic-reports
+      - key: FCM_SERVICE_ACCOUNT_PATH
+        value: firebase-service-account.json
       - key: FCM_SERVICE_ACCOUNT_JSON
         value: ""
       - key: APP_URL
-        value: "https://hydroserv-backend.onrender.com"
+        value: http://10.140.216.24:8080
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        value: ajiaripurwo@gmail.com
+      - key: SMTP_PASS
+        value: kwih ycnq efeh ugyh
+      - key: SMTP_FROM
+        value: ajiaripurwo@gmail.com
+      - key: RESEND_API_KEY
+        value: ""
