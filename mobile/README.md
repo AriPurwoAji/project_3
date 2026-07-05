@@ -42,12 +42,19 @@ Buat file `.env` di dalam folder `mobile/`:
 API_BASE_URL=http://10.0.2.2:8080/api/v1
 ```
 
+Untuk deployment ke Render, cukup ganti nilainya menjadi URL backend Render Anda, misalnya:
+
+```env
+API_BASE_URL=https://your-render-backend-url/api/v1
+```
+
 Sesuaikan `API_BASE_URL` dengan kondisi berikut:
 
 | Kondisi | Nilai API_BASE_URL |
 |---|---|
 | Emulator Android (default) | `http://10.0.2.2:8080/api/v1` |
 | HP fisik (WiFi/hotspot sama) | `http://<IP_laptop>:8080/api/v1` |
+| Backend di Render | `https://your-render-backend-url/api/v1` |
 
 Cara cari IP laptop di Windows:
 ```powershell

@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: hydroserv-backend
+    env: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /ping
+    autoDeploy: true
+    envVars:
+      - key: APP_PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_HOST
+        value: ""
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        value: ""
+      - key: DB_USER
+        value: ""
+      - key: DB_PASSWORD
+        value: ""
+      - key: SUPABASE_URL
+        value: ""
+      - key: SUPABASE_SERVICE_KEY
+        value: ""
+      - key: SUPABASE_STORAGE_BUCKET
+        value: ""
+      - key: RESEND_API_KEY
+        value: ""
+      - key: SMTP_FROM
+        value: "noreply@hydroserv.my.id"
+      - key: FCM_SERVICE_ACCOUNT_JSON
+        value: ""
+      - key: APP_URL
+        value: "https://hydroserv-backend.onrender.com"
