@@ -4,8 +4,8 @@ services:
     runtime: go
     plan: free
     rootDir: backend
-    buildCommand: "go build -o app ./cmd/api/main.go"
-    startCommand: "./app"
+    buildCommand: "cd backend && go build -o app ./cmd/api/main.go"
+    startCommand: "cd backend && ./app"
     healthCheckPath: /ping
     autoDeploy: true
     envVars:
