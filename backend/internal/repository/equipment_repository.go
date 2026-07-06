@@ -54,8 +54,8 @@ func (r *equipmentRepository) FindByCompanyID(companyID string) ([]domain.Equipm
 func (r *equipmentRepository) Create(e *domain.Equipment) error {
 	query := `
 		INSERT INTO hydraulic_equipment
-			(company_id, name, description, location_detail, type, is_active, created_at)
-		VALUES ($1, $2, $3, $4, '', TRUE, NOW())
+			(company_id, name, description, location_detail, type, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, 'General', TRUE, NOW(), NOW())
 		RETURNING id, created_at
 	`
 	return r.db.QueryRow(context.Background(), query,
