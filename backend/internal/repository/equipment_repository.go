@@ -56,13 +56,10 @@ func (r *equipmentRepository) Create(e *domain.Equipment) error {
 		INSERT INTO hydraulic_equipment
 			(company_id, name, description, location_detail, type, is_active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, 'General', TRUE, NOW(), NOW())
-		RETURNING id, created_at
+		RETURNING id::text, created_at
 	`
 	return r.db.QueryRow(context.Background(), query,
-		e.CompanyID, 
-		e.Name, 
-		e.Description, 
-		e.LocationDetail,
+		e.CompanyID, e.Name, e.Description, e.LocationDetail,
 	).Scan(&e.ID, &e.CreatedAt)
 }
 
