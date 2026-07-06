@@ -54,6 +54,13 @@ func (h *EquipmentHandler) Update(c *gin.Context) {
 		response.Error(c, 400, err.Error())
 		return
 	}
+
+	// FIX: Jika companyID di context kosong (fitur registrasi baru), 
+	// ambil dari data JSON yang dikirim oleh client/Flutter
+	if companyID == "" && e.CompanyID != "" {
+		companyID = e.CompanyID
+	}
+
 	if err := h.uc.UpdateEquipment(id, companyID, role, &e); err != nil {
 		response.Error(c, 400, err.Error())
 		return
@@ -81,7 +88,9 @@ func (h *EquipmentHandler) Create(c *gin.Context) {
 	}
 
 	role := c.GetString("role")
-	if role == "client" || role == "sales" {
+	// FIX: Hanya isi dari context jika context-nya benar-benar ada/tidak kosong.
+	// Jika kosong, biarkan menggunakan e.CompanyID yang dikirim dari Flutter.
+	if (role == "client" || role == "sales") && c.GetString("company_id") != "" {
 		e.CompanyID = c.GetString("company_id")
 	}
 

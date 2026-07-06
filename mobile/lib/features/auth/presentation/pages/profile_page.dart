@@ -1123,7 +1123,17 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     _phoneCtrl.text   = widget.phone;
     _companyCtrl.text = widget.companyName;
     _alamatCtrl.text  = widget.companyAddress;
-    _industry         = widget.companyIndustry;
+    
+    // Logika pengaman untuk data industri kustom / "Lainnya"
+    if (widget.companyIndustry.isNotEmpty) {
+      if (_industries.contains(widget.companyIndustry)) {
+        _industry = widget.companyIndustry;
+      } else {
+        // Jika nilainya seperti "JAUL BELI MUSANG", set dropdown ke 'Lainnya'
+        _industry = 'Lainnya';
+        _otherIndCtrl.text = widget.companyIndustry;
+      }
+    }
   }
 
   @override
@@ -1257,7 +1267,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
                       // Industri
                       DropdownButtonFormField<String>(
-                        initialValue: _industry.isEmpty ? null : _industry,
+                        value: _industry.isEmpty ? null : _industry,
                         hint: const Text('Pilih industri'),
                         decoration: _dropDeco('Industri'),
                         items: _industries.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
@@ -1407,6 +1417,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       ),
     );
   }
+  // ... (Sisa fungsi helper _field, _lbl, _dropDeco, _loadingBox di bawahnya tidak berubah)
 
   Widget _field(String hint, TextEditingController ctrl, {TextInputType keyboardType = TextInputType.text}) =>
       TextField(
