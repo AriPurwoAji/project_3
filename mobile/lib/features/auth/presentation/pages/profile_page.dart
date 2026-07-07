@@ -444,7 +444,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   final res = await ApiClient.instance.post(
                                     '/equipment',
                                     data: {
-                                      'company_id': _companyId,
+                                      'company_id': _companyId.trim(),
                                       'name': nameCtrl.text.trim(),
                                       'description': descCtrl.text.trim(),
                                       'location_detail': locCtrl.text.trim(),
