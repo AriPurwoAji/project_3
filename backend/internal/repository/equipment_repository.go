@@ -18,7 +18,7 @@ func NewEquipmentRepository(db *pgxpool.Pool) domain.EquipmentRepository {
 
 func (r *equipmentRepository) FindAll() ([]domain.Equipment, error) {
 	query := `
-		SELECT e.id, e.company_id, e.name,
+		SELECT e.id::text, e.company_id::text, e.name,
 		       COALESCE(e.description,'') as description,
 		       COALESCE(e.location_detail,'') as location_detail,
 		       e.is_active, e.created_at,
@@ -33,7 +33,7 @@ func (r *equipmentRepository) FindAll() ([]domain.Equipment, error) {
 
 func (r *equipmentRepository) FindByCompanyID(companyID string) ([]domain.Equipment, error) {
 	query := `
-		SELECT e.id, e.company_id, e.name,
+		SELECT e.id::text, e.company_id::text, e.name,
 		       COALESCE(e.description,'') as description,
 		       COALESCE(e.location_detail,'') as location_detail,
 		       e.is_active, e.created_at,
@@ -52,10 +52,12 @@ func (r *equipmentRepository) FindByCompanyID(companyID string) ([]domain.Equipm
 }
 
 func (r *equipmentRepository) Create(e *domain.Equipment) error {
+	// Paling Aman: Serahkan nilai id, type, keaktifan, dan waktu ke default skema DB Supabase
 	query := `
 		INSERT INTO hydraulic_equipment
-			(company_id, name, description, location_detail, type, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, 'General', TRUE, NOW(), NOW())
+			(company_id, name, description, location_detail)
+		VALUES 
+			($1::uuid, $2, $3, $4)
 		RETURNING id::text, created_at
 	`
 	return r.db.QueryRow(context.Background(), query,
@@ -65,7 +67,7 @@ func (r *equipmentRepository) Create(e *domain.Equipment) error {
 
 func (r *equipmentRepository) FindByID(id string) (*domain.Equipment, error) {
 	query := `
-		SELECT e.id, e.company_id, e.name,
+		SELECT e.id::text, e.company_id::text, e.name,
 		       COALESCE(e.description,'') as description,
 		       COALESCE(e.location_detail,'') as location_detail,
 		       e.is_active, e.created_at,
